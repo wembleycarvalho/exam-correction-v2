@@ -218,6 +218,15 @@ custo variável de vários milhares de cartões.
 
 ---
 
+## Licenças de terceiros
+
+As dependências (OpenCV, NumPy, boto3, Pydantic, Strands, AgentCore, CDK etc.) e suas
+licenças estão em [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md). Destaque: o
+`opencv-python-headless` embarca componentes de terceiros, incluindo **FFmpeg (LGPL-2.1+)**;
+o OpenCV.js é servido ao navegador sob **Apache-2.0**.
+
+---
+
 ## Segurança (Well-Architected)
 
 - **Ponto de entrada único no CloudFront**; S3 via **OAC** + Block Public Access; API só
