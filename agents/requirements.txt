@@ -1,0 +1,3 @@
+# Agentes Strands hospedados no AgentCore Runtime (deploy CodeZip, sem Docker).
+strands-agents>=1.0.0
+bedrock-agentcore>=0.1.0

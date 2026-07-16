@@ -1,0 +1,34 @@
+# OSx
+.DS_Store
+
+#Old
+OldVersion*
+examples
+
+# --- Exam Correction v2 ---
+# SAM build artifacts
+.aws-sam/
+# CDK generated boto3 layer + venv/outputs
+infra/layer/
+infra/.venv/
+infra/cdk.out/
+infra/cdk-outputs.json
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+# Env / local
+.env
+.env.*
+!.env.example
+# Generated FE runtime config (UserPoolId/ClientId/domínio injetados no deploy)
+frontend/runtime-config.js
+frontend/public/runtime-config.js
+# Test / tooling caches
+.pytest_cache/
+.DS_Store

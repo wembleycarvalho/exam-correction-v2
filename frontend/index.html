@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Exam Correction v2</title>
+<script src="runtime-config.js"></script>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div id="backdrop" onclick="toggleSide(false)"></div>
+<aside id="side">
+  <h1>Exam Correction v2</h1>
+  <nav id="nav"></nav>
+</aside>
+<main>
+  <div class="topbar">
+    <div class="tb-left">
+      <button class="burger" id="burger" onclick="toggleSide()" aria-label="Abrir menu">☰</button>
+      <div id="who" class="muted"></div>
+    </div>
+    <button class="sec" onclick="logout()">Sair</button>
+  </div>
+  <div id="view"></div>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
