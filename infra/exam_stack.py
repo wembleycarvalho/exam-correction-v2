@@ -33,6 +33,9 @@ class ExamStack(Stack):
         worker_concurrency = int(self.node.try_get_context("workerConcurrency") or 5)
         default_model = self.node.try_get_context("defaultModelId") or ""
         model_pricing = self.node.try_get_context("modelPricing") or ""
+        # Knowledge Base (conteúdo já embedado) usada pelo módulo Provas Online.
+        kb_id = self.node.try_get_context("kbId") or "L2KOGGTB6K"
+        kb_bucket = self.node.try_get_context("kbBucket") or "kb-vestibular-demo-831782568328"
 
         origin_secret_param = CfnParameter(
             self, "OriginSecret", no_echo=True, min_length=16,
@@ -125,6 +128,23 @@ class ExamStack(Stack):
         model_config = table("ModelConfig", "capability")
         test_registry = table("TestRegistry", "testId")
 
+        # Provas Online: provas geradas (com gabarito) e tentativas respondidas.
+        # Nomes explícitos (baixo volume, PK-only, scan+filter por ownerId).
+        def named_table(name, table_name, pk):
+            return ddb.Table(
+                self, name, table_name=table_name,
+                partition_key=ddb.Attribute(name=pk, type=ddb.AttributeType.STRING),
+                billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
+                encryption=ddb.TableEncryption.AWS_MANAGED,
+                point_in_time_recovery_specification=ddb.PointInTimeRecoverySpecification(
+                    point_in_time_recovery_enabled=True),
+                removal_policy=RemovalPolicy.RETAIN,
+            )
+
+        online_exams = named_table("OnlineExams", "exam-correction-v2-online-exams", "examId")
+        online_attempts = named_table(
+            "OnlineAttempts", "exam-correction-v2-online-attempts", "attemptId")
+
         # ---------------- SQS + DLQ ----------------
         dlq = sqs.Queue(self, "CorrectionDLQ", retention_period=Duration.days(14),
                         enforce_ssl=True)
@@ -159,6 +179,17 @@ class ExamStack(Stack):
             "AGENT_RUNTIME_PARAM": runtime_arn_param.parameter_name,
             "METRICS_NAMESPACE": "ExamCorrection",
             "MODEL_PRICING": model_pricing,
+            # Provas Online: tabelas (o worker corrige as tentativas → precisa delas).
+            "ONLINE_EXAMS_TABLE": online_exams.table_name,
+            "ONLINE_ATTEMPTS_TABLE": online_attempts.table_name,
+        }
+        api_env = {
+            **common_env, "QUEUE_URL": queue.queue_url,
+            "USER_POOL_ID": user_pool.user_pool_id,
+            "ORIGIN_SECRET_ARN": origin_secret.secret_arn,
+            # KB só é acessado pela API (geração + sugestão de estudo sob demanda).
+            "KB_ID": kb_id, "KB_BUCKET": kb_bucket,
+            "KB_THEMES_PREFIX": "privado/graduacao/eng-software/",
         }
         code = lambda_.Code.from_asset("../backend")
 
@@ -181,9 +212,7 @@ class ExamStack(Stack):
             self, "ApiFn", runtime=lambda_.Runtime.PYTHON_3_12,
             handler="api.handler.handler", code=code, timeout=Duration.seconds(30),
             memory_size=512, layers=[boto3_layer],
-            environment={**common_env, "QUEUE_URL": queue.queue_url,
-                         "USER_POOL_ID": user_pool.user_pool_id,
-                         "ORIGIN_SECRET_ARN": origin_secret.secret_arn},
+            environment=api_env,
         )
         worker_fn = lambda_.Function(
             self, "WorkerFn", runtime=lambda_.Runtime.PYTHON_3_12,
@@ -195,13 +224,16 @@ class ExamStack(Stack):
             queue, batch_size=1, report_batch_item_failures=True))
 
         # IAM mínimo
-        for t in (submissions, corrections, rubrics, exams, model_config, test_registry):
+        for t in (submissions, corrections, rubrics, exams, model_config, test_registry,
+                  online_exams, online_attempts):
             t.grant_read_write_data(api_fn)
         submissions.grant_read_write_data(worker_fn)
         corrections.grant_read_write_data(worker_fn)
         rubrics.grant_read_data(worker_fn)
         exams.grant_read_data(worker_fn)
         model_config.grant_read_data(worker_fn)
+        online_exams.grant_read_data(worker_fn)          # correção assíncrona
+        online_attempts.grant_read_write_data(worker_fn)  # grava resultado da tentativa
         uploads_bucket.grant_read_write(api_fn)
         uploads_bucket.grant_read(worker_fn)
         queue.grant_send_messages(api_fn)
@@ -224,6 +256,16 @@ class ExamStack(Stack):
         api_fn.add_to_role_policy(iam.PolicyStatement(
             actions=["bedrock:ListFoundationModels", "bedrock:ListInferenceProfiles"],
             resources=["*"]))
+        # Provas Online: recuperar passagens da Knowledge Base (RAG). Só a API acessa o KB
+        # (geração das provas + sugestão de estudo sob demanda). O worker apenas corrige.
+        kb_arn = f"arn:aws:bedrock:{self.region}:{self.account}:knowledge-base/{kb_id}"
+        api_fn.add_to_role_policy(iam.PolicyStatement(
+            actions=["bedrock:Retrieve"], resources=[kb_arn]))
+        # Download das apostilas do KB (URL pré-assinada) + listagem p/ reindexar os temas.
+        api_fn.add_to_role_policy(iam.PolicyStatement(
+            actions=["s3:GetObject"], resources=[f"arn:aws:s3:::{kb_bucket}/*"]))
+        api_fn.add_to_role_policy(iam.PolicyStatement(
+            actions=["s3:ListBucket"], resources=[f"arn:aws:s3:::{kb_bucket}"]))
 
         # ---------------- HTTP API + JWT authorizer ----------------
         authorizer = apigw_authz.HttpUserPoolAuthorizer(

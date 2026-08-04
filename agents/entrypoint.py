@@ -43,6 +43,11 @@ def _dispatch(payload: dict) -> dict:
             data.get("candidateA", ""), data.get("candidateB", ""),
             data.get("context", ""),
         )
+    if capability == "examgen":
+        return specialists.run_examgen(
+            model_id, data.get("theme", ""), data.get("passages", []),
+            int(data.get("num", 5)), data.get("format", "mc"),
+        )
     raise ValueError(f"capability desconhecida: {capability!r}")
 
 

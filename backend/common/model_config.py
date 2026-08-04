@@ -10,7 +10,7 @@ import boto3
 
 MODEL_CONFIG_TABLE = os.environ.get("MODEL_CONFIG_TABLE", "")
 
-CAPABILITIES = ("transcription", "essay", "exam", "author", "answersheet")
+CAPABILITIES = ("transcription", "essay", "exam", "author", "answersheet", "examgen")
 
 
 MODES = ("single", "ab", "both")  # só primário / A-B por % / rodar ambos e comparar

@@ -180,3 +180,42 @@ def judge_prompt(kind: str, candidate_a: str, candidate_b: str, context: str = "
         "10 de cada candidato) e rationale (resumo comparativo em português citando pontos "
         "concretos). Seja imparcial — você não sabe qual modelo gerou cada candidato."
     )
+
+
+# --- Geração de prova online (a partir do Knowledge Base) ------------------------
+EXAMGEN_SYSTEM = (
+    "Você é um elaborador de provas para estudo. Cria questões claras, corretas e SEM "
+    "ambiguidade, fundamentadas EXCLUSIVAMENTE no material fornecido (trechos do material de "
+    "estudo). Não inventa fatos fora do material. Escreve em português."
+)
+
+
+def examgen_prompt(theme: str, passages: list, num: int) -> str:
+    ctx = "\n\n".join(f"[Trecho {i + 1}]\n{p}" for i, p in enumerate(passages or []))
+    tema = f" sobre o tema \"{theme}\"" if theme else ""
+    return (
+        f"Gere {num} questões de MÚLTIPLA ESCOLHA{tema}, fundamentadas apenas no material "
+        f"abaixo. Cada questão deve ter:\n"
+        "- enunciado claro;\n"
+        "- exatamente 5 alternativas (a primeira é a letra A, a segunda B, e assim por diante);\n"
+        "- uma única alternativa correta (campo 'correta' com a letra A–E);\n"
+        "- 'explicacao': por que a correta está certa (curta, baseada no material);\n"
+        "- 'tema': o assunto específico da questão.\n"
+        "Evite 'todas as anteriores' e pegadinhas triviais. Varie a posição da correta.\n\n"
+        f"=== MATERIAL DE ESTUDO ===\n{ctx}"
+    )
+
+
+def examgen_discursive_prompt(theme: str, passages: list, num: int) -> str:
+    ctx = "\n\n".join(f"[Trecho {i + 1}]\n{p}" for i, p in enumerate(passages or []))
+    tema = f" sobre o tema \"{theme}\"" if theme else ""
+    return (
+        f"Gere {num} questões DISCURSIVAS (resposta aberta, redigida){tema}, fundamentadas "
+        f"apenas no material abaixo. Cada questão deve ter:\n"
+        "- enunciado: pergunta aberta e clara, que exija uma resposta redigida (não use "
+        "múltipla escolha, verdadeiro/falso nem sim/não);\n"
+        "- respostaReferencia: uma resposta de referência (gabarito) completa, correta e "
+        "objetiva, baseada no material, servindo de base para correção;\n"
+        "- tema: o assunto específico da questão.\n\n"
+        f"=== MATERIAL DE ESTUDO ===\n{ctx}"
+    )

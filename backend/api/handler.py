@@ -15,7 +15,7 @@ from decimal import Decimal
 import boto3
 from boto3.dynamodb.conditions import Key
 
-from common import http, authz, metrics
+from common import http, authz, metrics, online_grading
 from common.ids import generate_test_id
 from common.model_config import get_model_config, CAPABILITIES
 from common.runtime_client import invoke_agent
@@ -29,6 +29,11 @@ TEST_REGISTRY_TABLE = os.environ["TEST_REGISTRY_TABLE"]
 UPLOAD_BUCKET = os.environ["UPLOAD_BUCKET"]
 QUEUE_URL = os.environ["QUEUE_URL"]
 USER_POOL_ID = os.environ.get("USER_POOL_ID", "")
+KB_ID = os.environ.get("KB_ID", "")
+KB_BUCKET = os.environ.get("KB_BUCKET", "")
+KB_THEMES_PREFIX = os.environ.get("KB_THEMES_PREFIX", "privado/graduacao/eng-software/")
+ONLINE_EXAMS_TABLE = os.environ.get("ONLINE_EXAMS_TABLE", "")
+ONLINE_ATTEMPTS_TABLE = os.environ.get("ONLINE_ATTEMPTS_TABLE", "")
 
 _ddb = boto3.resource("dynamodb")
 _s3 = boto3.client("s3")
@@ -36,6 +41,7 @@ _sqs = boto3.client("sqs")
 _cw = boto3.client("cloudwatch")
 _idp = boto3.client("cognito-idp")
 _bedrock = boto3.client("bedrock")
+_kb = boto3.client("bedrock-agent-runtime")
 
 _ALLOWED_TYPES = {"essay", "exam", "answersheet"}
 _ALLOWED_EXT = {"png", "jpg", "jpeg", "pdf", "webp", "gif"}
@@ -94,6 +100,10 @@ def _route(event, method, segs):
         return _models(event)
     if head == "card-templates":
         return _card_templates(event, method, segs)
+    if head == "online-exams":
+        return _online_exams(event, method, segs)
+    if head == "online-attempts":
+        return _online_attempts(event, method, segs)
     if head == "pricing":
         return _pricing_route(event, method)
     if head == "admin" and len(segs) >= 2 and segs[1] == "users":
@@ -125,7 +135,38 @@ def _submissions(event, method, segs):
         return _save_answersheet_result(sub_id, owner, event)
     if len(segs) == 2 and method == "GET":
         return _get_submission(sub_id, owner, event)
+    if len(segs) == 2 and method == "DELETE":
+        return _delete_submission(sub_id, owner, event)
     return _405()
+
+
+def _delete_submission(sub_id, owner, event):
+    """Apaga a submissão por completo: correções (DynamoDB), imagem (S3) e o registro."""
+    table = _ddb.Table(SUBMISSIONS_TABLE)
+    item = table.get_item(Key={"submissionId": sub_id}).get("Item")
+    if not item:
+        return http.error(404, http.NOT_FOUND, "Submissão não encontrada.")
+    if item.get("ownerId") != owner and not authz.has_group(event, "admin"):
+        return http.error(403, http.FORBIDDEN, "Sem permissão sobre esta submissão.")
+    # Imagem original no S3 (best-effort).
+    key = item.get("s3Key")
+    if key:
+        try:
+            _s3.delete_object(Bucket=UPLOAD_BUCKET, Key=key)
+        except Exception:  # noqa: BLE001
+            pass
+    # Correções associadas (redação/prova; cartão normalmente não tem).
+    try:
+        cors = _ddb.Table(CORRECTIONS_TABLE).query(
+            IndexName="bySubmission",
+            KeyConditionExpression=Key("submissionId").eq(sub_id)).get("Items", [])
+        ct = _ddb.Table(CORRECTIONS_TABLE)
+        for c in cors:
+            ct.delete_item(Key={"correctionId": c["correctionId"]})
+    except Exception:  # noqa: BLE001
+        pass
+    table.delete_item(Key={"submissionId": sub_id})
+    return http.response(200, {"deleted": sub_id})
 
 
 def _rate_transcription(sub_id, owner, event):
@@ -421,8 +462,32 @@ def _model_config(event, method, segs):
                 "abPolicy": {"percent": int((body.get("abPolicy") or {}).get("percent", 0))},
                 "updatedAt": _now(),
             })
+            # Pré-preenche o preço de lista (por família) dos modelos escolhidos, sem
+            # sobrescrever valores já definidos manualmente.
+            _ensure_prices([body.get("primaryModel", ""), body.get("challengerModel", "")])
             return http.response(200, get_model_config(capability))
     return _405()
+
+
+def _ensure_prices(models) -> None:
+    """Garante preço (valor de lista por família) para modelos recém-configurados.
+    Preserva preços já definidos; só adiciona os que faltam e cuja família é conhecida."""
+    wanted = [m for m in models if m]
+    if not wanted:
+        return
+    table = _ddb.Table(MODEL_CONFIG_TABLE)
+    item = table.get_item(Key={"capability": "__pricing__"}).get("Item") or {}
+    prices = item.get("prices") or {}
+    changed = False
+    for m in wanted:
+        if m in prices:
+            continue
+        p = metrics.price_for(m)
+        if p:
+            prices[m] = {"in": Decimal(str(p["in"])), "out": Decimal(str(p["out"]))}
+            changed = True
+    if changed:
+        table.put_item(Item={"capability": "__pricing__", "prices": prices, "updatedAt": _now()})
 
 
 # ============================ Test registry =====================================
@@ -689,6 +754,37 @@ def _analytics(_event):
         elif v <= 800: hist["601-800"] += 1
         else: hist["801-1000"] += 1
 
+    # Provas Online: provas criadas + tentativas respondidas (tabelas próprias).
+    online_exams = {"total": 0, "byFormat": {}}
+    online_attempts = {"total": 0, "byFormat": {}, "byStatus": {}, "scoreAvg": None}
+    try:
+        if ONLINE_EXAMS_TABLE:
+            oex = _ddb.Table(ONLINE_EXAMS_TABLE).scan(
+                ProjectionExpression="#f", ExpressionAttributeNames={"#f": "format"}).get("Items", [])
+            online_exams["total"] = len(oex)
+            for e in oex:
+                f = e.get("format") or "mc"
+                online_exams["byFormat"][f] = online_exams["byFormat"].get(f, 0) + 1
+        if ONLINE_ATTEMPTS_TABLE:
+            oat = _ddb.Table(ONLINE_ATTEMPTS_TABLE).scan(
+                ProjectionExpression="#f, #s, score",
+                ExpressionAttributeNames={"#f": "format", "#s": "status"}).get("Items", [])
+            online_attempts["total"] = len(oat)
+            oscores = []
+            for a in oat:
+                f = a.get("format") or "mc"
+                st = a.get("status") or "DONE"
+                online_attempts["byFormat"][f] = online_attempts["byFormat"].get(f, 0) + 1
+                online_attempts["byStatus"][st] = online_attempts["byStatus"].get(st, 0) + 1
+                if st == "DONE" and a.get("score") is not None:
+                    try:
+                        oscores.append(float(a["score"]))
+                    except (TypeError, ValueError):
+                        pass
+            online_attempts["scoreAvg"] = round(sum(oscores) / len(oscores), 1) if oscores else None
+    except Exception:  # noqa: BLE001
+        pass
+
     return http.response(200, {
         "submissions": {"total": len(subs), "byStatus": by_status, "byType": by_type},
         "grades": {"essay": stats(grades["essay"]), "exam": stats(grades["exam"]),
@@ -698,6 +794,8 @@ def _analytics(_event):
         "tokensByModel": tokens_by_model,
         "cost": {"in": round(cost_in, 6), "out": round(cost_out, 6), "total": round(cost_in + cost_out, 6)},
         "costByModel": cost_by_model,
+        "onlineExams": online_exams,
+        "onlineAttempts": online_attempts,
     })
 
 
@@ -958,6 +1056,357 @@ def _admin_users(event, method):
     if group in ("admin", "professor"):
         _idp.admin_add_user_to_group(UserPoolId=USER_POOL_ID, Username=email, GroupName=group)
     return http.response(201, {"email": email, "group": group, "status": "INVITED"})
+
+
+# ============================== Provas Online ===================================
+# Módulo de estudo: gera provas de múltipla escolha ancoradas na Knowledge Base
+# (RAG via bedrock:Retrieve), aplica no navegador e corrige server-side de forma
+# determinística. Para as questões erradas, sugere trechos do KB para estudar.
+_LETTERS = ("A", "B", "C", "D", "E", "F")
+
+
+# Helpers de KB: implementação compartilhada (common.online_grading), usada na geração
+# de provas e no download de apostilas. A correção em si roda no worker (assíncrona).
+_is_apostila = online_grading.is_apostila
+_kb_title = online_grading.kb_title
+
+
+def _kb_retrieve(query: str, n: int = 6) -> list:
+    return online_grading.kb_retrieve(_kb, KB_ID, query, n)
+
+
+def _kb_sources(passages: list, snippet_len: int = 400) -> list:
+    return online_grading.kb_sources(passages, snippet_len)
+
+
+def _norm_question(q: dict) -> dict:
+    """Sanitiza uma questão gerada: alternativas, letra correta, textos."""
+    alts = [str(a).strip() for a in (q.get("alternativas") or []) if str(a).strip()]
+    n_alt = min(len(alts), len(_LETTERS)) or len(alts)
+    correta = str(q.get("correta", "")).strip().upper()[:1]
+    valid = set(_LETTERS[:n_alt]) if n_alt else set()
+    if correta not in valid:
+        correta = "A"
+    return {
+        "enunciado": str(q.get("enunciado", "")).strip(),
+        "alternativas": alts,
+        "correta": correta,
+        "explicacao": str(q.get("explicacao", "")).strip(),
+        "tema": str(q.get("tema", "")).strip(),
+    }
+
+
+def _norm_disc_question(q: dict) -> dict:
+    """Sanitiza uma questão discursiva gerada: enunciado, resposta de referência, tema."""
+    return {
+        "enunciado": str(q.get("enunciado", "")).strip(),
+        "respostaReferencia": str(q.get("respostaReferencia", "")).strip(),
+        "tema": str(q.get("tema", "")).strip(),
+        "notaMaxima": 10.0,
+    }
+
+
+def _exam_public(exam: dict, full: bool) -> dict:
+    """Prova para o cliente. full=False remove gabarito/explicação/fontes (para responder)."""
+    fmt = exam.get("format", "mc")
+    base = {
+        "examId": exam.get("examId"), "title": exam.get("title", ""),
+        "theme": exam.get("theme", ""), "num": int(exam.get("num", 0) or 0),
+        "format": fmt, "createdAt": exam.get("createdAt"), "ownerId": exam.get("ownerId"),
+    }
+    questoes = exam.get("questoes") or []
+    if full:
+        base["questoes"] = questoes
+        base["kbSources"] = exam.get("kbSources") or []
+        base["model"] = exam.get("model", "")
+    elif fmt == "discursive":
+        # Sem gabarito (respostaReferencia) para responder.
+        base["questoes"] = [
+            {"n": i + 1, "enunciado": q.get("enunciado", ""), "tema": q.get("tema", ""),
+             "notaMaxima": float(q.get("notaMaxima", 10) or 10)}
+            for i, q in enumerate(questoes)
+        ]
+    else:
+        base["questoes"] = [
+            {"n": i + 1, "enunciado": q.get("enunciado", ""),
+             "alternativas": q.get("alternativas") or [], "tema": q.get("tema", "")}
+            for i, q in enumerate(questoes)
+        ]
+    return base
+
+
+def _exam_summary(exam: dict) -> dict:
+    return {
+        "examId": exam.get("examId"), "title": exam.get("title", ""),
+        "theme": exam.get("theme", ""), "num": int(exam.get("num", 0) or 0),
+        "format": exam.get("format", "mc"),
+        "createdAt": exam.get("createdAt"), "ownerId": exam.get("ownerId"),
+    }
+
+
+def _attempt_summary(att: dict) -> dict:
+    return {
+        "attemptId": att.get("attemptId"), "examId": att.get("examId"),
+        "title": att.get("title", ""), "theme": att.get("theme", ""),
+        "format": att.get("format", "mc"), "status": att.get("status") or "DONE",
+        "total": int(att.get("total", 0) or 0), "acertos": int(att.get("acertos", 0) or 0),
+        "score": att.get("score"), "createdAt": att.get("createdAt"),
+    }
+
+
+def _online_exams(event, method, segs):
+    if not ONLINE_EXAMS_TABLE:
+        return http.error(500, "INTERNAL", "Módulo Provas Online não configurado.")
+    owner = authz.get_owner_id(event)
+    table = _ddb.Table(ONLINE_EXAMS_TABLE)
+
+    if len(segs) == 1:
+        if method == "POST":
+            return _create_online_exam(event, owner)
+        if method == "GET":
+            items = table.scan(Limit=300).get("Items", [])
+            show_all = authz.has_group(event, "admin") and \
+                (event.get("queryStringParameters") or {}).get("all") == "true"
+            mine = [i for i in items if show_all or i.get("ownerId") == owner]
+            mine.sort(key=lambda x: x.get("createdAt") or "", reverse=True)
+            return http.response(200, {"items": [_exam_summary(i) for i in mine]})
+        return _405()
+
+    # /online-exams/themes → GET lista temas (disciplinas) do KB; POST (admin) reindexa do S3.
+    if len(segs) == 2 and segs[1] == "themes":
+        if method == "GET":
+            item = _ddb.Table(MODEL_CONFIG_TABLE).get_item(
+                Key={"capability": "__online_themes__"}).get("Item") or {}
+            return http.response(200, {"themes": item.get("themes", []) or []})
+        if method == "POST":
+            _require_admin(event)
+            themes = _rebuild_themes()
+            return http.response(200, {"themes": themes, "count": len(themes)})
+        return _405()
+    # /online-exams/kb-doc?uri=... → URL de download do documento (apostila) no KB.
+    if len(segs) == 2 and segs[1] == "kb-doc" and method == "GET":
+        return _kb_download(event)
+
+    exam_id = segs[1]
+    # /online-exams/{id}/attempts
+    if len(segs) == 3 and segs[2] == "attempts" and method == "POST":
+        return _grade_online_exam(event, owner, exam_id)
+    if len(segs) == 2 and method == "GET":
+        exam = table.get_item(Key={"examId": exam_id}).get("Item")
+        if not exam:
+            return http.error(404, http.NOT_FOUND, "Prova não encontrada.")
+        want_full = (event.get("queryStringParameters") or {}).get("full") == "1"
+        is_owner = exam.get("ownerId") == owner or authz.has_group(event, "admin")
+        return http.response(200, _exam_public(exam, full=want_full and is_owner))
+    if len(segs) == 2 and method == "DELETE":
+        exam = table.get_item(Key={"examId": exam_id}).get("Item")
+        if not exam:
+            return http.error(404, http.NOT_FOUND, "Prova não encontrada.")
+        if exam.get("ownerId") != owner and not authz.has_group(event, "admin"):
+            return http.error(403, http.FORBIDDEN, "Sem permissão sobre esta prova.")
+        table.delete_item(Key={"examId": exam_id})
+        return http.response(200, {"deleted": exam_id})
+    return _405()
+
+
+def _create_online_exam(event, owner):
+    body = http.parse_json_body(event)
+    theme = (body.get("theme") or "").strip()
+    title = (body.get("title") or theme or "Prova").strip()[:200]
+    if not theme:
+        return http.error(400, http.INVALID_BODY, "Informe o tema da prova.")
+    try:
+        num = int(body.get("num", 5))
+    except (TypeError, ValueError):
+        num = 5
+    num = max(1, min(20, num))
+    fmt = (body.get("format") or "mc").strip().lower()
+    if fmt not in ("mc", "discursive"):
+        fmt = "mc"
+
+    cfg = get_model_config("examgen")
+    if not cfg["primaryModel"]:
+        return http.error(409, "MODEL_NOT_CONFIGURED",
+                          "Configure o modelo da capacidade 'examgen' em Modelos.")
+    # Correção de discursiva usa a capacidade 'exam' (LLM); precisa estar configurada.
+    if fmt == "discursive" and not get_model_config("exam")["primaryModel"]:
+        return http.error(409, "MODEL_NOT_CONFIGURED",
+                          "Configure o modelo da capacidade 'exam' em Modelos (correção discursiva).")
+    passages = _kb_retrieve(theme, n=max(6, num))
+    if not passages:
+        return http.error(404, "KB_EMPTY",
+                          "Nenhum conteúdo encontrado no Knowledge Base para este tema.")
+
+    out = invoke_agent("examgen", cfg["primaryModel"], {
+        "theme": theme, "num": num, "format": fmt,
+        "passages": [p["text"] for p in passages if p.get("text")],
+    })
+    raw = (out.get("result") or {}).get("questoes") or []
+    if fmt == "discursive":
+        questoes = [_norm_disc_question(q) for q in raw if str(q.get("enunciado", "")).strip()]
+    else:
+        questoes = [_norm_question(q) for q in raw if str(q.get("enunciado", "")).strip()]
+    if not questoes:
+        return http.error(502, "GEN_FAILED", "Não foi possível gerar questões para o tema.")
+
+    exam_id = uuid.uuid4().hex
+    usage = out.get("usage") or {}
+    exam = {
+        "examId": exam_id, "ownerId": owner, "title": title, "theme": theme, "format": fmt,
+        "num": len(questoes), "questoes": questoes, "kbSources": _kb_sources(passages),
+        "model": out.get("model", cfg["primaryModel"]),
+        "tokensIn": int(usage.get("tokensIn", 0) or 0),
+        "tokensOut": int(usage.get("tokensOut", 0) or 0),
+        "createdAt": _now(), "updatedAt": _now(),
+    }
+    _ddb.Table(ONLINE_EXAMS_TABLE).put_item(Item=_to_ddb(exam))
+    # Devolve completa (é o autor/preview da criação).
+    return http.response(201, _exam_public(exam, full=True))
+
+
+def _grade_online_exam(event, owner, exam_id):
+    """Cria a tentativa (status PROCESSING) e enfileira p/ correção assíncrona no worker.
+
+    A correção (MC determinística ou discursiva via LLM) + sugestões de estudo rodam no
+    worker (SQS), evitando bloquear a requisição. O front acompanha pelo status.
+    """
+    exam = _ddb.Table(ONLINE_EXAMS_TABLE).get_item(Key={"examId": exam_id}).get("Item")
+    if not exam:
+        return http.error(404, http.NOT_FOUND, "Prova não encontrada.")
+    body = http.parse_json_body(event)
+    answers = body.get("answers")
+    if not isinstance(answers, (dict, list)):
+        return http.error(400, http.INVALID_BODY, "answers deve ser objeto ou lista.")
+    fmt = exam.get("format", "mc")
+    # Discursiva depende do modelo da capacidade 'exam' (correção por LLM).
+    if fmt == "discursive" and not get_model_config("exam")["primaryModel"]:
+        return http.error(409, "MODEL_NOT_CONFIGURED",
+                          "Configure o modelo da capacidade 'exam' em Modelos (correção discursiva).")
+
+    attempt_id = uuid.uuid4().hex
+    attempt = {
+        "attemptId": attempt_id, "examId": exam_id, "ownerId": owner,
+        "title": exam.get("title", ""), "theme": exam.get("theme", ""), "format": fmt,
+        "status": "PROCESSING", "answers": _to_ddb(answers),
+        "total": len(exam.get("questoes") or []), "createdAt": _now(), "updatedAt": _now(),
+    }
+    _ddb.Table(ONLINE_ATTEMPTS_TABLE).put_item(Item=attempt)
+    _sqs.send_message(QueueUrl=QUEUE_URL,
+                      MessageBody=json.dumps({"kind": "online-attempt", "attemptId": attempt_id}))
+    return http.response(202, {"attemptId": attempt_id, "status": "PROCESSING"})
+
+
+def _rebuild_themes() -> list:
+    """Reindexa os temas (disciplinas) lendo os metadados do KB no S3 e salva a lista.
+
+    Usa o campo `disciplina` dos arquivos *.pdf.metadata.json sob o prefixo configurado.
+    """
+    seen = {}
+    paginator = _s3.get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=KB_BUCKET, Prefix=KB_THEMES_PREFIX):
+        for o in page.get("Contents", []):
+            key = o["Key"]
+            if not key.endswith(".pdf.metadata.json"):
+                continue
+            try:
+                doc = json.loads(_s3.get_object(Bucket=KB_BUCKET, Key=key)["Body"].read())
+            except Exception:  # noqa: BLE001
+                continue
+            attrs = doc.get("metadataAttributes", {}) or {}
+            name = (attrs.get("disciplina") or "").strip()
+            if not name or name in seen:
+                continue
+            seen[name] = {"name": name, "semestre": str(attrs.get("semestre") or ""),
+                          "cursoId": attrs.get("curso_id") or ""}
+
+    def _order(t):
+        s = t["semestre"]
+        return (int(s) if s.isdigit() else 99, t["name"])
+
+    themes = sorted(seen.values(), key=_order)
+    _ddb.Table(MODEL_CONFIG_TABLE).put_item(
+        Item={"capability": "__online_themes__", "themes": themes, "updatedAt": _now()})
+    return themes
+
+
+def _kb_download(event):
+    """URL pré-assinada (GET) de um documento do KB, restrita ao acervo permitido."""
+    qs = event.get("queryStringParameters") or {}
+    uri = (qs.get("uri") or "").strip()
+    if not uri.startswith("s3://"):
+        return http.error(400, http.INVALID_BODY, "URI inválida.")
+    bucket, _, key = uri[5:].partition("/")
+    if not KB_BUCKET or bucket != KB_BUCKET or not key:
+        return http.error(403, http.FORBIDDEN, "Documento fora do acervo permitido.")
+    if not _is_apostila(uri):
+        return http.error(403, http.FORBIDDEN, "Documento indisponível.")
+    url = _s3.generate_presigned_url(
+        "get_object", Params={"Bucket": bucket, "Key": key}, ExpiresIn=600)
+    return http.response(200, {"url": url, "title": _kb_title(uri)})
+
+
+def _online_attempts(event, method, segs):
+    if not ONLINE_ATTEMPTS_TABLE:
+        return http.error(500, "INTERNAL", "Módulo Provas Online não configurado.")
+    owner = authz.get_owner_id(event)
+    table = _ddb.Table(ONLINE_ATTEMPTS_TABLE)
+    if len(segs) == 1 and method == "GET":
+        items = table.scan(Limit=300).get("Items", [])
+        show_all = authz.has_group(event, "admin") and \
+            (event.get("queryStringParameters") or {}).get("all") == "true"
+        mine = [i for i in items if show_all or i.get("ownerId") == owner]
+        mine.sort(key=lambda x: x.get("createdAt") or "", reverse=True)
+        return http.response(200, {"items": [_attempt_summary(i) for i in mine]})
+    if len(segs) == 2 and method == "GET":
+        att = table.get_item(Key={"attemptId": segs[1]}).get("Item")
+        if not att:
+            return http.error(404, http.NOT_FOUND, "Tentativa não encontrada.")
+        if att.get("ownerId") != owner and not authz.has_group(event, "admin"):
+            return http.error(403, http.FORBIDDEN, "Sem permissão sobre esta tentativa.")
+        return http.response(200, att)
+    if len(segs) == 2 and method == "DELETE":
+        att = table.get_item(Key={"attemptId": segs[1]}).get("Item")
+        if not att:
+            return http.error(404, http.NOT_FOUND, "Tentativa não encontrada.")
+        if att.get("ownerId") != owner and not authz.has_group(event, "admin"):
+            return http.error(403, http.FORBIDDEN, "Sem permissão sobre esta tentativa.")
+        table.delete_item(Key={"attemptId": segs[1]})
+        return http.response(200, {"deleted": segs[1]})
+    # /online-attempts/{id}/study → sugere material de estudo (KB) sob demanda p/ 1 questão.
+    if len(segs) == 3 and segs[2] == "study" and method == "POST":
+        return _online_study(event, owner, segs[1])
+    return _405()
+
+
+def _online_study(event, owner, attempt_id):
+    """Busca material de estudo no KB para uma questão específica (sob demanda)."""
+    att = _ddb.Table(ONLINE_ATTEMPTS_TABLE).get_item(Key={"attemptId": attempt_id}).get("Item")
+    if not att:
+        return http.error(404, http.NOT_FOUND, "Tentativa não encontrada.")
+    if att.get("ownerId") != owner and not authz.has_group(event, "admin"):
+        return http.error(403, http.FORBIDDEN, "Sem permissão sobre esta tentativa.")
+    body = http.parse_json_body(event)
+    try:
+        n = int(body.get("n"))
+    except (TypeError, ValueError):
+        return http.error(400, http.INVALID_BODY, "Informe o número da questão (n).")
+    result = next((r for r in (att.get("results") or []) if int(r.get("n", 0) or 0) == n), None)
+    if not result:
+        return http.error(404, http.NOT_FOUND, "Questão não encontrada.")
+    query = result.get("enunciado", "")
+    study = online_grading.study_sources(_kb, KB_ID, query, n=2)
+    resp = {"n": n, "study": study}
+    # Modo debug: mostra exatamente o que a API envia ao Bedrock Knowledge Base (Retrieve).
+    if (event.get("queryStringParameters") or {}).get("debug") == "1":
+        resp["debug"] = {
+            "kbRetrieve": {
+                "service": "bedrock-agent-runtime.Retrieve",
+                **online_grading.kb_retrieve_request(KB_ID, query, online_grading.STUDY_FETCH_N),
+            },
+            "postProcessing": ("Exclui e-mail (_email.pdf); prioriza apostila (_material.pdf); "
+                               "deduplica por título; retorna as 2 melhores com a página do trecho."),
+        }
+    return http.response(200, resp)
 
 
 # ================================ Helpers =======================================

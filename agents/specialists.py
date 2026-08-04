@@ -15,9 +15,9 @@ from strands import Agent
 from strands.models import BedrockModel
 
 from prompts import (
-    ESSAY_SYSTEM, EXAM_SYSTEM, AUTHOR_SYSTEM, JUDGE_SYSTEM, ANSWERSHEET_SYSTEM,
+    ESSAY_SYSTEM, EXAM_SYSTEM, AUTHOR_SYSTEM, JUDGE_SYSTEM, ANSWERSHEET_SYSTEM, EXAMGEN_SYSTEM,
     essay_prompt, exam_prompt, author_prompt, transcription_prompt, judge_prompt,
-    answersheet_prompt,
+    answersheet_prompt, examgen_prompt, examgen_discursive_prompt,
 )
 
 _IMAGE_FORMATS = {"png": "png", "jpg": "jpeg", "jpeg": "jpeg", "gif": "gif", "webp": "webp"}
@@ -65,6 +65,28 @@ class MarkedAnswer(BaseModel):
 
 class AnswerSheetResult(BaseModel):
     respostas: List[MarkedAnswer]
+
+
+class MCQuestion(BaseModel):
+    enunciado: str = Field(description="Enunciado da questão")
+    alternativas: List[str] = Field(description="Exatamente 5 alternativas; índice 0=A, 1=B, ...")
+    correta: str = Field(description="Letra da alternativa correta: A, B, C, D ou E")
+    explicacao: str = Field(description="Por que a correta está certa (curta, baseada no material)")
+    tema: str = Field(default="", description="Assunto específico da questão")
+
+
+class ExamGenResult(BaseModel):
+    questoes: List[MCQuestion]
+
+
+class DiscursiveQuestion(BaseModel):
+    enunciado: str = Field(description="Pergunta aberta que exige resposta redigida")
+    respostaReferencia: str = Field(description="Resposta de referência (gabarito), baseada no material")
+    tema: str = Field(default="", description="Assunto específico da questão")
+
+
+class ExamGenDiscResult(BaseModel):
+    questoes: List[DiscursiveQuestion]
 
 
 class JudgeDimension(BaseModel):
@@ -154,4 +176,15 @@ def run_judge(model_id: str, kind: str, candidate_a: str, candidate_b: str,
     agent = _agent(model_id, JUDGE_SYSTEM)
     result = agent(judge_prompt(kind, candidate_a, candidate_b, context),
                    structured_output_model=JudgeResult)
+    return {"result": result.structured_output.model_dump(), "usage": _usage(result), "model": model_id}
+
+
+def run_examgen(model_id: str, theme: str, passages: list, num: int = 5, fmt: str = "mc") -> dict:
+    """Gera questões ancoradas em trechos do KB. fmt='mc' (múltipla escolha) ou 'discursive'."""
+    agent = _agent(model_id, EXAMGEN_SYSTEM, temperature=0.3)
+    if fmt == "discursive":
+        result = agent(examgen_discursive_prompt(theme, passages, num),
+                       structured_output_model=ExamGenDiscResult)
+    else:
+        result = agent(examgen_prompt(theme, passages, num), structured_output_model=ExamGenResult)
     return {"result": result.structured_output.model_dump(), "usage": _usage(result), "model": model_id}

@@ -33,7 +33,7 @@ def _to_ddb(o):
         return {k: _to_ddb(v) for k, v in o.items()}
     return o
 
-from common import metrics
+from common import metrics, online_grading
 from common.model_config import get_model_config, plan_runs, get_card_template
 from common.runtime_client import invoke_agent
 from common.gabarito import get_gabarito
@@ -43,6 +43,8 @@ CORRECTIONS_TABLE = os.environ["CORRECTIONS_TABLE"]
 RUBRICS_TABLE = os.environ["RUBRICS_TABLE"]
 EXAMS_TABLE = os.environ["EXAMS_TABLE"]
 UPLOAD_BUCKET = os.environ["UPLOAD_BUCKET"]
+ONLINE_EXAMS_TABLE = os.environ.get("ONLINE_EXAMS_TABLE", "")
+ONLINE_ATTEMPTS_TABLE = os.environ.get("ONLINE_ATTEMPTS_TABLE", "")
 
 _ddb = boto3.resource("dynamodb")
 _s3 = boto3.client("s3")
@@ -352,13 +354,66 @@ def _process(submission_id: str) -> None:
         raise  # sobe para reentrega/DLQ
 
 
+# --- Provas Online: correção assíncrona de uma tentativa ------------------------
+def _process_online_attempt(attempt_id: str) -> None:
+    """Corrige uma tentativa de Prova Online (MC ou discursiva) e grava o resultado.
+
+    A tentativa já foi criada pela API com status PROCESSING e as respostas do aluno.
+    Idempotente: se já estiver DONE, não reprocessa.
+    """
+    att_table = _ddb.Table(ONLINE_ATTEMPTS_TABLE)
+    att = att_table.get_item(Key={"attemptId": attempt_id}).get("Item")
+    if not att:
+        return  # nada a fazer
+    if att.get("status") == "DONE":
+        return  # idempotência
+    try:
+        exam = _ddb.Table(ONLINE_EXAMS_TABLE).get_item(
+            Key={"examId": att.get("examId", "")}).get("Item")
+        if not exam:
+            raise ValueError("Prova não encontrada para a tentativa.")
+        graded = online_grading.grade(exam, att.get("answers"))
+        expr_names = {"#s": "status"}
+        set_parts = ["#s = :d", "updatedAt = :t", "results = :r", "score = :sc",
+                     "acertos = :a", "#tot = :tot"]
+        expr_names["#tot"] = "total"
+        values = {
+            ":d": "DONE", ":t": _now(),
+            ":r": _to_ddb(graded.get("results", [])),
+            ":sc": _to_ddb(graded.get("score", 0)),
+            ":a": int(graded.get("acertos", 0)),
+            ":tot": int(graded.get("total", 0)),
+        }
+        if graded.get("format") == "discursive":
+            set_parts += ["notaTotal = :nt", "notaMaxima = :nm",
+                          "tokensIn = :ti", "tokensOut = :to"]
+            values.update({":nt": _to_ddb(graded.get("notaTotal", 0)),
+                           ":nm": _to_ddb(graded.get("notaMaxima", 0)),
+                           ":ti": int(graded.get("tokensIn", 0)),
+                           ":to": int(graded.get("tokensOut", 0))})
+        att_table.update_item(
+            Key={"attemptId": attempt_id},
+            UpdateExpression="SET " + ", ".join(set_parts),
+            ExpressionAttributeNames=expr_names, ExpressionAttributeValues=values)
+    except Exception as exc:  # noqa: BLE001
+        att_table.update_item(
+            Key={"attemptId": attempt_id},
+            UpdateExpression="SET #s = :f, updatedAt = :t, errorMessage = :e",
+            ExpressionAttributeNames={"#s": "status"},
+            ExpressionAttributeValues={":f": "FAILED", ":t": _now(), ":e": str(exc)[:500]})
+        raise  # sobe para reentrega/DLQ
+
+
 def handler(event, _context=None):
     """Entrada SQS. Retorna batchItemFailures para reprocessar só o que falhou."""
     failures = []
     for record in event.get("Records", []):
         try:
             body = json.loads(record["body"])
-            _process(body["submissionId"])
+            if body.get("kind") == "online-attempt":
+                _process_online_attempt(body["attemptId"])
+            else:
+                _process(body["submissionId"])
         except Exception:  # noqa: BLE001
             failures.append({"itemIdentifier": record.get("messageId")})
     return {"batchItemFailures": failures}

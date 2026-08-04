@@ -75,6 +75,7 @@ const GROUPS = [
   ["Prova Discursiva", [["ex-corrige","Correção"],["ex-criar","Criação"],["ex-hist","Histórico"]]],
   ["Redação", [["red-rubrica","Rubricas"],["red-corrige","Correção"],["red-hist","Histórico"]]],
   ["Prova Objetiva", [["cartao-load","Carregar cartão"],["cartao-read","Ler cartão (OpenCV)"],["cartao-tpl","Templates"],["cartao-hist","Histórico"]]],
+  ["Provas Online", [["po-criar","Provas"],["po-teste","Teste de prova"],["po-hist","Histórico"]]],
   ["Configuração", [["modelos","Modelos"]]],
   ["Analytics", [["analytics","Dados Analíticos"],["evaluation","Evaluation"]]],
 ];
@@ -179,7 +180,11 @@ async function toggleImg(id){
   try{ const r=await api(`/submissions/${id}/image`); box.dataset.open="1";
     const media = r.ext==="pdf" ? `<a href="${r.url}" target="_blank">Abrir PDF original em nova aba</a>`
       : `<img src="${r.url}" style="max-width:100%;border-radius:8px;border:1px solid var(--line);margin-top:8px">`;
-    box.innerHTML=`<button class="sec" onclick="toggleImg('${id}')">Ocultar imagem</button><div>${media}</div>`;
+    // Só no cartão-resposta (com template): oferece sobrepor as marcações lidas.
+    const overlay = (_cart && _cart.id===id && _cart.templateId)
+      ? `<div style="margin-top:10px"><button class="sec" id="ovbtn" onclick="overlayCartao()">🎯 Sobrepor marcação</button>
+         <div id="ov-box" style="margin-top:10px"></div></div>` : "";
+    box.innerHTML=`<button class="sec" onclick="toggleImg('${id}')">Ocultar imagem</button><div id="img-media">${media}</div>${overlay}`;
   }catch(e){ box.innerHTML=`<span class="danger">${esc(e.message)}</span> <button class="sec" onclick="toggleImg('${id}')">tentar de novo</button>`; }
 }
 let _det=null;
@@ -328,7 +333,7 @@ async function viewModelos(){
   const MODES=[["single","Desligado (usar só o primário)"],["ab","A/B — usar UMA ou OUTRA por %"],["both","Ambos — rodar as duas e comparar"]];
   const radios=(cap,cur)=>`<div class="radios">${MODES.map(([v,t])=>
     `<label class="rb"><input type="radio" name="m-${cap}" value="${v}" ${(cur||'single')===v?'checked':''} onchange="updModeUI('${cap}')"> ${t}</label>`).join("")}</div>`;
-  const nice={transcription:"Transcrição (leitura da imagem)",essay:"Correção de Redação",exam:"Correção de Prova",author:"Wizard de Resposta",answersheet:"Leitura de Cartão Resposta"};
+  const nice={transcription:"Transcrição (leitura da imagem)",essay:"Correção de Redação",exam:"Correção de Prova Discursiva",author:"Wizard de Resposta",answersheet:"Leitura de Cartão Resposta",examgen:"Provas Online (geração de questões)"};
   const used=[...new Set((mc.items||[]).flatMap(c=>[c.primaryModel,c.challengerModel]).filter(Boolean))];
   _priceModels=used;
   h(`<h2>Configuração de Modelos</h2>
@@ -363,10 +368,15 @@ function updModeUI(cap){
 }
 async function saveModel(cap){
   const mode=(document.querySelector(`input[name="m-${cap}"]:checked`)||{}).value||"single";
-  try{ await api("/model-config/"+cap,{method:"PUT",body:JSON.stringify({
-    primaryModel:el("p-"+cap).value, challengerModel:(el("c-"+cap)||{}).value||"", mode,
-    abPolicy:{percent:Number((el("ab-"+cap)||{}).value)||0}})}); el("out").innerHTML='<div class="card toast">Salvo.</div>'; }
-  catch(e){ el("out").innerHTML=`<div class="card danger">${esc(e.message)}</div>`; }
+  try{
+    await api("/model-config/"+cap,{method:"PUT",body:JSON.stringify({
+      primaryModel:el("p-"+cap).value, challengerModel:(el("c-"+cap)||{}).value||"", mode,
+      abPolicy:{percent:Number((el("ab-"+cap)||{}).value)||0}})});
+    // Re-renderiza: o backend já preencheu o preço de lista do modelo escolhido, então
+    // a tabela de Preços passa a mostrá-lo automaticamente.
+    await viewModelos();
+    el("out").innerHTML='<div class="card toast">Salvo. Preço do modelo atualizado abaixo.</div>';
+  }catch(e){ el("out").innerHTML=`<div class="card danger">${esc(e.message)}</div>`; }
 }
 async function savePrices(){
   const prices={};
@@ -377,6 +387,8 @@ async function savePrices(){
 }
 
 /* ---------------- Analytics (gráficos) ---------------- */
+const TIPO_LABELS={essay:"Redação",exam:"Prova Discursiva",answersheet:"Cartão Resposta"};
+function tipoLabel(t){ return TIPO_LABELS[t]||t; }
 function bars(title, data){
   const max=Math.max(1,...data.map(d=>d[1]));
   return `<div class="card"><h3>${title}</h3>${data.length?data.map(([l,v])=>`<div class="barrow">
@@ -394,6 +406,7 @@ function modelTable(title, obj, money){
 async function viewAnalytics(){
   h('<h2>Dados Analíticos</h2><div class="card muted">Carregando…</div>');
   const a=await api("/analytics"); const s=a.submissions||{}; const g=a.grades||{};
+  const oe=a.onlineExams||{}; const oa=a.onlineAttempts||{};
   const money=v=> v!=null?("$ "+Number(v).toFixed(4)):"—";
   const kpi=(l,v)=>`<div class="kpi"><span class="muted">${l}</span><b>${v??"—"}</b></div>`;
   h(`<h2>Dados Analíticos</h2>
@@ -407,10 +420,19 @@ async function viewAnalytics(){
     <p class="muted">Tokens: entrada ${(a.tokens&&a.tokens.in)||0} / saída ${(a.tokens&&a.tokens.out)||0}.
     Custo: entrada ${money(a.cost&&a.cost.in)} / saída ${money(a.cost&&a.cost.out)} (estimativa).</p></div>
     ${bars("Submissões por status", Object.entries(s.byStatus||{}))}
-    ${bars("Submissões por tipo", Object.entries(s.byType||{}))}
+    ${bars("Submissões por tipo", Object.entries(s.byType||{}).map(([k,v])=>[tipoLabel(k),v]))}
     ${bars("Distribuição de notas — Redação", Object.entries(g.essayHistogram||{}))}
     ${bars("Correções por modelo", Object.entries(a.byModel||{}))}
     ${modelTable("Tokens por modelo (entrada / saída / total)", a.tokensByModel, false)}
+    <h2 style="margin-top:24px">Provas Online</h2>
+    <div class="card"><div class="kpis">
+      ${kpi("Provas criadas", oe.total||0)}
+      ${kpi("Provas respondidas", oa.total||0)}
+      ${kpi("Nota média", oa.scoreAvg!=null?(oa.scoreAvg+"%"):"—")}
+    </div></div>
+    ${bars("Provas criadas por formato", Object.entries(oe.byFormat||{}).map(([k,v])=>[fmtLabel(k),v]))}
+    ${bars("Respostas por status", Object.entries(oa.byStatus||{}).map(([k,v])=>[statusLabel(k),v]))}
+    ${bars("Respostas por formato", Object.entries(oa.byFormat||{}).map(([k,v])=>[fmtLabel(k),v]))}
     ${modelTable("Custo por modelo — US$ (entrada / saída / total)", a.costByModel, true)}`);
 }
 
@@ -464,12 +486,19 @@ async function viewCartaoHist(){
   const nmarks=s=>{ const rd=((s.result||{}).readings||[])[0]; return rd?(rd.answers||[]).length:"—"; };
   h(`<div class="hdr"><h2>Histórico — Cartão Resposta</h2>
     <button class="sec" onclick="viewCartaoHist()">↻ Atualizar</button></div>
-    <div class="card"><table><tr><th>Protocolo</th><th>ID_Exam</th><th>Status</th><th>Questões lidas</th><th>Data</th></tr>
+    <div class="card"><table><tr><th>Protocolo</th><th>ID_Exam</th><th>Status</th><th>Questões lidas</th><th>Data</th><th></th></tr>
     ${items.length?items.map(s=>`<tr class="clk" onclick="viewCartaoDetail('${s.submissionId}')">
       <td>${s.submissionId.slice(0,8)}</td><td>${esc(s.idExam||"—")}</td><td><span class="pill ${s.status}">${s.status}</span></td>
-      <td>${nmarks(s)}</td><td>${esc(s.createdAt||"")}</td></tr>`).join("")
-      :'<tr><td colspan="5" class="muted">Nenhum cartão enviado ainda.</td></tr>'}</table>
-    <p class="muted">Clique numa linha para ver as marcações e a imagem.</p></div>`);
+      <td>${nmarks(s)}</td><td>${esc(s.createdAt||"")}</td>
+      <td><button class="ghost" title="Excluir tudo" onclick="event.stopPropagation();deleteCartao('${s.submissionId}',false)">🗑</button></td></tr>`).join("")
+      :'<tr><td colspan="6" class="muted">Nenhum cartão enviado ainda.</td></tr>'}</table>
+    <p class="muted">Clique numa linha para ver as marcações e a imagem. 🗑 remove o cartão (banco + imagem no S3).</p></div>`);
+}
+// Exclui a submissão por completo (banco + imagem no S3). fromDetail=true volta ao histórico.
+async function deleteCartao(id, fromDetail){
+  if(!confirm("Excluir este cartão? Remove o registro e a imagem original (S3). Não pode ser desfeito.")) return;
+  try{ await api(`/submissions/${id}`,{method:"DELETE"}); viewCartaoHist(); }
+  catch(e){ alert(e.message); }
 }
 let _cart=null;
 async function viewCartaoDetail(id){
@@ -478,7 +507,8 @@ async function viewCartaoDetail(id){
   const back=`<button class="ghost" onclick="viewCartaoHist()">← Voltar</button>`;
   if(s.status!=="DONE"){ return h(`${back}<h2>Cartão Resposta</h2><div class="card"><span class="pill ${s.status}">${s.status}</span>
     ${s.status==="FAILED"?`<p class="danger">${esc(s.errorMessage||"Falha")}</p>`:'<p class="muted">Ainda processando. Use ↻ Atualizar em instantes.</p>'}</div>`); }
-  _cart={id, readings:((s.result||{}).readings)||[], sel:0, idExam:s.idExam||""};
+  _cart={id, readings:((s.result||{}).readings)||[], sel:0, idExam:s.idExam||"",
+         templateId:((s.result||{}).templateId)||((s.options||{}).templateId)||""};
   renderCartao();
 }
 function markLabel(a){ const m=(typeof a==="string")?a:(a&&a.marcada);
@@ -488,21 +518,76 @@ function markLabel(a){ const m=(typeof a==="string")?a:(a&&a.marcada);
   return `<b>${esc(m)}</b>`; }
 function renderCartao(){
   const c=_cart; const rd=c.readings[c.sel]||c.readings[0]||{answers:[]};
-  const back=`<button class="ghost" onclick="viewCartaoHist()">← Voltar</button>`;
+  const back=`<div class="hdr" style="justify-content:space-between">
+    <button class="ghost" onclick="viewCartaoHist()">← Voltar</button>
+    <button class="ghost" title="Excluir tudo" onclick="deleteCartao('${c.id}',true)">🗑 Excluir cartão</button></div>`;
   const tabs=c.readings.length>1?`<div class="tabs">${c.readings.map((r,i)=>`<button class="tab ${i===c.sel?'on':''}" onclick="selCart(${i})">Leitura ${i+1} · ${esc(mlabel(r.model))}</button>`).join("")}</div>`:"";
   const ans=rd.answers||[];
-  const grid=ans.length?`<table><tr><th>Questão</th><th>Alternativa marcada</th></tr>
-    ${ans.map(a=>`<tr style="${a.marcada==='*'?'background:#3a2e08':(a.marcada==='-'?'background:#3f1212':'')}"><td>${esc(a.questao)}</td><td>${markLabel(a)}</td></tr>`).join("")}</table>`
+  const cellCls=a=>{const m=(typeof a==="string")?a:(a&&a.marcada); return m==="*"?"multi":(m==="-"?"blankq":"");};
+  const grid=ans.length?`<div class="omr-grid">${ans.map(a=>
+      `<div class="omr-q ${cellCls(a)}"><span class="qn">${esc(a.questao)}</span><span class="oa">${markLabel(a)}</span></div>`).join("")}</div>`
     :'<p class="muted">Nenhuma marcação identificada.</p>';
   const foot=(rd.tokensIn||rd.tokensOut)?`<div class="foot">Modelo: ${esc(mlabel(rd.model))} · tokens: ${(rd.tokensIn||0)+(rd.tokensOut||0)}</div>`:"";
   const idline=c.idExam?`<p class="muted">ID_Exam: <b>${esc(c.idExam)}</b></p>`:"";
   h(`${back}<h2>Cartão Resposta</h2>
-     <div class="card" id="imgbox">${idline}<button class="sec" onclick="toggleImg('${c.id}')">🖼️ Ver imagem do cartão</button></div>
+     <div class="card" id="imgbox">${idline}<button class="sec" onclick="toggleImg('${c.id}')">🖼️ Ver imagem original</button></div>
      ${c.readings.length>1?'<p class="muted">Leituras de modelos diferentes (modo Ambos). Escolha para comparar.</p>':""}
      ${tabs}
      <div class="card"><h3>Alternativas marcadas</h3>${grid}${foot}</div>`);
 }
 function selCart(i){ _cart.sel=i; renderCartao(); }
+
+// Sobrepõe as marcações lidas no cartão em branco (imagem de referência do template),
+// posicionando as bolhas pela mesma geometria do OMR: 🟢 marcada · 🟡 múltiplas · 🔴 em branco.
+async function overlayCartao(){
+  const box=el("ov-box"), btn=el("ovbtn"), media=el("img-media"); if(!box) return;
+  // Toggle: mostra OU a original OU a sobreposta (nunca as duas).
+  if(box.dataset.on==="1"){ box.dataset.on="0"; box.innerHTML=""; if(media) media.style.display=""; if(btn) btn.textContent="🎯 Sobrepor marcação"; return; }
+  if(!_cart.templateId){ box.innerHTML='<p class="muted">Esta leitura não tem template associado — não há como posicionar as marcações.</p>'; return; }
+  box.dataset.on="1"; if(media) media.style.display="none"; if(btn) btn.textContent="✖ Ver imagem original";
+  box.innerHTML='<p class="muted">Preparando sobreposição na sua imagem…</p>';
+  let t, im;
+  try{ t=await api("/card-templates/"+_cart.templateId); }
+  catch(e){ box.innerHTML=`<div class="danger">${esc(e.message)}</div>`; return; }
+  try{ im=await api("/submissions/"+_cart.id+"/image"); }   // a imagem QUE VOCÊ ENVIOU
+  catch(e){ box.innerHTML=`<div class="danger">${esc(e.message)}</div>`; return; }
+  if(im.ext==="pdf"){ box.innerHTML='<p class="muted">Sobreposição indisponível para PDF.</p>'; return; }
+  const rd=_cart.readings[_cart.sel]||{answers:[]};
+  const byQ={}; (rd.answers||[]).forEach(a=>{ byQ[a.questao]=a; });
+  const letters=(t.letters&&t.letters.length)?t.letters:null;
+  const lidx=L=>{ if(letters){const i=letters.indexOf(L); if(i>=0) return i;} return (L||"").charCodeAt(0)-65; };
+  const img=new Image();  // sem crossOrigin: só exibimos (não exportamos o canvas)
+  img.onload=()=>{
+    const maxW=Math.min(900,(box.clientWidth||900));
+    const scale=Math.min(1, maxW/(img.naturalWidth||maxW));
+    const W=Math.round((img.naturalWidth||maxW)*scale), H=Math.round((img.naturalHeight||maxW)*scale);
+    const cv=document.createElement("canvas"); cv.width=W; cv.height=H;
+    const ctx=cv.getContext("2d"); ctx.drawImage(img,0,0,W,H);
+    (t.blocks||[]).forEach(b=>{
+      const alt=Number(b.alternatives||t.alternatives||5), qs=Number(b.questions||0), first=Number(b.firstQuestion||1);
+      const r=b.rect||{}; const bx=(r.x||0)*W, by=(r.y||0)*H, bw=(r.w||0)*W, bh=(r.h||0)*H;
+      if(qs<=0||alt<=0||bw<=0||bh<=0) return;
+      const rad=Math.max(6, Math.min(bw/alt, bh/qs)*0.42);
+      for(let rr=0; rr<qs; rr++){
+        const a=byQ[first+rr]; if(!a) continue;
+        const cy=by+bh*(rr+0.5)/qs;
+        const circle=(c,color)=>{ const cx=bx+bw*(c+0.5)/alt;
+          ctx.beginPath(); ctx.arc(cx,cy,rad,0,Math.PI*2); ctx.lineWidth=3; ctx.strokeStyle=color; ctx.stroke(); };
+        const m=a.marcada;
+        if(m==="-"){ ctx.strokeStyle="#dc2626"; ctx.lineWidth=2; ctx.strokeRect(bx+1, by+bh*rr/qs+1, bw-2, bh/qs-2); }
+        else if(m==="*"){ (a.marcadas||[]).forEach(L=>circle(lidx(L),"#d97706")); }
+        else { circle(lidx(m),"#16a34a"); }
+      }
+    });
+    cv.style.maxWidth="100%"; cv.style.borderRadius="8px"; cv.style.border="1px solid var(--line)";
+    box.innerHTML=""; box.appendChild(cv);
+    const leg=document.createElement("p"); leg.className="muted"; leg.style.marginTop="8px";
+    leg.textContent="🟢 marcada · 🟡 múltiplas marcações · 🔴 em branco";
+    box.appendChild(leg);
+  };
+  img.onerror=()=>{ box.innerHTML='<p class="danger">Não foi possível carregar a sua imagem enviada.</p>'; };
+  img.src=im.url;
+}
 
 /* ---------------- Cartão — Templates (editor visual) ---------------- */
 let _tpl=null, _tplImg=null, _tplDraw=null, _drag=null, _tplSel=-1, _tplEdit=null;
@@ -1036,6 +1121,388 @@ function renderEval(ev){
     ${co.length?`<div class="ansl">Correções</div>${co.map(cmpCard).join("")}`:""}`;
 }
 
+/* ---------------- Provas Online ---------------- */
+/* Criação: gera uma prova de múltipla escolha ancorada na Knowledge Base (RAG). */
+async function viewOnlineCreate(){
+  h(`<h2>Provas Online — Provas</h2>
+     <div class="card">
+       <h3 style="margin-top:0">Criar nova prova</h3>
+       <p class="muted">Informe um tema; a prova é gerada com base no conteúdo do Knowledge Base.</p>
+       <label>Título (opcional)</label><input id="po-title" placeholder="Ex.: Arquitetura de Software — Prova 1">
+       <label>Tema <span class="muted">(disciplina do KB — ou "Outro" para digitar)</span></label>
+       <select id="po-theme-sel" onchange="onlineThemeChange()"><option value="">Carregando temas…</option></select>
+       <input id="po-theme-custom" style="display:none;margin-top:8px" autocomplete="off" placeholder="Digite o tema…">
+       ${isAdmin()?`<div style="margin-top:6px"><button class="sec" id="po-refresh" onclick="onlineRefreshThemes()">↻ Atualizar temas do KB</button> <span id="po-refmsg" class="muted"></span></div>`:""}
+       <div class="row">
+         <div><label>Formato</label><select id="po-format">
+           <option value="mc">Múltipla escolha</option>
+           <option value="discursive">Discursiva</option></select></div>
+         <div><label>Nº de questões</label><input id="po-num" type="number" value="5" min="1" max="20"></div>
+       </div>
+       <div style="margin-top:14px"><button id="po-gen" onclick="onlineGenerate()">✨ Gerar prova</button></div>
+     </div><div id="out"></div>
+     <div class="hdr" style="justify-content:space-between">
+       <h3 style="margin:0">Provas criadas</h3>
+       <button class="sec" onclick="onlineLoadExams()">↻ Atualizar</button></div>
+     <div id="po-exams" class="card muted">Carregando…</div>`);
+  // Popula o seletor de temas do KB (disciplinas). Não bloqueia a tela.
+  try{ const r=await api("/online-exams/themes"); _fillThemes(r.themes); }
+  catch(e){ const s=el("po-theme-sel"); if(s) s.innerHTML='<option value="__custom__">Outro tema (digitar)…</option>'; onlineThemeChange(); }
+  onlineLoadExams();
+}
+// Lista as provas já criadas (dono/admin), com ações de ver e excluir.
+async function onlineLoadExams(){
+  const box=el("po-exams"); if(!box) return;
+  try{
+    const r=await api("/online-exams"+(isAdmin()?"?all=true":""));
+    const items=r.items||[];
+    box.className="card";
+    box.innerHTML = items.length
+      ? `<table><tr><th>Título</th><th>Tema</th><th>Tipo</th><th>Questões</th><th>Criada</th><th></th></tr>`+
+        items.map(x=>`<tr><td>${esc(x.title||"—")}</td><td>${esc(x.theme||"—")}</td><td>${fmtLabel(x.format)}</td>
+          <td>${x.num}</td><td>${esc(x.createdAt||"")}</td>
+          <td style="white-space:nowrap">
+            <button class="ghost" title="Ver (com gabarito)" onclick="onlineExamView('${x.examId}')">👁</button>
+            <button class="ghost" title="Excluir" onclick="onlineDeleteExam('${x.examId}')">🗑</button></td></tr>`).join("")+
+        `</table><p class="muted">👁 ver questões e gabarito · 🗑 excluir a prova · para responder, use <a href="#po-teste">Teste de prova</a>.</p>`
+      : '<p class="muted">Nenhuma prova criada ainda. Crie a primeira acima.</p>';
+  }catch(e){ box.className="card danger"; box.textContent=e.message; }
+}
+async function onlineExamView(id){
+  el("out").innerHTML='<div class="card muted">Carregando prova…</div>';
+  try{ const ex=await api(`/online-exams/${id}?full=1`); el("out").innerHTML=onlineExamPreview(ex); window.scrollTo(0,0); }
+  catch(e){ el("out").innerHTML=`<div class="card danger">${esc(e.message)}</div>`; }
+}
+async function onlineDeleteExam(id){
+  if(!confirm("Excluir esta prova? As tentativas já respondidas no Histórico não são afetadas.")) return;
+  try{ await api(`/online-exams/${id}`,{method:"DELETE"}); el("out").innerHTML=""; onlineLoadExams(); }
+  catch(e){ alert(e.message); }
+}
+function _fillThemes(themes){
+  const sel=el("po-theme-sel"); if(!sel) return;
+  const groups={};
+  (themes||[]).forEach(t=>{ const s=t.semestre||"?"; (groups[s]=groups[s]||[]).push(t); });
+  const keys=Object.keys(groups).sort((a,b)=>(parseInt(a)||99)-(parseInt(b)||99));
+  let html='<option value="">— selecione um tema —</option>';
+  keys.forEach(s=>{ html+=`<optgroup label="Semestre ${esc(s)}">`+
+    groups[s].map(t=>`<option value="${esc(t.name)}">${esc(t.name)}</option>`).join("")+`</optgroup>`; });
+  html+='<option value="__custom__">Outro tema (digitar)…</option>';
+  sel.innerHTML=html;
+}
+function onlineThemeChange(){
+  const sel=el("po-theme-sel"), c=el("po-theme-custom"); if(!sel||!c) return;
+  const custom = sel.value==="__custom__";
+  c.style.display = custom?"block":"none";
+  if(custom) c.focus();
+}
+// Admin: reindexa os temas lendo os metadados do KB (S3) e atualiza as sugestões.
+async function onlineRefreshThemes(){
+  const btn=el("po-refresh"), msg=el("po-refmsg");
+  if(btn) btn.disabled=true; if(msg) msg.textContent="Reindexando o KB…";
+  try{
+    const r=await api("/online-exams/themes",{method:"POST"});
+    _fillThemes(r.themes);
+    if(msg) msg.textContent=`✅ ${r.count} temas atualizados.`;
+  }catch(e){ if(msg) msg.textContent=e.message; }
+  finally{ if(btn) btn.disabled=false; }
+}
+async function onlineGenerate(){
+  const sel=el("po-theme-sel"); let theme=sel?sel.value:"";
+  if(theme==="__custom__") theme=(el("po-theme-custom").value||"").trim();
+  theme=(theme||"").trim();
+  if(!theme) return alert('Selecione uma disciplina — ou escolha "Outro tema" e digite.');
+  const num=Math.max(1,Math.min(20,Number(el("po-num").value)||5));
+  const title=(el("po-title").value||"").trim();
+  const format=(el("po-format")||{}).value||"mc";
+  const btn=el("po-gen"); btn.disabled=true; btn.textContent="Gerando… (pode levar alguns segundos)";
+  el("out").innerHTML='<div class="card muted">Consultando o Knowledge Base e gerando questões…</div>';
+  try{
+    const ex=await api("/online-exams",{method:"POST",body:JSON.stringify({theme,num,title,format})});
+    el("out").innerHTML=`<div class="card toast">✅ Prova criada: <b>${esc(ex.title)}</b> (${ex.num} questões).
+      Disponível em <a href="#po-teste">Teste de prova</a>.</div>`+onlineExamPreview(ex);
+    onlineLoadExams();  // atualiza a lista de provas criadas
+  }catch(e){ el("out").innerHTML=`<div class="card danger">${esc(e.message)}</div>`; }
+  finally{ btn.disabled=false; btn.textContent="✨ Gerar prova"; }
+}
+function fmtLabel(f){ return f==="discursive"?"Discursiva":"Múltipla escolha"; }
+function onlineExamPreview(ex){
+  const disc=ex.format==="discursive";
+  const qs=(ex.questoes||[]).map((q,i)=> disc
+    ? `<div class="card"><b>Q${i+1}.</b> ${esc(q.enunciado)}
+        <div class="fb" style="margin-top:8px"><p class="fb-ok"><b>Resposta de referência:</b> ${esc(q.respostaReferencia||"")}</p></div></div>`
+    : `<div class="card"><b>Q${i+1}.</b> ${esc(q.enunciado)}
+        <div style="margin-top:6px">${(q.alternativas||[]).map((a,j)=>{
+          const L=String.fromCharCode(65+j); const ok=L===q.correta;
+          return `<div style="${ok?'color:var(--ok);font-weight:600':''}">${L}) ${esc(a)}${ok?' ✓':''}</div>`;
+        }).join("")}</div>
+        ${q.explicacao?`<p class="muted" style="margin-top:6px">Explicação: ${esc(q.explicacao)}</p>`:""}</div>`).join("");
+  const src=(ex.kbSources||[]).map(s=>`<li>${esc(s.title||s.uri)}${s.page?` — página ${s.page}`:""}</li>`).join("");
+  return `<h3>${esc(ex.title||"Prova")}</h3>
+    <p class="muted" style="margin-top:-6px">Prévia com gabarito · ${fmtLabel(ex.format)}${ex.theme?` · tema: ${esc(ex.theme)}`:""}</p>${qs}
+    ${src?`<div class="card"><b>Fontes no Knowledge Base:</b><ul>${src}</ul></div>`:""}`;
+}
+
+/* Teste de prova: seleciona prova, responde (sem gabarito) e envia p/ correção server-side. */
+let _po=null;
+async function viewOnlineTest(){
+  h(`<div class="hdr"><h2>Provas Online — Teste de prova</h2>
+     <button class="sec" onclick="viewOnlineTest()">↻ Atualizar</button></div><div class="card muted">Carregando…</div>`);
+  let r; try{ r=await api("/online-exams"+(isAdmin()?"?all=true":"")); }
+  catch(e){ return h(`<div class="card danger">${esc(e.message)}</div>`); }
+  const items=(r.items||[]);
+  h(`<div class="hdr"><h2>Provas Online — Teste de prova</h2>
+     <button class="sec" onclick="viewOnlineTest()">↻ Atualizar</button></div>
+     <div class="card"><label>Escolha a prova</label>
+       <select id="po-sel">${items.length?items.map(x=>`<option value="${x.examId}">${esc(x.title||x.theme||x.examId)} · ${x.num} questões · ${fmtLabel(x.format)}</option>`).join(""):'<option value="">— nenhuma prova criada —</option>'}</select>
+       <div style="margin-top:12px"><button ${items.length?"":"disabled"} onclick="onlineStart()">Iniciar prova</button></div>
+     </div><div id="po-quiz"></div>`);
+}
+async function onlineStart(){
+  const id=el("po-sel").value; if(!id) return;
+  el("po-quiz").innerHTML='<div class="card muted">Carregando questões…</div>';
+  let ex; try{ ex=await api(`/online-exams/${id}`); }
+  catch(e){ return el("po-quiz").innerHTML=`<div class="card danger">${esc(e.message)}</div>`; }
+  _po={examId:id, format:ex.format||"mc", questoes:ex.questoes||[]};
+  const disc=_po.format==="discursive";
+  const qs=_po.questoes.map(q=> disc
+    ? `<div class="card"><b>Q${q.n}.</b> ${esc(q.enunciado)}
+        <textarea id="qa-${q.n}" rows="5" style="margin-top:8px" placeholder="Escreva sua resposta…"></textarea></div>`
+    : `<div class="card"><b>Q${q.n}.</b> ${esc(q.enunciado)}
+        <div class="radios" style="margin-top:8px">${(q.alternativas||[]).map((a,j)=>{const L=String.fromCharCode(65+j);
+          return `<label class="rb"><input type="radio" name="q${q.n}" value="${L}"><b>${L})</b> <span>${esc(a)}</span></label>`;}).join("")}</div></div>`).join("");
+  el("po-quiz").innerHTML=`<h3>${esc(ex.title||"Prova")} <span class="muted">· ${fmtLabel(_po.format)}</span></h3>${qs}
+    <div class="card"><button onclick="onlineSubmit()">Enviar respostas</button>
+    <span class="muted">${disc?"A correção é feita por IA (nota e justificativa por questão).":"A correção é feita no servidor."}</span></div><div id="po-res"></div>`;
+}
+async function onlineSubmit(){
+  if(!_po) return;
+  const disc=_po.format==="discursive";
+  const answers={};
+  _po.questoes.forEach((q,i)=>{
+    if(disc){ const t=el(`qa-${q.n}`); if(t && t.value.trim()) answers[i]=t.value.trim(); }
+    else { const sel=document.querySelector(`input[name="q${q.n}"]:checked`); if(sel) answers[i]=sel.value; }
+  });
+  el("po-res").innerHTML='<div class="card muted">Enviando respostas…</div>';
+  try{
+    // A correção é assíncrona: recebe a tentativa em PROCESSING e acompanha o status.
+    const r=await api(`/online-exams/${_po.examId}/attempts`,{method:"POST",body:JSON.stringify({answers})});
+    await onlinePoll(r.attemptId, el("po-res"));
+  }catch(e){ el("po-res").innerHTML=`<div class="card danger">${esc(e.message)}</div>`; }
+}
+// Acompanha a correção (PROCESSING→DONE/FAILED). Renderiza o resultado quando concluir.
+async function onlinePoll(attemptId, box, tries){
+  tries = tries||0;
+  box.innerHTML=`<div class="card muted">⏳ Corrigindo… a tentativa está sendo processada.
+    <span class="muted">Você também pode acompanhar em <a href="#po-hist">Histórico</a>.</span></div>`;
+  let att; try{ att=await api(`/online-attempts/${attemptId}`); }
+  catch(e){ box.innerHTML=`<div class="card danger">${esc(e.message)}</div>`; return; }
+  const st=att.status||"DONE";
+  if(st==="PROCESSING"){
+    if(tries>=40){ box.innerHTML=`<div class="card muted">Ainda processando. Veja em <a href="#po-hist">Histórico</a> em instantes.</div>`; return; }
+    setTimeout(()=>onlinePoll(attemptId, box, tries+1), 3000);
+    return;
+  }
+  if(st==="FAILED"){ box.innerHTML=`<div class="card danger">A correção falhou: ${esc(att.errorMessage||"erro")}.</div>`; return; }
+  const disc=att.format==="discursive";
+  const head=disc?`Nota <b>${att.notaTotal}/${att.notaMaxima}</b> (${att.score}%)`:`<b>${att.acertos}/${att.total}</b> (${att.score}%)`;
+  box.innerHTML=`<div class="card toast">✅ Correção concluída — ${head}.
+    Veja também em <a href="#po-hist">Histórico</a>.</div>`+onlineResultDetail(att);
+  window.scrollTo(0,document.body.scrollHeight);
+}
+
+// Abre/fecha a visualização do conteúdo da apostila e gera o link temporário (presigned).
+async function kbView(btn, vid, encUri, page){
+  const box=el(vid); if(!box) return;
+  if(!box.hasAttribute("hidden")){ box.setAttribute("hidden",""); btn.textContent="👁️ Ver conteúdo"; return; }
+  box.removeAttribute("hidden"); btn.textContent="Ocultar";
+  const links=box.querySelector(".kblinks");
+  if(links && !links.dataset.loaded){
+    links.textContent="Gerando link temporário…";
+    try{
+      const r=await api("/online-exams/kb-doc?uri="+encUri);
+      const base=r.url, atPage=page?`${base}#page=${page}`:base;
+      links.innerHTML=`<a href="${atPage}" target="_blank" rel="noopener">📄 Abrir apostila${page?` na página ${page}`:""}</a>
+        &nbsp;·&nbsp; <a href="${base}" target="_blank" rel="noopener" download>⬇ Baixar apostila (link temporário)</a>`;
+      links.dataset.loaded="1";
+    }catch(e){ links.innerHTML=`<span class="danger">${esc(e.message)}</span>`; }
+  }
+}
+
+/* Histórico: lista tentativas; detalhe mostra acertos/erros + estudo no KB p/ as erradas. */
+async function viewOnlineHist(){
+  h(`<div class="hdr"><h2>Provas Online — Histórico</h2>
+     <button class="sec" onclick="viewOnlineHist()">↻ Atualizar</button></div><div class="card muted">Carregando…</div>`);
+  let r; try{ r=await api("/online-attempts"+(isAdmin()?"?all=true":"")); }
+  catch(e){ return h(`<div class="card danger">${esc(e.message)}</div>`); }
+  const items=(r.items||[]);
+  h(`<div class="hdr"><h2>Provas Online — Histórico</h2>
+     <button class="sec" onclick="viewOnlineHist()">↻ Atualizar</button></div>
+     <div class="card"><table><tr><th>Prova</th><th>Tema</th><th>Tipo</th><th>Status</th><th>Resultado</th><th>Nota</th><th>Data</th><th></th></tr>
+     ${items.length?items.map(a=>{const st=a.status||"DONE"; const done=st==="DONE";
+       return `<tr class="clk" onclick="viewOnlineAttempt('${a.attemptId}')">
+       <td>${esc(a.title||"—")}</td><td>${esc(a.theme||"—")}</td><td>${fmtLabel(a.format)}</td>
+       <td><span class="pill ${statusPill(st)}">${statusLabel(st)}</span></td>
+       <td>${done?`${a.acertos}/${a.total}`:"—"}</td><td>${done?`<b>${a.score}%</b>`:"—"}</td>
+       <td>${esc(a.createdAt||"")}</td>
+       <td><button class="ghost" title="Excluir" onclick="event.stopPropagation();onlineDeleteAttempt('${a.attemptId}')">🗑</button></td></tr>`;}).join("")
+       :'<tr><td colspan="8" class="muted">Nenhuma prova respondida ainda.</td></tr>'}</table>
+     <p class="muted">Clique numa linha para ver acertos/notas e o que estudar. Provas em processamento aparecem como "Processando".</p></div>`);
+}
+// Exclui uma prova respondida do histórico (dono ou admin).
+async function onlineDeleteAttempt(id, fromDetail){
+  if(!confirm("Excluir esta prova respondida do histórico? Esta ação não pode ser desfeita.")) return;
+  try{ await api(`/online-attempts/${id}`,{method:"DELETE"}); viewOnlineHist(); }
+  catch(e){ alert(e.message); }
+}
+function statusLabel(s){ return s==="PROCESSING"?"Processando":(s==="FAILED"?"Falhou":"Concluída"); }
+function statusPill(s){ return s==="PROCESSING"?"QUEUED":(s==="FAILED"?"bad":"ok"); }
+async function viewOnlineAttempt(id){
+  h('<div class="card muted">Carregando…</div>');
+  _studyDebug=[];  // reinicia o log de debug ao abrir a tentativa
+  let att; try{ att=await api(`/online-attempts/${id}`); }
+  catch(e){ return h(`<div class="card danger">${esc(e.message)}</div>`); }
+  const back=`<div class="hdr" style="justify-content:space-between">
+    <button class="ghost" onclick="viewOnlineHist()">← Voltar</button>
+    <button class="ghost" title="Excluir" onclick="onlineDeleteAttempt('${id}')">🗑 Excluir</button></div>`;
+  const st=att.status||"DONE";
+  if(st==="PROCESSING"){
+    return h(`${back}<h2>${esc(att.title||"Prova")} <span class="muted">· ${fmtLabel(att.format)}</span></h2>
+      <div class="card"><span class="pill QUEUED">Processando</span>
+      <p class="muted">A correção está sendo processada. Atualize em instantes.</p>
+      <button class="sec" onclick="viewOnlineAttempt('${id}')">↻ Atualizar</button></div>`);
+  }
+  if(st==="FAILED"){
+    return h(`${back}<h2>${esc(att.title||"Prova")}</h2>
+      <div class="card danger">A correção falhou: ${esc(att.errorMessage||"erro")}.</div>`);
+  }
+  const disc=att.format==="discursive";
+  const res=disc?`Nota <b>${att.notaTotal}/${att.notaMaxima}</b> (${att.score}%)`:`Acertos <b>${att.acertos}/${att.total}</b> (${att.score}%)`;
+  h(`${back}
+     <h2>${esc(att.title||"Prova")} <span class="muted">· ${fmtLabel(att.format)}</span></h2>
+     <div class="card">${res} · Tema: ${esc(att.theme||"—")}</div>
+     ${onlineResultDetail(att)}
+     <details class="evdet" id="dbg" style="margin-top:16px">
+       <summary>🐞 Debug — o que é enviado à API no "Sugerir material" (clique para expandir)</summary>
+       <div id="dbg-body"></div>
+     </details>`);
+  _renderStudyDebug();
+}
+function _altText(q, letter){
+  if(!letter) return "";
+  const i=letter.charCodeAt(0)-65;
+  return (q.alternativas||[])[i]||"";
+}
+// Bloco "Onde estudar": trechos da apostila + página + visualização com link temporário.
+// Botão de sugestão sob demanda (só para questões erradas). A busca no KB é uma API à parte.
+function _studyPlaceholder(aid, n){
+  return `<div class="kbref-wrap">
+    <button class="sec" id="sg-${n}" onclick="onlineSuggest(this,'${aid}',${n})">📚 Sugerir material de estudo</button>
+    <div id="study-${n}" style="margin-top:8px"></div></div>`;
+}
+let _studyDebug=[];  // log das chamadas de "Sugerir material" (modo debug)
+async function onlineSuggest(btn, aid, n){
+  btn.disabled=true; const t=btn.textContent; btn.textContent="Buscando no KB…";
+  const path=`/online-attempts/${aid}/study?debug=1`;
+  const body={n};
+  // Requisição HTTP real que o api() dispara (URL com base /api + headers).
+  const clientReq={
+    method:"POST",
+    url:(API||"/api")+path,
+    headers:{
+      "Content-Type":"application/json",
+      "Authorization":"Bearer "+(ID_TOKEN?(ID_TOKEN.slice(0,16)+"…(JWT Cognito, truncado)"):"—"),
+    },
+    body,
+  };
+  try{
+    const r=await api(path,{method:"POST",body:JSON.stringify(body)});
+    const box=el(`study-${n}`);
+    if(box) box.innerHTML=(r.study&&r.study.length)
+      ? `<div class="kbref-title">📚 Onde estudar o conteúdo correto:</div>`+_studySourcesHtml(r.study, n)
+      : '<p class="muted">Nenhum material encontrado no Knowledge Base para esta questão.</p>';
+    btn.style.display="none";
+    // Modo debug: registra o que o front enviou e o que a API enviou ao KB.
+    _studyDebug.push({n, at:new Date().toLocaleTimeString(),
+      clientRequest:clientReq,
+      apiToKb:(r.debug&&r.debug.kbRetrieve)||null,
+      postProcessing:(r.debug&&r.debug.postProcessing)||"",
+      resultado:(r.study||[]).map(s=>({titulo:s.title, arquivo:(s.uri||"").split("/").pop(), pagina:s.page}))});
+    _renderStudyDebug(); const d=el("dbg"); if(d) d.open=true;
+  }catch(e){ alert(e.message); btn.disabled=false; btn.textContent=t; }
+}
+function _renderStudyDebug(){
+  const box=el("dbg-body"); if(!box) return;
+  if(!_studyDebug.length){ box.innerHTML='<p class="muted">Clique em "Sugerir material" numa questão errada para ver o que é enviado à API.</p>'; return; }
+  box.innerHTML=_studyDebug.map((d,i)=>`<div class="kbref">
+    <div class="muted">#${i+1} · Questão ${d.n} · ${esc(d.at)}</div>
+    <div class="ansl">1) Front-end → API</div>
+    <pre class="dbgjson">${esc(JSON.stringify(d.clientRequest,null,2))}</pre>
+    <div class="ansl">2) API → Knowledge Base (Bedrock Retrieve)</div>
+    <pre class="dbgjson">${esc(JSON.stringify(d.apiToKb,null,2))}</pre>
+    ${d.postProcessing?`<p class="muted">Pós-processamento: ${esc(d.postProcessing)}</p>`:""}
+    <div class="ansl">3) Resultado retornado</div>
+    <pre class="dbgjson">${esc(JSON.stringify(d.resultado,null,2))}</pre>
+  </div>`).join("");
+}
+function _studySourcesHtml(sources, n){
+  return (sources||[]).map((s,si)=>{const vid=`kbv-${n}-${si}`; const pg=s.page?` — página ${s.page}`:"";
+    const file=(s.uri||"").split("/").pop();
+    return `<div class="kbref">
+      <div class="row" style="justify-content:space-between;align-items:center;gap:8px">
+        <div>📖 <b>${esc(s.title||s.uri)}</b><span class="muted">${pg}</span>
+          ${file?`<div class="muted" style="font-size:12px">📄 ${esc(file)}</div>`:""}</div>
+        <button class="sec" onclick="kbView(this,'${vid}','${encodeURIComponent(s.uri||"")}',${s.page||0})">👁️ Ver conteúdo</button>
+      </div>
+      <div id="${vid}" class="kbviewer" hidden>
+        ${s.snippet?`<div class="kbsnippet">${_fmtKb(s.snippet)}</div>`:""}
+        <div class="kblinks muted"></div>
+      </div>
+    </div>`;}).join("");
+}
+// Formata o trecho cru do PDF: blocos (runs de 2+ espaços) viram parágrafos; títulos
+// numerados / em caixa-alta viram cabeçalhos. Normaliza espaços repetidos.
+function _fmtKb(text){
+  const parts=String(text||"").replace(/\r/g,"").split(/\s{2,}/).map(s=>s.trim()).filter(Boolean);
+  if(!parts.length) return "";
+  return parts.map(p=>{
+    const isHeading = /^\d+(\.\d+)*\.?\s+\S/.test(p) || /^[A-ZÀ-Ú][A-ZÀ-Ú0-9 ]{3,}$/.test(p);
+    return isHeading ? `<div class="kbh">${esc(p)}</div>` : `<p>${esc(p)}</p>`;
+  }).join("");
+}
+function _mcResultCard(q, aid){
+  const cls=q.acertou?"ok":"bad";
+  const alts=(q.alternativas||[]).map((a,j)=>{const L=String.fromCharCode(65+j);
+    const isC=L===q.correta, isM=L===q.marcada;
+    const style=isC?"color:var(--ok);font-weight:600":(isM&&!q.acertou?"color:var(--bad);font-weight:600":"");
+    return `<div style="${style}">${L}) ${esc(a)}${isC?' ✓ (correta)':''}${isM&&!isC?' ✗ (sua resposta)':''}</div>`;
+  }).join("");
+  const feedback = q.acertou ? "" : `<div class="fb">
+    <p class="fb-bad">❌ Sua resposta: ${q.marcada?`<b>${q.marcada})</b> ${esc(_altText(q,q.marcada))}`:"<b>não respondida</b>"} — incorreta.</p>
+    <p class="fb-ok">✅ Resposta correta: <b>${q.correta})</b> ${esc(_altText(q,q.correta))}</p>
+    ${q.explicacao?`<p><b>Justificativa:</b> ${esc(q.explicacao)}</p>`:""}</div>`;
+  return `<div class="card"><div><span class="pill ${cls}">${q.acertou?"ACERTOU":"ERROU"}</span>
+    <b> Q${q.n}.</b> ${esc(q.enunciado)}</div>
+    <div style="margin-top:8px">${alts}</div>
+    ${feedback}${q.acertou?"":_studyPlaceholder(aid, q.n)}</div>`;
+}
+function _discResultCard(q, aid){
+  const nmax=Number(q.notaMaxima)||10, nota=Number(q.nota)||0;
+  const good=nmax>0 && (nota/nmax)>=0.6;
+  const cls=good?"ok":"bad";
+  return `<div class="card"><div><span class="pill ${cls}">${nota}/${nmax}</span>
+    <b> Q${q.n}.</b> ${esc(q.enunciado)}</div>
+    <div class="fb" style="margin-top:8px">
+      <p><b>Sua resposta:</b> ${q.respostaAluno?esc(q.respostaAluno):"<span class='fb-bad'>não respondida</span>"}</p>
+      ${q.justificativa?`<hr class="sep"><p><b>Avaliação:</b> ${esc(q.justificativa)}</p>`:""}
+      ${q.respostaReferencia?`<hr class="sep"><p class="fb-ok"><b>Resposta de referência:</b> ${esc(q.respostaReferencia)}</p>`:""}
+    </div>
+    ${good?"":_studyPlaceholder(aid, q.n)}</div>`;
+}
+function onlineResultDetail(att){
+  const disc=att.format==="discursive"; const aid=att.attemptId;
+  return (att.results||[]).map(q=> disc?_discResultCard(q, aid):_mcResultCard(q, aid)).join("");
+}
+
 /* ---------------- Roteamento ---------------- */
 const ROUTES = {
   "ex-corrige":()=>viewCorrecao("exam"), "ex-criar":viewCriar, "ex-hist":()=>viewHistorico("exam"),
@@ -1043,6 +1510,7 @@ const ROUTES = {
   "cartao-load":viewCartaoLoad, "cartao-read":viewCartaoRead, "cartao-tpl":viewCartaoTemplates,
   "cartao-hist":viewCartaoHist, "cartao":viewCartaoLoad,
   "modelos":viewModelos, "analytics":viewAnalytics, "evaluation":viewEvaluation,
+  "po-criar":viewOnlineCreate, "po-teste":viewOnlineTest, "po-hist":viewOnlineHist,
 };
 function route(){ const k=location.hash.slice(1)||"ex-corrige"; renderNav(ROUTES[k]?k:"ex-corrige"); (ROUTES[k]||ROUTES["ex-corrige"])(); toggleSide(false); }
 window.addEventListener("hashchange", route);
