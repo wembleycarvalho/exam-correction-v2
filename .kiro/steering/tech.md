@@ -16,8 +16,9 @@
     persiste a correção, atualiza status e emite métricas. Não contém a lógica do agente.
 - **Agentes:** **Strands Agents** rodando no **Amazon Bedrock AgentCore Runtime**
   (deploy **CodeZip**, sem Docker local). Especialistas: `transcription`, `essay`,
-  `exam`, `author` (e `answersheet` na fase 2). Instrumentados com **OpenTelemetry** →
-  **AgentCore Observability** (traces que alimentam as Evaluations).
+  `exam`, `author`, `judge`, `examgen` (geração de Provas Online) e `answersheet`.
+  Instrumentados com **OpenTelemetry** → **AgentCore Observability** (traces que alimentam
+  as Evaluations).
 - **Modelos:** **Amazon Bedrock Converse API direto** (nativo do Strands). Escolha em
   runtime via `model_config` por capacidade (transcrição e correção independentes;
   challenger para A/B). Nunca hardcoded. O **AgentCore Gateway** só entra **se/quando**
@@ -37,10 +38,17 @@
   Submissão é **job-based**: `POST /submissions` → `202 + submissionId` → polling.
   **Sem streaming.**
 - **Dados:** DynamoDB (`submissions`, `corrections`, `rubrics`, `exams`, `model_config`,
-  `test_registry`; `+ eval_*` na fase 2); S3 (uploads/resultados). **Sem KB, sem
-  S3 Vectors, sem OpenSearch** — gabarito + conhecimento do modelo cobrem o escopo.
+  `test_registry`, `online-exams`, `online-attempts`; `+ eval_*` na fase 2); S3
+  (uploads/resultados). **Correção de material enviado (redação/discursiva/cartão) não usa
+  KB** — gabarito + conhecimento do modelo cobrem o escopo; **sem S3 Vectors, sem OpenSearch**.
+- **Knowledge Base (só Provas Online):** o módulo de estudo **Provas Online** usa uma
+  **Amazon Bedrock Knowledge Base** (RAG, conteúdo já indexado) para gerar questões e sugerir
+  material de estudo. Só a **API** acessa o KB (`bedrock:Retrieve` no ARN do KB + `s3:GetObject`/
+  `s3:ListBucket` no bucket do acervo); o worker apenas corrige. Configurada por contexto do
+  CDK (`kbId`/`kbBucket`), nunca no bundle do frontend.
 - **Borda:** **CloudFront único** (origem S3/OAC para o frontend estático; origem
-  `/api/*` → HTTP API) + **WAF WebACL**. Nada acessível fora do CloudFront.
+  `/api/*` → HTTP API). Nada acessível fora do CloudFront. **Sem WAF** (projeto de teste;
+  em produção, adicione um WAF WebACL com regras gerenciadas + rate limiting).
 - **Auth:** Cognito User Pool **sem self-signup**, admin-create, senha forte, MFA opcional.
   Grupos `admin` e `professor`. Login pela **Hosted UI (PKCE)**.
 - **Config/Segredos:** parâmetros via **SSM Parameter Store** e variáveis de ambiente via
@@ -65,16 +73,26 @@
   hardcoded. `DEFAULT_MODEL_ID` do `.env` é opcional (semeia todas as capacidades); vazio =
   configurar pela UI. **Gateway só para Mantle no futuro.**
 - **A/B:** primário gera a nota oficial; challenger roda em **shadow** e não afeta o aluno.
-- **Borda Opção A:** API protegida por header secreto (Secrets Manager) + WAF; S3 via OAC
-  com Block Public Access. Sem VPC.
+- **Borda Opção A:** API protegida por header secreto (Secrets Manager); S3 via OAC
+  com Block Public Access. Sem VPC. **Sem WAF** neste projeto de teste (readicionar em produção).
 - **PII fora do QR:** o QR carrega apenas `testId`, resolvido em `test_registry`.
+- **KB apenas para Provas Online:** o "sem KB" acima vale para a **correção de material
+  enviado**. O módulo **Provas Online** (estudo) **precisa** do KB (RAG) para gerar questões
+  e sugerir material — decisão posterior ao escopo original. Só a API acessa o KB; o worker
+  apenas corrige a tentativa (MC determinística / discursiva via `exam`).
+- **KB demo integrado ao projeto:** o repo inclui um **acervo sintético** em `assets/kb-demo/`
+  (só para demonstração, **sem compromisso pedagógico**) e o `scripts/deploy-kb.sh`, que
+  provisiona o KB com **Amazon S3 Vectors** (vector store serverless, escolhido por
+  custo/simplicidade; usar S3 Vectors **só** para o KB de Provas Online) + embeddings Titan v2.
+  `kbId`/`kbBucket` vazios = módulo desabilitado; produção aponta para um KB próprio via
+  `KB_ID`/`KB_BUCKET`. Nada de bucket/KB hardcoded de conta específica no stack.
 
 ## Estrutura do repositório
 
 ```
 infra/
   app.py                 # CDK app
-  exam_stack.py          # stack única (Cognito, S3, DynamoDB, SQS+DLQ, 2 Lambdas, HTTP API, CloudFront, WAF, AgentCore Runtime/Evaluator)
+  exam_stack.py          # stack única (Cognito, S3, DynamoDB, SQS+DLQ, 2 Lambdas, HTTP API, CloudFront, AgentCore Runtime/Evaluator)
   cdk.json, requirements.txt
 backend/
   common/                # lógica compartilhada (gabarito, rubrica ENEM, metrics, http, json_utils, authz, model_config)
@@ -84,8 +102,9 @@ agents/                  # agentes Strands (deploy no AgentCore Runtime via Code
 tools/                   # Lambdas expostas como tools (read_test_id; read_answer_sheet fase 2)
 frontend/
   index.html             # SPA única (vanilla) + Cognito Hosted UI (PKCE)
+assets/kb-demo/          # acervo SINTÉTICO do KB (Provas Online) — só para demonstração
 scripts/
-  deploy.sh, deploy-agents.sh, create-admin-user.sh
+  deploy.sh, deploy-agents.sh, deploy-kb.sh, build-omr-layer.sh, create-admin-user.sh
 tests/                   # pytest
 OldVersion/              # v1 original (NUNCA modificar)
 OldVersion-sam/          # tentativa SAM/React descartada (referência, não usar)
@@ -97,6 +116,9 @@ OldVersion-sam/          # tentativa SAM/React descartada (referência, não usa
 - Sintetizar/validar infra: `cd infra && cdk synth`
 - Validar template sintetizado (AgentCore): `cfn-lint` (>= 1.53; conhece `AWS::BedrockAgentCore::*`).
 - Deploy infra: `./scripts/deploy.sh` (usa `.env`: `AWS_REGION`, `STACK_NAME`, etc.)
+- Deploy do KB de demonstração (Provas Online): `DEPLOY_KB=1 ./scripts/deploy.sh` ou
+  `./scripts/deploy-kb.sh` avulso (acervo sintético + S3 Vectors + ingestion; grava
+  `infra/kb-config.json`). Produção: `KB_ID`/`KB_BUCKET` de um KB próprio.
 - Deploy dos agentes no Runtime: `./scripts/deploy-agents.sh` (AgentCore starter toolkit / CLI, CodeZip — **sem Docker**).
 - Testes: `pytest -q`
 - Long-running (dev server/watch): **não** rodar via terminal bloqueante — instruir o usuário.

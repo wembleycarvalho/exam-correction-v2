@@ -1,0 +1,11 @@
+{
+  "metadataAttributes": {
+    "tipo": "disciplina",
+    "modalidade": "graduacao",
+    "curso_id": "eng-software",
+    "disciplina": "Introducao a Programacao (Python)",
+    "semestre": "1",
+    "tipo_documento": "material",
+    "is_apostila": true
+  }
+}

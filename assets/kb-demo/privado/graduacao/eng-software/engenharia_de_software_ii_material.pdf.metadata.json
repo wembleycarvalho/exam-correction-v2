@@ -1,0 +1,11 @@
+{
+  "metadataAttributes": {
+    "tipo": "disciplina",
+    "modalidade": "graduacao",
+    "curso_id": "eng-software",
+    "disciplina": "Engenharia de Software II",
+    "semestre": "4",
+    "tipo_documento": "material",
+    "is_apostila": true
+  }
+}

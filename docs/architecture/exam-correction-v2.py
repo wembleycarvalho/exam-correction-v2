@@ -1,6 +1,6 @@
 """Diagrama de arquitetura — Exam Correction v2 (diagrama como código).
 
-Cobre: borda segura (CloudFront/WAF), auth (Cognito), API HTTP + fila assíncrona,
+Cobre: borda (CloudFront), auth (Cognito), API HTTP + fila assíncrona,
 agentes Strands no AgentCore Runtime, correção (redação/prova) e leitura de cartão-resposta
 (OMR determinístico com OpenCV — no navegador e no servidor), templates, QR/ID_Exam,
 Evaluation (model-as-judge) e observabilidade.
@@ -9,7 +9,7 @@ Render (da raiz do repo): python3 docs/architecture/exam-correction-v2.py
 """
 from diagrams import Diagram, Cluster, Edge
 from diagrams.aws.network import CloudFront, APIGateway
-from diagrams.aws.security import Cognito, WAF, SecretsManager
+from diagrams.aws.security import Cognito, SecretsManager
 from diagrams.aws.compute import Lambda, LambdaFunction
 from diagrams.aws.integration import SQS
 from diagrams.aws.database import Dynamodb
@@ -24,7 +24,6 @@ with Diagram("Exam Correction v2", filename="docs/architecture/exam-correction-v
     users = Users("Usuário\n(professor/admin)")
 
     with Cluster("Borda (único ponto de entrada)"):
-        waf = WAF("WAF")
         cf = CloudFront("CloudFront")
 
     with Cluster("Auth"):
@@ -57,7 +56,6 @@ with Diagram("Exam Correction v2", filename="docs/architecture/exam-correction-v
         ssm = SystemsManagerParameterStore("SSM\nagent-runtime-arn")
 
     users >> Edge(label="HTTPS") >> cf
-    waf >> Edge(style="dotted") >> cf
     cf >> Edge(label="/") >> fe
     fe >> Edge(style="dashed", label="Ler cartão") >> opencvjs
     cf >> Edge(label="/api/* + header") >> api >> api_fn

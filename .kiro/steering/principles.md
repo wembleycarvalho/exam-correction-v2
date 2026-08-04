@@ -35,8 +35,8 @@ serverless → segurança → custo**.
 ## 3. Segurança sempre
 
 - Tudo público **somente atrás do CloudFront**; origens protegidas (S3 com OAC + Block
-  Public Access; API só via header secreto + WAF — Opção A). Serviços internos nunca
-  expostos à internet.
+  Public Access; API só via header secreto — Opção A). Serviços internos nunca expostos à
+  internet. (WAF removido neste projeto de teste; readicionar em produção.)
 - **Cognito sem self-signup**; usuários criados apenas por admin; MFA e senha forte.
 - **Privilégio mínimo de IAM** por função/tool/agente. Nunca políticas amplas como
   `AmazonBedrockFullAccess`/`AWSLambdaExecute` (erros da v1).

@@ -2,8 +2,8 @@
 
 Ordem: simplicidade → serverless → segurança → custo. Provisiona Cognito (sem
 self-signup), S3 (FE via OAC + uploads), DynamoDB, SQS+DLQ, 2 Lambdas (IAM mínimo),
-HTTP API + JWT authorizer, CloudFront + WAF, Secrets Manager (header de origem) e um
-parâmetro SSM para o ARN do AgentCore Runtime (publicado pelo deploy dos agentes).
+HTTP API + JWT authorizer, CloudFront (sem WAF — projeto de teste), Secrets Manager
+(header de origem) e um parâmetro SSM para o ARN do AgentCore Runtime (deploy dos agentes).
 """
 from aws_cdk import (
     Stack, Duration, RemovalPolicy, CfnParameter, CfnOutput, SecretValue,
@@ -21,7 +21,6 @@ from aws_cdk import (
     aws_apigatewayv2_authorizers as apigw_authz,
     aws_cloudfront as cloudfront,
     aws_cloudfront_origins as origins,
-    aws_wafv2 as wafv2,
 )
 from constructs import Construct
 
@@ -33,9 +32,11 @@ class ExamStack(Stack):
         worker_concurrency = int(self.node.try_get_context("workerConcurrency") or 5)
         default_model = self.node.try_get_context("defaultModelId") or ""
         model_pricing = self.node.try_get_context("modelPricing") or ""
-        # Knowledge Base (conteúdo já embedado) usada pelo módulo Provas Online.
-        kb_id = self.node.try_get_context("kbId") or "L2KOGGTB6K"
-        kb_bucket = self.node.try_get_context("kbBucket") or "kb-vestibular-demo-831782568328"
+        # Knowledge Base do módulo Provas Online. Provisionada por scripts/deploy-kb.sh
+        # (acervo sintético de demonstração) e passada via contexto pelo deploy.sh.
+        # Vazio = módulo Provas Online desabilitado (os demais fluxos seguem funcionando).
+        kb_id = self.node.try_get_context("kbId") or ""
+        kb_bucket = self.node.try_get_context("kbBucket") or ""
 
         origin_secret_param = CfnParameter(
             self, "OriginSecret", no_echo=True, min_length=16,
@@ -188,8 +189,10 @@ class ExamStack(Stack):
             "USER_POOL_ID": user_pool.user_pool_id,
             "ORIGIN_SECRET_ARN": origin_secret.secret_arn,
             # KB só é acessado pela API (geração + sugestão de estudo sob demanda).
+            # Vazio quando o módulo Provas Online não foi provisionado.
             "KB_ID": kb_id, "KB_BUCKET": kb_bucket,
-            "KB_THEMES_PREFIX": "privado/graduacao/eng-software/",
+            "KB_THEMES_PREFIX": self.node.try_get_context("kbThemesPrefix")
+            or "privado/graduacao/eng-software/",
         }
         code = lambda_.Code.from_asset("../backend")
 
@@ -202,11 +205,13 @@ class ExamStack(Stack):
         )
         # Layer com OpenCV (headless) + numpy p/ o OMR do cartão-resposta no worker.
         # Construída e publicada por scripts/build-omr-layer.sh (binários nativos grandes,
-        # fora do repo). Referenciada por ARN para não versionar ~190MB.
-        omr_layer = lambda_.LayerVersion.from_layer_version_arn(
-            self, "OmrLayer",
-            "arn:aws:lambda:us-east-1:831782568328:layer:exam-omr-opencv:1",
-        )
+        # fora do repo) e passada por contexto (-c omrLayerArn). Ausente = OMR server-side
+        # do cartão desabilitado (cv2 é importado de forma tardia); os demais fluxos seguem.
+        omr_layer_arn = self.node.try_get_context("omrLayerArn") or ""
+        worker_layers = [boto3_layer]
+        if omr_layer_arn:
+            worker_layers.append(lambda_.LayerVersion.from_layer_version_arn(
+                self, "OmrLayer", omr_layer_arn))
 
         api_fn = lambda_.Function(
             self, "ApiFn", runtime=lambda_.Runtime.PYTHON_3_12,
@@ -218,7 +223,7 @@ class ExamStack(Stack):
             self, "WorkerFn", runtime=lambda_.Runtime.PYTHON_3_12,
             handler="worker.handler.handler", code=code, timeout=Duration.minutes(10),
             memory_size=1024, reserved_concurrent_executions=worker_concurrency,
-            layers=[boto3_layer, omr_layer], environment=common_env,
+            layers=worker_layers, environment=common_env,
         )
         worker_fn.add_event_source(sources.SqsEventSource(
             queue, batch_size=1, report_batch_item_failures=True))
@@ -258,14 +263,17 @@ class ExamStack(Stack):
             resources=["*"]))
         # Provas Online: recuperar passagens da Knowledge Base (RAG). Só a API acessa o KB
         # (geração das provas + sugestão de estudo sob demanda). O worker apenas corrige.
-        kb_arn = f"arn:aws:bedrock:{self.region}:{self.account}:knowledge-base/{kb_id}"
-        api_fn.add_to_role_policy(iam.PolicyStatement(
-            actions=["bedrock:Retrieve"], resources=[kb_arn]))
-        # Download das apostilas do KB (URL pré-assinada) + listagem p/ reindexar os temas.
-        api_fn.add_to_role_policy(iam.PolicyStatement(
-            actions=["s3:GetObject"], resources=[f"arn:aws:s3:::{kb_bucket}/*"]))
-        api_fn.add_to_role_policy(iam.PolicyStatement(
-            actions=["s3:ListBucket"], resources=[f"arn:aws:s3:::{kb_bucket}"]))
+        # Concedido apenas quando o KB foi provisionado (evita ARN/recurso vazio).
+        if kb_id:
+            kb_arn = f"arn:aws:bedrock:{self.region}:{self.account}:knowledge-base/{kb_id}"
+            api_fn.add_to_role_policy(iam.PolicyStatement(
+                actions=["bedrock:Retrieve"], resources=[kb_arn]))
+        if kb_bucket:
+            # Download das apostilas do KB (URL pré-assinada) + listagem p/ reindexar os temas.
+            api_fn.add_to_role_policy(iam.PolicyStatement(
+                actions=["s3:GetObject"], resources=[f"arn:aws:s3:::{kb_bucket}/*"]))
+            api_fn.add_to_role_policy(iam.PolicyStatement(
+                actions=["s3:ListBucket"], resources=[f"arn:aws:s3:::{kb_bucket}"]))
 
         # ---------------- HTTP API + JWT authorizer ----------------
         authorizer = apigw_authz.HttpUserPoolAuthorizer(
@@ -279,33 +287,9 @@ class ExamStack(Stack):
         )
         api_domain = f"{http_api.http_api_id}.execute-api.{self.region}.amazonaws.com"
 
-        # ---------------- WAF (CLOUDFRONT scope; stack em us-east-1) ----------------
-        web_acl = wafv2.CfnWebACL(
-            self, "WebAcl", scope="CLOUDFRONT",
-            default_action=wafv2.CfnWebACL.DefaultActionProperty(allow={}),
-            visibility_config=wafv2.CfnWebACL.VisibilityConfigProperty(
-                cloud_watch_metrics_enabled=True, metric_name="examWebAcl", sampled_requests_enabled=True),
-            rules=[
-                wafv2.CfnWebACL.RuleProperty(
-                    name="Common", priority=1,
-                    statement=wafv2.CfnWebACL.StatementProperty(
-                        managed_rule_group_statement=wafv2.CfnWebACL.ManagedRuleGroupStatementProperty(
-                            vendor_name="AWS", name="AWSManagedRulesCommonRuleSet")),
-                    override_action=wafv2.CfnWebACL.OverrideActionProperty(none={}),
-                    visibility_config=wafv2.CfnWebACL.VisibilityConfigProperty(
-                        cloud_watch_metrics_enabled=True, metric_name="common", sampled_requests_enabled=True)),
-                wafv2.CfnWebACL.RuleProperty(
-                    name="RateLimit", priority=2,
-                    statement=wafv2.CfnWebACL.StatementProperty(
-                        rate_based_statement=wafv2.CfnWebACL.RateBasedStatementProperty(
-                            limit=2000, aggregate_key_type="IP")),
-                    action=wafv2.CfnWebACL.RuleActionProperty(block={}),
-                    visibility_config=wafv2.CfnWebACL.VisibilityConfigProperty(
-                        cloud_watch_metrics_enabled=True, metric_name="rate", sampled_requests_enabled=True)),
-            ],
-        )
-
         # ---------------- CloudFront ----------------
+        # Sem WAF: projeto de teste. A borda segue protegida por header secreto de origem
+        # (Secrets Manager) + JWT Cognito na API, e S3 via OAC + Block Public Access.
         security_headers = cloudfront.ResponseHeadersPolicy(
             self, "SecHeaders",
             security_headers_behavior=cloudfront.ResponseSecurityHeadersBehavior(
@@ -326,7 +310,6 @@ class ExamStack(Stack):
         distribution = cloudfront.Distribution(
             self, "Distribution",
             default_root_object="index.html",
-            web_acl_id=web_acl.attr_arn,
             default_behavior=cloudfront.BehaviorOptions(
                 origin=origins.S3BucketOrigin.with_origin_access_control(fe_bucket),
                 viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,

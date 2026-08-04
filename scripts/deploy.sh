@@ -12,9 +12,43 @@ if [[ -f .env ]]; then set -a; source .env; set +a; fi
 : "${WORKER_CONCURRENCY:=5}"
 : "${DEFAULT_MODEL_ID:=}"
 : "${MODEL_PRICING:=}"
+# Cartão-resposta (OMR server-side). BUILD_OMR_LAYER=1 constrói/publica a layer OpenCV.
+# Vazio = OMR server-side desabilitado (leitura no navegador segue funcionando).
+: "${BUILD_OMR_LAYER:=1}"
+: "${OMR_LAYER_ARN:=}"
+# Provas Online (Knowledge Base). Provisione com DEPLOY_KB=1 (acervo sintético de demo)
+# ou defina KB_ID/KB_BUCKET (KB próprio). Vazio = módulo Provas Online desabilitado.
+: "${DEPLOY_KB:=0}"
+: "${KB_ID:=}"
+: "${KB_BUCKET:=}"
+: "${BOOTSTRAP_ADMIN_EMAIL:=}"
 export AWS_REGION
 
 echo ">> Conta/identidade:"; aws sts get-caller-identity --query Arn --output text
+
+# --- Layer OpenCV do OMR (cartão-resposta server-side), independente da stack ---
+if [[ -z "$OMR_LAYER_ARN" && "$BUILD_OMR_LAYER" == "1" ]]; then
+  echo ">> Construindo/publicando a layer OMR (OpenCV)…"
+  ./scripts/build-omr-layer.sh || echo "!! build-omr-layer.sh falhou — OMR server-side ficará desabilitado."
+fi
+if [[ -z "$OMR_LAYER_ARN" && -f infra/omr-layer.json ]]; then
+  OMR_LAYER_ARN="$(python3 -c "import json;print(json.load(open('infra/omr-layer.json')).get('omrLayerArn',''))")"
+fi
+[[ -n "$OMR_LAYER_ARN" ]] && echo ">> OMR server-side habilitado." || \
+  echo ">> OMR server-side desabilitado (só leitura de cartão no navegador)."
+
+# --- Knowledge Base do módulo Provas Online (opcional) ---
+if [[ "$DEPLOY_KB" == "1" ]]; then
+  echo ">> Provisionando Knowledge Base DEMO (conteúdo sintético)…"
+  ./scripts/deploy-kb.sh
+fi
+# Herda kbId/kbBucket do provisionamento (infra/kb-config.json), salvo se já vierem do ambiente.
+if [[ -z "$KB_ID" && -f infra/kb-config.json ]]; then
+  KB_ID="$(python3 -c "import json;print(json.load(open('infra/kb-config.json')).get('kbId',''))")"
+  KB_BUCKET="$(python3 -c "import json;print(json.load(open('infra/kb-config.json')).get('kbBucket',''))")"
+fi
+[[ -n "$KB_ID" ]] && echo ">> Provas Online habilitado (kbId=${KB_ID})." || \
+  echo ">> Provas Online desabilitado (sem KB). Defina DEPLOY_KB=1 ou KB_ID/KB_BUCKET."
 
 # --- Segredo de origem (CloudFront -> API) ---
 ORIGIN_SECRET="$(python3 -c 'import secrets;print(secrets.token_urlsafe(24))')"
@@ -33,6 +67,7 @@ npx --yes aws-cdk@latest bootstrap "aws://${CDK_DEFAULT_ACCOUNT}/${AWS_REGION}" 
 npx --yes aws-cdk@latest deploy "$STACK_NAME" --app "$CDK_APP" --require-approval never \
   -c stackName="$STACK_NAME" -c workerConcurrency="$WORKER_CONCURRENCY" \
   -c defaultModelId="$DEFAULT_MODEL_ID" -c modelPricing="$MODEL_PRICING" \
+  -c kbId="$KB_ID" -c kbBucket="$KB_BUCKET" -c omrLayerArn="$OMR_LAYER_ARN" \
   --parameters "OriginSecret=${ORIGIN_SECRET}" \
   --outputs-file cdk-outputs.json
 popd >/dev/null
@@ -79,5 +114,13 @@ aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*" >/d
 echo ">> Implantando agentes no AgentCore Runtime…"
 ./scripts/deploy-agents.sh || echo "!! deploy-agents.sh falhou — rode manualmente (ver README)."
 
+# --- 1º admin (opcional, se BOOTSTRAP_ADMIN_EMAIL definido) ---
+if [[ -n "$BOOTSTRAP_ADMIN_EMAIL" ]]; then
+  echo ">> Criando 1º admin (${BOOTSTRAP_ADMIN_EMAIL})…"
+  ./scripts/create-admin-user.sh "$BOOTSTRAP_ADMIN_EMAIL" || \
+    echo "!! Falha ao criar admin — rode: ./scripts/create-admin-user.sh <email>"
+fi
+
 echo ">> Concluído. Acesse: ${APP_URL}"
-echo ">> Crie o 1º admin: ./scripts/create-admin-user.sh <email>"
+[[ -z "$BOOTSTRAP_ADMIN_EMAIL" ]] && \
+  echo ">> Crie o 1º admin: ./scripts/create-admin-user.sh <email>"

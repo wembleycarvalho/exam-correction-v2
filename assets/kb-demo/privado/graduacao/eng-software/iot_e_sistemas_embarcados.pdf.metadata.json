@@ -1,0 +1,11 @@
+{
+  "metadataAttributes": {
+    "tipo": "disciplina",
+    "modalidade": "graduacao",
+    "curso_id": "eng-software",
+    "disciplina": "IoT e Sistemas Embarcados",
+    "semestre": "8",
+    "tipo_documento": "base",
+    "is_apostila": true
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "metadataAttributes": {
+    "tipo": "disciplina",
+    "modalidade": "graduacao",
+    "curso_id": "eng-software",
+    "disciplina": "Computacao em Nuvem Avancada",
+    "semestre": "7",
+    "tipo_documento": "email",
+    "is_apostila": false
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "metadataAttributes": {
+    "tipo": "disciplina",
+    "modalidade": "graduacao",
+    "curso_id": "eng-software",
+    "disciplina": "UX/UI Design",
+    "semestre": "6",
+    "tipo_documento": "material",
+    "is_apostila": true
+  }
+}

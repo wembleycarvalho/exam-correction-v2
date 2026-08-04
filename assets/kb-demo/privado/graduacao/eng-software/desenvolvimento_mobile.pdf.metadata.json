@@ -1,0 +1,11 @@
+{
+  "metadataAttributes": {
+    "tipo": "disciplina",
+    "modalidade": "graduacao",
+    "curso_id": "eng-software",
+    "disciplina": "Desenvolvimento Mobile",
+    "semestre": "4",
+    "tipo_documento": "base",
+    "is_apostila": true
+  }
+}

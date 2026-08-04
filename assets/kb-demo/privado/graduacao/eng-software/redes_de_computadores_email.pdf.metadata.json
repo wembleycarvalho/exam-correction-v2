@@ -1,0 +1,11 @@
+{
+  "metadataAttributes": {
+    "tipo": "disciplina",
+    "modalidade": "graduacao",
+    "curso_id": "eng-software",
+    "disciplina": "Redes de Computadores",
+    "semestre": "3",
+    "tipo_documento": "email",
+    "is_apostila": false
+  }
+}

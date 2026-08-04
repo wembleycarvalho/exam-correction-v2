@@ -1,0 +1,11 @@
+{
+  "metadataAttributes": {
+    "tipo": "disciplina",
+    "modalidade": "graduacao",
+    "curso_id": "eng-software",
+    "disciplina": "Big Data",
+    "semestre": "7",
+    "tipo_documento": "material",
+    "is_apostila": true
+  }
+}

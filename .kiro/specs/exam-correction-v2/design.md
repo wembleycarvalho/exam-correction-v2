@@ -39,7 +39,7 @@ Todo conteúdo de correção e a UI são em **PT-BR**.
 
 ```mermaid
 flowchart TB
-    U[Usuário] -->|HTTPS| CF[CloudFront + WAF]
+    U[Usuário] -->|HTTPS| CF[CloudFront]
     CF -->|estático, OAC| S3FE[(S3 Frontend<br/>Block Public Access)]
     CF -->|/api/* + header secreto| API[API Gateway HTTP<br/>+ JWT authorizer Cognito]
     API --> APIFN[Lambda API router]
@@ -225,8 +225,8 @@ síncrona (é uma ação interativa de admin, não uma submissão de aluno).
 
 - **Ponto de entrada único:** CloudFront serve o FE (S3 via **OAC** + Block Public Access) e
   faz proxy de `/api/*` para a HTTP API. A API valida um **header secreto** (Secrets
-  Manager) injetado pelo CloudFront → não responde fora do CloudFront. **WAF** com regras
-  gerenciadas + rate limit.
+  Manager) injetado pelo CloudFront → não responde fora do CloudFront. **Sem WAF** neste
+  projeto de teste (em produção, adicionar WAF WebACL com regras gerenciadas + rate limit).
 - **Cognito sem self-signup** (`AllowAdminCreateUserOnly`), senha forte, MFA opcional, troca
   no 1º acesso. Grupos `admin`/`professor`; ações administrativas restritas a `admin`.
   `ownerId` vem do token (substitui o `student` fixo da v1).
@@ -243,7 +243,7 @@ síncrona (é uma ação interativa de admin, não uma submissão de aluno).
 ## Infraestrutura (R14)
 
 - **AWS CDK (Python), 1 stack** (`infra/exam_stack.py`): Cognito, S3 (FE + uploads),
-  DynamoDB, SQS + DLQ, 2 Lambdas, HTTP API + authorizer, CloudFront + WAF, Secrets Manager
+  DynamoDB, SQS + DLQ, 2 Lambdas, HTTP API + authorizer, CloudFront (sem WAF), Secrets Manager
   (header de origem), e os recursos do **AgentCore Runtime/Evaluator** (construct alpha
   `aws_bedrock_agentcore_alpha` ou custom resource quando não houver cobertura em CFN).
 - **Deploy dos agentes:** `scripts/deploy-agents.sh` usa o **AgentCore starter toolkit/CLI**
@@ -304,4 +304,4 @@ TestID/QR; métricas + analytics; seleção de modelos + A/B; frontend com menu 
 | R14 IaC | CDK 1 stack + scripts de deploy (infra + agentes) |
 | R15 Harness | Dataset + runner sobre AgentCore Evaluations (fase 2) |
 | R16 Fila/throttling | SQS + DLQ + worker com concorrência controlada |
-| R17 Segurança de borda | CloudFront + OAC + WAF + header secreto + TLS/least-privilege + Runtime só via IAM |
+| R17 Segurança de borda | CloudFront + OAC + header secreto + TLS/least-privilege + Runtime só via IAM (sem WAF neste projeto de teste) |

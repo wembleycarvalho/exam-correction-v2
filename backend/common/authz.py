@@ -1,7 +1,7 @@
 """Autorização/verificação para as Lambdas atrás do CloudFront.
 
 - verify_origin: confirma que a requisição veio do CloudFront (header secreto de origem).
-  Defense-in-depth junto do WAF. O segredo é lido do Secrets Manager em runtime e cacheado.
+  Principal barreira de borda da API. O segredo é lido do Secrets Manager em runtime e cacheado.
 - get_claims / get_owner_id / has_group / require_group: leem as claims do JWT Cognito
   já validado pelo authorizer nativo do HTTP API.
 """

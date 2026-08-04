@@ -1,0 +1,11 @@
+{
+  "metadataAttributes": {
+    "tipo": "disciplina",
+    "modalidade": "graduacao",
+    "curso_id": "eng-software",
+    "disciplina": "Inovacao Tecnologica",
+    "semestre": "8",
+    "tipo_documento": "base",
+    "is_apostila": true
+  }
+}

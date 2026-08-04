@@ -13,6 +13,10 @@ infra/layer/
 infra/.venv/
 infra/cdk.out/
 infra/cdk-outputs.json
+# KB provisioning output (kbId/kbBucket gerados por deploy-kb.sh)
+infra/kb-config.json
+# OMR layer output (ARN gerado por build-omr-layer.sh)
+infra/omr-layer.json
 # Python
 __pycache__/
 *.pyc

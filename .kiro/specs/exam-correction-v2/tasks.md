@@ -6,7 +6,7 @@ Prompts de correção, rubrica ENEM e estrutura de gabarito são portados de `Ol
 (referência). `OldVersion/` permanece intocada (R13).
 
 > Convenções: IaC em **AWS CDK** (1 stack); borda em **CloudFront único** com origem de API
-> protegida por **header secreto + WAF** (Opção A); modelos parametrizados via
+> protegida por **header secreto** (Opção A; sem WAF neste projeto de teste); modelos parametrizados via
 > `model_config` (sem hardcode), acessados por **Bedrock Converse direto**; correção
 > **assíncrona/job-based** (SQS → worker → `InvokeAgentRuntime`, **sem streaming**).
 
@@ -52,8 +52,8 @@ Prompts de correção, rubrica ENEM e estrutura de gabarito são portados de `Ol
   - Cognito (sem self-signup, grupos, senha forte); S3 FE (OAC + BPA) e uploads (SSE);
     DynamoDB (submissions/corrections/rubrics/exams/model_config/test_registry); SQS+DLQ;
     2 Lambdas (IAM mínimo; worker com permissão `bedrock-agentcore:InvokeAgentRuntime`);
-    HTTP API + authorizer + header secreto; CloudFront + WAF; Secrets Manager; recursos do
-    AgentCore Runtime/Evaluator (construct alpha ou custom resource).
+    HTTP API + authorizer + header secreto; CloudFront (sem WAF neste projeto de teste);
+    Secrets Manager; recursos do AgentCore Runtime/Evaluator (construct alpha ou custom resource).
   - _Requisitos: R11, R14.1, R14.2, R16.1, R17.1–R17.13_
 
 - [ ] 7. Deploy dos agentes no Runtime (`scripts/deploy-agents.sh`)

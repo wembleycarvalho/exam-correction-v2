@@ -338,13 +338,13 @@ de alunos.
 1. THE SYSTEM SHALL servir o frontend e as APIs públicas exclusivamente através do Amazon CloudFront (ponto de entrada único).
 2. THE SYSTEM SHALL impedir o acesso direto às origens (bucket do frontend e endpoint da API) por fora do CloudFront.
 3. THE SYSTEM SHALL usar Origin Access Control (OAC) para o bucket S3 do frontend e bloquear todo acesso público ao bucket.
-4. THE SYSTEM SHALL garantir que o endpoint da API só aceite requisições provenientes do CloudFront (ex.: validação de um segredo de origem injetado pelo CloudFront e/ou restrição por WAF/prefix list gerenciada do CloudFront).
-5. THE SYSTEM SHALL associar um AWS WAF WebACL ao CloudFront com, no mínimo, regras gerenciadas contra ameaças comuns e limitação de taxa (rate limiting).
+4. THE SYSTEM SHALL garantir que o endpoint da API só aceite requisições provenientes do CloudFront (validação de um segredo de origem injetado pelo CloudFront).
+5. (Removido neste projeto de teste) Em produção, THE SYSTEM SHOULD associar um AWS WAF WebACL ao CloudFront com, no mínimo, regras gerenciadas contra ameaças comuns e limitação de taxa (rate limiting).
 6. THE SYSTEM SHALL exigir HTTPS/TLS em todo o tráfego, redirecionando HTTP para HTTPS, com versões de TLS seguras.
 7. THE SYSTEM SHALL restringir o CORS a origens conhecidas (o domínio do CloudFront), substituindo o `AllowOrigin: "*"` da v1.
 8. THE SYSTEM SHALL manter os serviços internos (AgentCore Gateway, workers, filas, bancos) fora da internet pública, acessíveis apenas via IAM/autenticação interna, nunca diretamente pelo usuário final.
 9. THE SYSTEM SHALL cifrar dados em repouso (S3, DynamoDB, SQS) e em trânsito (TLS).
 10. THE SYSTEM SHALL aplicar privilégio mínimo de IAM por função/tool/agente (sem políticas excessivamente amplas como `AmazonBedrockFullAccess` usada na v1).
-11. THE SYSTEM SHALL registrar logs de acesso e auditoria (ex.: logs do CloudFront, WAF e CloudTrail) para rastreabilidade.
+11. THE SYSTEM SHALL registrar logs de acesso e auditoria (ex.: logs do CloudFront e CloudTrail) para rastreabilidade.
 12. THE SYSTEM SHALL manter segredos e parâmetros sensíveis em serviço apropriado (SSM Parameter Store/Secrets Manager), nunca no código ou no bundle do frontend.
 13. THE SYSTEM SHALL definir cabeçalhos de segurança de resposta no CloudFront (ex.: HSTS, X-Content-Type-Options, política de segurança de conteúdo adequada ao app).

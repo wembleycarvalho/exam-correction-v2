@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """CDK app do Exam Correction v2 (1 stack).
 
-Região fixada em us-east-1 por padrão (necessário para WAF de escopo CLOUDFRONT e melhor
-cobertura de modelos/AgentCore). Parâmetros vêm de contexto (-c) preenchido pelo deploy.sh.
+Região fixada em us-east-1 por padrão (melhor cobertura de modelos do Bedrock/AgentCore).
+Parâmetros vêm de contexto (-c) preenchido pelo deploy.sh.
 """
 import os
 
