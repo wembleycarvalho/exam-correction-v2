@@ -80,9 +80,22 @@ const GROUPS = [
   ["Analytics", [["analytics","Dados Analíticos"],["evaluation","Evaluation"]]],
 ];
 function renderNav(active){
-  el("nav").innerHTML = GROUPS.map(([g,items])=>`<div class="grp"><div class="gh">${g}</div>`+
-    items.map(([k,t])=>`<a href="#${k}" class="${k===active?'active':''}">${t}</a>`).join("")+`</div>`).join("");
+  // Menu em acordeão: grupos recolhidos; abre só o grupo do item ativo (um por vez).
+  el("nav").innerHTML = GROUPS.map(([g,items],gi)=>{
+    const open = items.some(([k])=>k===active);
+    return `<div class="grp${open?" open":""}">`+
+      `<div class="gh" onclick="toggleGrp(${gi})">${g}<span class="chev">▸</span></div>`+
+      `<div class="grp-items">`+
+      items.map(([k,t])=>`<a href="#${k}" class="${k===active?'active':''}">${t}</a>`).join("")+
+      `</div></div>`;
+  }).join("");
   const c=claims(); el("who").textContent=(c.email||"")+(isAdmin()?" · admin":" · professor");
+}
+// Abre o grupo clicado e recolhe os demais (accordion).
+function toggleGrp(gi){
+  el("nav").querySelectorAll(".grp").forEach((grp,i)=>{
+    if(i===gi) grp.classList.toggle("open"); else grp.classList.remove("open");
+  });
 }
 
 /* ---------------- Correção (assíncrona) ---------------- */
@@ -816,7 +829,7 @@ function loadOpenCV(){ return new Promise((resolve,reject)=>{
   const ready=()=>{ if(window.cv && window.cv.Mat) resolve();
     else if(window.cv){ window.cv.onRuntimeInitialized=()=>resolve(); } else reject(new Error("OpenCV não inicializou.")); };
   if(window.cv){ ready(); return; }
-  const s=document.createElement("script"); s.src="/opencv.js"; s.async=true;
+  const s=document.createElement("script"); s.src="/opencv.js?v=4.10.0"; s.async=true;
   s.onload=()=>{ if(window.cv && typeof window.cv.then==="function"){ window.cv.then(m=>{ window.cv=m; resolve(); }); } else ready(); };
   s.onerror=()=>reject(new Error("Falha ao carregar OpenCV.js (~10MB). Verifique a conexão."));
   document.head.appendChild(s); }); }

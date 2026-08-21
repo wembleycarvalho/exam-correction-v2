@@ -107,6 +107,13 @@ window.EXAM_CONFIG = {
   apiBase: "/api",
 };
 EOF
+# opencv.js (leitura de cartão no navegador) — baixado se ausente (~11MB, não versionado no
+# repo). Precisa existir localmente para o `sync --delete` não removê-lo do bucket.
+if [[ ! -f frontend/opencv.js ]]; then
+  echo ">> Baixando opencv.js (OMR no navegador)…"
+  curl -fsSL -o frontend/opencv.js "https://docs.opencv.org/4.x/opencv.js" || \
+    echo "!! Falha ao baixar opencv.js — leitura de cartão no navegador ficará indisponível."
+fi
 aws s3 sync frontend/ "s3://${FE_BUCKET}/" --exclude "*.example.js" --delete
 aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*" >/dev/null
 

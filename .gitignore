@@ -17,6 +17,9 @@ infra/cdk-outputs.json
 infra/kb-config.json
 # OMR layer output (ARN gerado por build-omr-layer.sh)
 infra/omr-layer.json
+# opencv.js (browser OMR) — baixado pelo deploy.sh (~11MB), não versionado
+frontend/opencv.js
+frontend/runtime-config.js
 # Python
 __pycache__/
 *.pyc

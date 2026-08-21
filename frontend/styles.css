@@ -4,9 +4,17 @@
     background:#0b1020; color:var(--txt); display:flex; min-height:100vh; }
   aside { width:250px; background:var(--panel); border-right:1px solid var(--line); padding:16px; }
   aside h1 { font-size:15px; margin:0 0 16px; color:#fff; }
-  .grp { margin-bottom:14px; } .grp > .gh { font-size:11px; text-transform:uppercase; letter-spacing:.5px;
-    color:#64748b; margin:0 8px 4px; }
-  nav a { display:block; padding:7px 10px; color:var(--mut); text-decoration:none; border-radius:8px; font-size:13.5px; }
+  .grp { margin-bottom:4px; }
+  .grp > .gh { font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:#64748b;
+    margin:0; padding:8px; border-radius:8px; cursor:pointer; user-select:none;
+    display:flex; align-items:center; justify-content:space-between; }
+  .grp > .gh:hover { background:#1e293b; color:#cbd5e1; }
+  .grp.open > .gh { color:#cbd5e1; }
+  .gh .chev { font-size:10px; transition:transform .15s ease; }
+  .grp.open > .gh .chev { transform:rotate(90deg); }
+  .grp-items { display:none; margin-top:2px; }
+  .grp.open > .grp-items { display:block; }
+  nav a { display:block; padding:7px 10px 7px 18px; color:var(--mut); text-decoration:none; border-radius:8px; font-size:13.5px; }
   nav a.active, nav a:hover { background:#1e293b; color:#fff; }
   main { flex:1; padding:22px 30px; max-width:1000px; }
   h2 { margin-top:0; } .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px; margin-bottom:16px; }
