@@ -1,0 +1,197 @@
+[
+  {
+    "id": "career_001",
+    "type": "Career",
+    "name": "Engenheiro de Machine Learning",
+    "area": "Inteligência Artificial",
+    "demand_level": "high",
+    "key_tools": [
+      "Python",
+      "TensorFlow",
+      "PyTorch",
+      "AWS SageMaker"
+    ]
+  },
+  {
+    "id": "career_002",
+    "type": "Career",
+    "name": "Cientista de Dados",
+    "area": "Dados",
+    "demand_level": "high",
+    "key_tools": [
+      "Python",
+      "Pandas",
+      "SQL",
+      "scikit-learn"
+    ]
+  },
+  {
+    "id": "career_003",
+    "type": "Career",
+    "name": "Engenheiro Backend",
+    "area": "Engenharia de Software",
+    "demand_level": "high",
+    "key_tools": [
+      "Java",
+      "Python",
+      "SQL",
+      "APIs REST"
+    ]
+  },
+  {
+    "id": "career_004",
+    "type": "Career",
+    "name": "Site Reliability Engineer (SRE)",
+    "area": "Infraestrutura",
+    "demand_level": "medium",
+    "key_tools": [
+      "Linux",
+      "Kubernetes",
+      "Terraform",
+      "AWS"
+    ]
+  },
+  {
+    "id": "career_005",
+    "type": "Career",
+    "name": "Product Manager de Tecnologia",
+    "area": "Produto",
+    "demand_level": "medium",
+    "key_tools": [
+      "Analytics",
+      "SQL",
+      "Roadmapping",
+      "Discovery"
+    ]
+  },
+  {
+    "id": "career_006",
+    "type": "Career",
+    "name": "Desenvolvedor Front-end",
+    "area": "Engenharia de Software",
+    "demand_level": "high",
+    "key_tools": [
+      "JavaScript",
+      "React",
+      "TypeScript",
+      "CSS"
+    ]
+  },
+  {
+    "id": "career_007",
+    "type": "Career",
+    "name": "Administrador de Banco de Dados (DBA)",
+    "area": "Dados",
+    "demand_level": "medium",
+    "key_tools": [
+      "SQL",
+      "PostgreSQL",
+      "Oracle",
+      "backup/replicação"
+    ]
+  },
+  {
+    "id": "career_008",
+    "type": "Career",
+    "name": "Analista de BI",
+    "area": "Dados",
+    "demand_level": "high",
+    "key_tools": [
+      "SQL",
+      "Power BI",
+      "ETL",
+      "Data Warehouse"
+    ]
+  },
+  {
+    "id": "career_009",
+    "type": "Career",
+    "name": "Engenheiro Mecânico",
+    "area": "Engenharia Mecânica",
+    "demand_level": "medium",
+    "key_tools": [
+      "SolidWorks",
+      "AutoCAD",
+      "MATLAB",
+      "Ansys"
+    ]
+  },
+  {
+    "id": "career_010",
+    "type": "Career",
+    "name": "Engenheiro de Produção",
+    "area": "Engenharia de Produção",
+    "demand_level": "high",
+    "key_tools": [
+      "Lean",
+      "Six Sigma",
+      "ERP",
+      "Excel/Analytics"
+    ]
+  },
+  {
+    "id": "career_011",
+    "type": "Career",
+    "name": "Projetista CAD / Engenheiro de Projetos",
+    "area": "Engenharia Mecânica",
+    "demand_level": "medium",
+    "key_tools": [
+      "SolidWorks",
+      "AutoCAD",
+      "CATIA",
+      "GD&T"
+    ]
+  },
+  {
+    "id": "career_012",
+    "type": "Career",
+    "name": "Engenheiro de Manutenção",
+    "area": "Engenharia Mecânica",
+    "demand_level": "medium",
+    "key_tools": [
+      "Manutenção Preditiva",
+      "SAP PM",
+      "Confiabilidade",
+      "Lubrificação"
+    ]
+  },
+  {
+    "id": "career_013",
+    "type": "Career",
+    "name": "Engenheiro de Energia",
+    "area": "Engenharia Mecânica",
+    "demand_level": "medium",
+    "key_tools": [
+      "Termodinâmica",
+      "HVAC",
+      "Energias Renováveis",
+      "MATLAB"
+    ]
+  },
+  {
+    "id": "career_014",
+    "type": "Career",
+    "name": "Analista de Supply Chain / Logística",
+    "area": "Engenharia de Produção",
+    "demand_level": "high",
+    "key_tools": [
+      "SAP",
+      "ERP",
+      "Excel",
+      "Power BI"
+    ]
+  },
+  {
+    "id": "career_015",
+    "type": "Career",
+    "name": "Engenheiro de Qualidade / Melhoria Contínua",
+    "area": "Engenharia de Produção",
+    "demand_level": "high",
+    "key_tools": [
+      "Six Sigma",
+      "Minitab",
+      "ISO 9001",
+      "CEP"
+    ]
+  }
+]

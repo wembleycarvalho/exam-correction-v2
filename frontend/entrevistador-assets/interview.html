@@ -1,0 +1,45 @@
+<div id="ent-root">
+  <h1>🎙️ Entrevista</h1>
+  <p class="subtitle">Escolha uma vaga e inicie a simulação (voz em tempo real).</p>
+
+  <div id="setup">
+    <div class="section-label">Escolha uma vaga:</div>
+    <div id="job-cards"></div>
+    <p class="muted" style="font-size:0.78rem;margin-top:-0.3rem">Para criar novas vagas, use o menu <b>Vagas</b>.</p>
+    <button id="start-btn">Iniciar Entrevista</button>
+  </div>
+
+  <div id="interview">
+    <div id="current-job-tag"></div>
+    <div id="avatar-container">
+      <canvas id="avatar-canvas" width="400" height="400"></canvas>
+    </div>
+    <div id="status">Conectando...</div>
+    <button id="mic-btn" aria-label="Alternar microfone">🎤</button>
+    <button id="stop-interview">Encerrar entrevista</button>
+  </div>
+
+  <div id="transcript"></div>
+
+  <div id="report-panel">
+    <h2>📋 Relatório de Avaliação</h2>
+    <div id="score-panel">
+      <div class="semaforo">
+        <div class="light" id="light-green"></div>
+        <div class="light" id="light-yellow"></div>
+        <div class="light" id="light-red"></div>
+      </div>
+      <div id="score-info">
+        <div id="score-value">—%</div>
+        <div id="score-label">Aderência à vaga</div>
+        <div class="score-bar-bg"><div class="score-bar-fill" id="score-bar"></div></div>
+      </div>
+    </div>
+    <div id="report-content"></div>
+    <div id="token-panel">
+      <div class="token-title">💰 Consumo de Tokens & Custo</div>
+      <table id="token-table"></table>
+    </div>
+    <button id="new-interview-btn">Nova Entrevista</button>
+  </div>
+</div>

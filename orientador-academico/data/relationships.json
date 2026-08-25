@@ -1,0 +1,2394 @@
+[
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_001",
+    "to": "comp_012",
+    "properties": {
+      "weight": 0.5
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_001",
+    "to": "comp_022",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_002",
+    "to": "comp_001",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_003",
+    "to": "comp_012",
+    "properties": {
+      "weight": 0.5
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_004",
+    "to": "comp_019",
+    "properties": {
+      "weight": 0.3
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_005",
+    "to": "comp_003",
+    "properties": {
+      "weight": 0.3
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_006",
+    "to": "comp_001",
+    "properties": {
+      "weight": 0.7
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_007",
+    "to": "comp_003",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_008",
+    "to": "comp_002",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_009",
+    "to": "comp_018",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_006",
+    "to": "disc_010",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_010",
+    "to": "comp_001",
+    "properties": {
+      "weight": 0.8
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_007",
+    "to": "disc_011",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_011",
+    "to": "comp_006",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_004",
+    "to": "disc_012",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_012",
+    "to": "comp_019",
+    "properties": {
+      "weight": 0.5
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_002",
+    "to": "disc_013",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_013",
+    "to": "comp_001",
+    "properties": {
+      "weight": 0.8
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_014",
+    "to": "comp_022",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_002",
+    "to": "disc_015",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_015",
+    "to": "comp_005",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_015",
+    "to": "comp_001",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_007",
+    "to": "disc_016",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_016",
+    "to": "comp_004",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_016",
+    "to": "comp_003",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_002",
+    "to": "disc_017",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_017",
+    "to": "comp_016",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_018",
+    "to": "comp_002",
+    "properties": {
+      "weight": 0.7
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_018",
+    "to": "comp_004",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_007",
+    "to": "disc_019",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_019",
+    "to": "comp_003",
+    "properties": {
+      "weight": 0.7
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_019",
+    "to": "comp_008",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_005",
+    "to": "disc_020",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_020",
+    "to": "comp_009",
+    "properties": {
+      "weight": 0.8
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_019",
+    "to": "disc_021",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_021",
+    "to": "comp_008",
+    "properties": {
+      "weight": 0.6
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_021",
+    "to": "comp_012",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_015",
+    "to": "disc_022",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_007",
+    "to": "disc_022",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_022",
+    "to": "comp_011",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_022",
+    "to": "comp_005",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_005",
+    "to": "disc_023",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_023",
+    "to": "comp_014",
+    "properties": {
+      "weight": 0.6
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_011",
+    "to": "disc_024",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_024",
+    "to": "comp_006",
+    "properties": {
+      "weight": 0.7
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_024",
+    "to": "comp_024",
+    "properties": {
+      "weight": 0.5
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_013",
+    "to": "disc_025",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_025",
+    "to": "comp_001",
+    "properties": {
+      "weight": 0.8
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_009",
+    "to": "disc_026",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_026",
+    "to": "comp_018",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_019",
+    "to": "disc_027",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_027",
+    "to": "comp_008",
+    "properties": {
+      "weight": 0.8
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_017",
+    "to": "disc_028",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_028",
+    "to": "comp_016",
+    "properties": {
+      "weight": 0.8
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_017",
+    "to": "disc_029",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_013",
+    "to": "disc_029",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_029",
+    "to": "comp_016",
+    "properties": {
+      "weight": 0.6
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_029",
+    "to": "comp_017",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_001",
+    "to": "disc_030",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_030",
+    "to": "comp_022",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_011",
+    "to": "disc_031",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_031",
+    "to": "comp_025",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_018",
+    "to": "disc_032",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_032",
+    "to": "comp_004",
+    "properties": {
+      "weight": 0.6
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_032",
+    "to": "comp_001",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_015",
+    "to": "disc_033",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_033",
+    "to": "comp_020",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_033",
+    "to": "comp_005",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_020",
+    "to": "disc_034",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_034",
+    "to": "comp_013",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_001",
+    "to": "disc_035",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_035",
+    "to": "comp_022",
+    "properties": {
+      "weight": 0.6
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_035",
+    "to": "comp_012",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_007",
+    "to": "disc_036",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_036",
+    "to": "comp_014",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_019",
+    "to": "disc_037",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_037",
+    "to": "comp_003",
+    "properties": {
+      "weight": 0.5
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_037",
+    "to": "comp_023",
+    "properties": {
+      "weight": 0.5
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_016",
+    "to": "disc_038",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_018",
+    "to": "disc_038",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_038",
+    "to": "comp_004",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_027",
+    "to": "disc_039",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_039",
+    "to": "comp_008",
+    "properties": {
+      "weight": 0.8
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_011",
+    "to": "disc_040",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_015",
+    "to": "disc_040",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_040",
+    "to": "comp_011",
+    "properties": {
+      "weight": 0.7
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_040",
+    "to": "comp_006",
+    "properties": {
+      "weight": 0.5
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_024",
+    "to": "disc_041",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_041",
+    "to": "comp_024",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_041",
+    "to": "comp_013",
+    "properties": {
+      "weight": 0.3
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_020",
+    "to": "disc_042",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_042",
+    "to": "comp_010",
+    "properties": {
+      "weight": 0.8
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_028",
+    "to": "disc_043",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_013",
+    "to": "disc_043",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_043",
+    "to": "comp_016",
+    "properties": {
+      "weight": 0.8
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_014",
+    "to": "disc_044",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_044",
+    "to": "comp_022",
+    "properties": {
+      "weight": 0.6
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_044",
+    "to": "comp_015",
+    "properties": {
+      "weight": 0.3
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_029",
+    "to": "disc_045",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_045",
+    "to": "comp_016",
+    "properties": {
+      "weight": 0.7
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_046",
+    "to": "comp_022",
+    "properties": {
+      "weight": 0.6
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_046",
+    "to": "comp_012",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_035",
+    "to": "disc_047",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_047",
+    "to": "comp_022",
+    "properties": {
+      "weight": 0.5
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_047",
+    "to": "comp_013",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_019",
+    "to": "disc_048",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_048",
+    "to": "comp_003",
+    "properties": {
+      "weight": 0.5
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_048",
+    "to": "comp_023",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_011",
+    "to": "disc_049",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_049",
+    "to": "comp_006",
+    "properties": {
+      "weight": 0.6
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_049",
+    "to": "comp_009",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_010",
+    "to": "disc_050",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_015",
+    "to": "disc_050",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_050",
+    "to": "comp_015",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_026",
+    "to": "disc_051",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_051",
+    "to": "comp_019",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_028",
+    "to": "disc_052",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_052",
+    "to": "comp_016",
+    "properties": {
+      "weight": 0.6
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_052",
+    "to": "comp_018",
+    "properties": {
+      "weight": 0.5
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_018",
+    "to": "disc_053",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_053",
+    "to": "comp_002",
+    "properties": {
+      "weight": 0.8
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_029",
+    "to": "disc_054",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_054",
+    "to": "comp_017",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_019",
+    "to": "disc_055",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_055",
+    "to": "comp_008",
+    "properties": {
+      "weight": 0.7
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_022",
+    "to": "disc_056",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_042",
+    "to": "disc_056",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_056",
+    "to": "comp_011",
+    "properties": {
+      "weight": 0.6
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_056",
+    "to": "comp_010",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_013",
+    "to": "disc_057",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_010",
+    "to": "disc_057",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_057",
+    "to": "comp_001",
+    "properties": {
+      "weight": 0.7
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_057",
+    "to": "comp_003",
+    "properties": {
+      "weight": 0.3
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_038",
+    "to": "disc_058",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_058",
+    "to": "comp_004",
+    "properties": {
+      "weight": 0.6
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_058",
+    "to": "comp_008",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_052",
+    "to": "disc_059",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_059",
+    "to": "comp_018",
+    "properties": {
+      "weight": 0.6
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_059",
+    "to": "comp_019",
+    "properties": {
+      "weight": 0.5
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_027",
+    "to": "disc_060",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_060",
+    "to": "comp_008",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_061",
+    "to": "comp_020",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_061",
+    "to": "comp_022",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_062",
+    "to": "comp_012",
+    "properties": {
+      "weight": 0.3
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_063",
+    "to": "comp_025",
+    "properties": {
+      "weight": 0.3
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_054",
+    "to": "disc_064",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_067",
+    "to": "disc_064",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_064",
+    "to": "comp_017",
+    "properties": {
+      "weight": 0.8
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_064",
+    "to": "comp_001",
+    "properties": {
+      "weight": 0.3
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_016",
+    "to": "disc_065",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_015",
+    "to": "disc_065",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_065",
+    "to": "comp_007",
+    "properties": {
+      "weight": 0.6
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_065",
+    "to": "comp_002",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_030",
+    "to": "disc_066",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_066",
+    "to": "comp_021",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_025",
+    "to": "disc_067",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_029",
+    "to": "disc_067",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_067",
+    "to": "comp_017",
+    "properties": {
+      "weight": 0.8
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_039",
+    "to": "disc_068",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_068",
+    "to": "comp_008",
+    "properties": {
+      "weight": 0.6
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_068",
+    "to": "comp_009",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_050",
+    "to": "disc_069",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_030",
+    "to": "disc_069",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_069",
+    "to": "comp_022",
+    "properties": {
+      "weight": 0.6
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_069",
+    "to": "comp_015",
+    "properties": {
+      "weight": 0.5
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_015",
+    "to": "disc_070",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_050",
+    "to": "disc_070",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_070",
+    "to": "comp_015",
+    "properties": {
+      "weight": 0.7
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_070",
+    "to": "comp_005",
+    "properties": {
+      "weight": 0.5
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_020",
+    "to": "disc_071",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_036",
+    "to": "disc_071",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_071",
+    "to": "comp_009",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_072",
+    "to": "comp_023",
+    "properties": {
+      "weight": 0.6
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_072",
+    "to": "comp_012",
+    "properties": {
+      "weight": 0.5
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_045",
+    "to": "disc_073",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_073",
+    "to": "comp_019",
+    "properties": {
+      "weight": 0.7
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_042",
+    "to": "disc_074",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_074",
+    "to": "comp_010",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_074",
+    "to": "comp_009",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_010",
+    "to": "disc_075",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_016",
+    "to": "disc_075",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_075",
+    "to": "comp_001",
+    "properties": {
+      "weight": 0.5
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_075",
+    "to": "comp_003",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_054",
+    "to": "disc_076",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_076",
+    "to": "comp_017",
+    "properties": {
+      "weight": 0.6
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_037",
+    "to": "disc_077",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_077",
+    "to": "comp_023",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_030",
+    "to": "disc_078",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_078",
+    "to": "comp_022",
+    "properties": {
+      "weight": 0.7
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_078",
+    "to": "comp_021",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_059",
+    "to": "disc_079",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_079",
+    "to": "comp_019",
+    "properties": {
+      "weight": 0.6
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_080",
+    "to": "comp_012",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_065",
+    "to": "disc_081",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_081",
+    "to": "comp_007",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_081",
+    "to": "comp_005",
+    "properties": {
+      "weight": 0.5
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_013",
+    "to": "disc_082",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_010",
+    "to": "disc_082",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_082",
+    "to": "comp_015",
+    "properties": {
+      "weight": 0.8
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_082",
+    "to": "comp_001",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_019",
+    "to": "disc_083",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_083",
+    "to": "comp_008",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_083",
+    "to": "comp_012",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_043",
+    "to": "disc_084",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_084",
+    "to": "comp_016",
+    "properties": {
+      "weight": 0.7
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_084",
+    "to": "comp_001",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_081",
+    "to": "disc_085",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_085",
+    "to": "comp_007",
+    "properties": {
+      "weight": 0.9
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_086",
+    "to": "comp_012",
+    "properties": {
+      "weight": 0.6
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_081",
+    "to": "disc_087",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_087",
+    "to": "comp_007",
+    "properties": {
+      "weight": 0.7
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_080",
+    "to": "disc_088",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_088",
+    "to": "comp_012",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "PREREQUISITE_OF",
+    "from": "disc_088",
+    "to": "disc_089",
+    "properties": {
+      "type": "mandatory"
+    }
+  },
+  {
+    "type": "DEVELOPS_COMPETENCY",
+    "from": "disc_089",
+    "to": "comp_012",
+    "properties": {
+      "weight": 0.4
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_001",
+    "to": "comp_007",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_001",
+    "to": "comp_003",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_001",
+    "to": "comp_005",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_001",
+    "to": "comp_001",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_001",
+    "to": "comp_004",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_001",
+    "to": "comp_010",
+    "properties": {
+      "importance": "nice-to-have"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_002",
+    "to": "comp_005",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_002",
+    "to": "comp_007",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_002",
+    "to": "comp_011",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_002",
+    "to": "comp_003",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_002",
+    "to": "comp_006",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_002",
+    "to": "comp_001",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_003",
+    "to": "comp_003",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_003",
+    "to": "comp_008",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_003",
+    "to": "comp_006",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_003",
+    "to": "comp_004",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_003",
+    "to": "comp_009",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_003",
+    "to": "comp_013",
+    "properties": {
+      "importance": "nice-to-have"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_004",
+    "to": "comp_010",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_004",
+    "to": "comp_014",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_004",
+    "to": "comp_009",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_004",
+    "to": "comp_003",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_004",
+    "to": "comp_013",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_004",
+    "to": "comp_008",
+    "properties": {
+      "importance": "nice-to-have"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_005",
+    "to": "comp_012",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_005",
+    "to": "comp_011",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_005",
+    "to": "comp_008",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_005",
+    "to": "comp_022",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_005",
+    "to": "comp_005",
+    "properties": {
+      "importance": "nice-to-have"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_006",
+    "to": "comp_023",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_006",
+    "to": "comp_003",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_006",
+    "to": "comp_008",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_006",
+    "to": "comp_012",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_007",
+    "to": "comp_024",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_007",
+    "to": "comp_006",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_007",
+    "to": "comp_013",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_007",
+    "to": "comp_025",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_007",
+    "to": "comp_009",
+    "properties": {
+      "importance": "nice-to-have"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_008",
+    "to": "comp_011",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_008",
+    "to": "comp_006",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_008",
+    "to": "comp_005",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_008",
+    "to": "comp_012",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_008",
+    "to": "comp_025",
+    "properties": {
+      "importance": "nice-to-have"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_009",
+    "to": "comp_016",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_009",
+    "to": "comp_017",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_009",
+    "to": "comp_018",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_009",
+    "to": "comp_001",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_009",
+    "to": "comp_019",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_009",
+    "to": "comp_015",
+    "properties": {
+      "importance": "nice-to-have"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_010",
+    "to": "comp_015",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_010",
+    "to": "comp_020",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_010",
+    "to": "comp_022",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_010",
+    "to": "comp_021",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_010",
+    "to": "comp_005",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_010",
+    "to": "comp_019",
+    "properties": {
+      "importance": "nice-to-have"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_011",
+    "to": "comp_018",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_011",
+    "to": "comp_016",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_011",
+    "to": "comp_019",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_011",
+    "to": "comp_001",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_012",
+    "to": "comp_019",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_012",
+    "to": "comp_018",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_012",
+    "to": "comp_017",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_012",
+    "to": "comp_022",
+    "properties": {
+      "importance": "nice-to-have"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_013",
+    "to": "comp_017",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_013",
+    "to": "comp_016",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_013",
+    "to": "comp_001",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_013",
+    "to": "comp_018",
+    "properties": {
+      "importance": "nice-to-have"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_014",
+    "to": "comp_021",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_014",
+    "to": "comp_022",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_014",
+    "to": "comp_015",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_014",
+    "to": "comp_005",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_014",
+    "to": "comp_019",
+    "properties": {
+      "importance": "nice-to-have"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_015",
+    "to": "comp_020",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_015",
+    "to": "comp_022",
+    "properties": {
+      "importance": "critical"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_015",
+    "to": "comp_005",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_015",
+    "to": "comp_015",
+    "properties": {
+      "importance": "important"
+    }
+  },
+  {
+    "type": "REQUIRES_COMPETENCY",
+    "from": "career_015",
+    "to": "comp_019",
+    "properties": {
+      "importance": "nice-to-have"
+    }
+  },
+  {
+    "type": "COMPLEMENTS",
+    "from": "disc_072",
+    "to": "disc_037",
+    "properties": {
+      "reason": "UX/UI potencializa o desenvolvimento web"
+    }
+  },
+  {
+    "type": "COMPLEMENTS",
+    "from": "disc_085",
+    "to": "disc_087",
+    "properties": {
+      "reason": "Deep Learning fundamenta o NLP moderno"
+    }
+  },
+  {
+    "type": "COMPLEMENTS",
+    "from": "disc_033",
+    "to": "disc_069",
+    "properties": {
+      "reason": "Qualidade e PCP andam juntos na produção"
+    }
+  },
+  {
+    "type": "COMPLEMENTS",
+    "from": "disc_066",
+    "to": "disc_069",
+    "properties": {
+      "reason": "Logística e PCP se reforçam na operação"
+    }
+  },
+  {
+    "type": "COMPLEMENTS",
+    "from": "disc_046",
+    "to": "disc_027",
+    "properties": {
+      "reason": "Gestão de projetos complementa engenharia de software"
+    }
+  },
+  {
+    "type": "COMPLEMENTS",
+    "from": "disc_012",
+    "to": "disc_051",
+    "properties": {
+      "reason": "CAD apoia o planejamento dos processos de fabricação"
+    }
+  },
+  {
+    "type": "COMPLEMENTS",
+    "from": "disc_031",
+    "to": "disc_034",
+    "properties": {
+      "reason": "Governança de dados anda junto com segurança"
+    }
+  }
+]

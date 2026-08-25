@@ -1,25 +1,40 @@
-# Produto — Exam Correction v2
+# Produto — A Arte do Possível WEB (portal de demos)
 
 ## O que é
 
-Plataforma de leitura e correção de provas, reconstruída (v2) a partir de um projeto
-original preservado em `OldVersion/` (não modificar). O núcleo é a correção assistida por
-IA de três tipos de material:
+**A Arte do Possível WEB** é um **portal de demonstrações de IA** — uma vitrine onde cada
+demo é um **capítulo** do menu lateral, sob um portal comum (auth Cognito, borda CloudFront,
+mesma UI). Não é mais "apenas" uma ferramenta de correção de provas: correção é o primeiro
+conjunto de demos, e novas demos entram como novos capítulos.
 
+> O código nasceu do projeto de correção de provas (original preservado em `OldVersion/`,
+> não modificar). O diretório/stack ainda se chama `exam-correction` por histórico, mas o
+> **produto** é o portal "A Arte do Possível WEB".
+
+### Demos atuais
+
+**Correção assistida por IA (serverless):**
 - **Redação** — correção por rubricas (padrão ENEM), com nota por critério e feedback.
 - **Prova discursiva** — correção por questão via **gabarito** ou **conhecimento do
   modelo** (a correção de material enviado não usa RAG/KB).
-- **Cartão resposta** (múltipla escolha) — reconhecimento de marcações + correção (fase 2).
-
-Além da correção de material enviado, há um módulo de **estudo**:
-
-- **Provas Online** — gera provas (múltipla escolha ou discursivas) ancoradas numa
+- **Cartão resposta** (múltipla escolha) — reconhecimento de marcações + correção.
+- **Provas Online** — módulo de estudo: gera provas (MC ou discursivas) ancoradas numa
   **Knowledge Base (RAG)**, o aluno responde no navegador, a correção é automática (MC
-  determinística; discursiva por LLM) e, nas questões erradas, sugere trechos das apostilas
-  do KB (com a página) para revisão. O projeto acompanha um **acervo sintético de
-  demonstração** (`assets/kb-demo/`, 40 disciplinas fictícias) provisionável por
-  `DEPLOY_KB=1 ./scripts/deploy.sh` — **conteúdo apenas para demonstração, sem compromisso
-  com qualidade pedagógica**; em produção, aponte para um KB próprio.
+  determinística; discursiva por LLM) e sugere trechos das apostilas do KB para revisão.
+  Acompanha um **acervo sintético de demonstração** (`assets/kb-demo/`, 40 disciplinas
+  fictícias), provisionável por `DEPLOY_KB=1 ./scripts/deploy.sh` — **conteúdo só para
+  demonstração**; em produção, aponte para um KB próprio.
+
+**Voz em tempo real:**
+- **Entrevistador Virtual** — simulador de entrevista por **voz em tempo real** com
+  **Amazon Nova Sonic** (streaming bidirecional) e relatório de avaliação de RH ao final.
+  É a primeira demo que **foge da arquitetura serverless**: exige servidor persistente
+  (FastAPI + WebSocket), rodando em **ECS Fargate** dentro da mesma stack, servido pelo
+  **mesmo CloudFront** sob `/entrevistador/*` e embutido no portal. Código em `interviewer/`.
+
+Cada nova demo deve entrar como um novo capítulo do menu, reaproveitando auth/borda comuns;
+a arquitetura de cada uma pode variar (serverless por padrão; exceções, como voz em tempo
+real, são conscientes e documentadas).
 
 ## Capacidades de apoio
 
@@ -33,6 +48,8 @@ Além da correção de material enviado, há um módulo de **estudo**:
   (shadow em produção) e on-demand/batch com A/B (fase 2).
 - **Provas Online (estudo)**: geração de questões a partir da **Knowledge Base**, aplicação
   no navegador, correção automática e sugestão de material de estudo por questão errada.
+- **Entrevistador Virtual**: entrevista por voz em tempo real (Nova Sonic) + relatório de
+  avaliação de RH (score/semáforo, competências, comportamento) ao final.
 - **Histórico** de correções com filtros e exportação.
 
 ## Idioma
@@ -55,6 +72,8 @@ Toda a interface e todo o conteúdo de correção são em **PT-BR**.
 - **Provas Online (estudo):** módulo com **Knowledge Base (RAG)** — geração de provas
   (múltipla escolha e discursivas), aplicação no navegador, correção assíncrona e sugestão
   de estudo por questão errada.
+- **Entrevistador Virtual:** demo de **voz em tempo real** (Nova Sonic) em **ECS Fargate**
+  (exceção consciente ao serverless), servida pelo mesmo CloudFront sob `/entrevistador/*`.
 
 ## O que foi descontinuado da v1
 

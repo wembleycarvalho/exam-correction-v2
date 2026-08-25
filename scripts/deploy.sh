@@ -22,6 +22,9 @@ if [[ -f .env ]]; then set -a; source .env; set +a; fi
 : "${KB_ID:=}"
 : "${KB_BUCKET:=}"
 : "${BOOTSTRAP_ADMIN_EMAIL:=}"
+# Entrevistador Virtual (serviço próprio, streaming/voz). URL embutida no capítulo do SPA.
+# Vazio = capítulo mostra placeholder "não configurado".
+: "${INTERVIEWER_URL:=}"
 export AWS_REGION
 
 echo ">> Conta/identidade:"; aws sts get-caller-identity --query Arn --output text
@@ -105,6 +108,7 @@ window.EXAM_CONFIG = {
   clientId: "${CLIENT_ID}",
   cognitoDomain: "${COG_PREFIX}",
   apiBase: "/api",
+  interviewerUrl: "${INTERVIEWER_URL}",
 };
 EOF
 # opencv.js (leitura de cartão no navegador) — baixado se ausente (~11MB, não versionado no

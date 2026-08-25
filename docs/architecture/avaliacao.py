@@ -1,11 +1,8 @@
-"""Diagrama de arquitetura — Exam Correction v2 (diagrama como código).
+"""Diagrama do módulo Avaliações (correção de provas).
 
-Cobre: borda (CloudFront), auth (Cognito), API HTTP + fila assíncrona,
-agentes Strands no AgentCore Runtime, correção (redação/prova) e leitura de cartão-resposta
-(OMR determinístico com OpenCV — no navegador e no servidor), templates, QR/ID_Exam,
-Evaluation (model-as-judge) e observabilidade.
-
-Render (da raiz do repo): python3 docs/architecture/exam-correction-v2.py
+Borda + auth, API HTTP + fila assíncrona, agentes Strands no AgentCore Runtime, OMR
+determinístico (OpenCV), Provas Online (RAG/KB), Evaluation e observabilidade.
+Render (da raiz): python3 docs/architecture/avaliacao.py
 """
 from diagrams import Diagram, Cluster, Edge
 from diagrams.aws.network import CloudFront, APIGateway
@@ -18,38 +15,38 @@ from diagrams.aws.ml import Bedrock
 from diagrams.aws.management import Cloudwatch, SystemsManagerParameterStore
 from diagrams.onprem.client import Users
 
-with Diagram("Exam Correction v2", filename="docs/architecture/exam-correction-v2",
+with Diagram("Módulo Avaliações", filename="docs/architecture/avaliacao",
              show=False, outformat="png", direction="LR",
              graph_attr={"fontsize": "18", "pad": "0.4", "splines": "spline"}):
-    users = Users("Usuário\n(professor/admin)")
+    users = Users("Professor / Admin")
 
-    with Cluster("Borda (único ponto de entrada)"):
+    with Cluster("Borda + Auth"):
         cf = CloudFront("CloudFront")
-
-    with Cluster("Auth"):
-        cognito = Cognito("Cognito\n(sem self-signup)")
+        cognito = Cognito("Cognito")
 
     with Cluster("Frontend (S3/OAC)"):
-        fe = S3("index.html + app.js\n+ styles.css")
-        opencvjs = S3("opencv.js\n(OMR + QR no navegador)")
+        fe = S3("index.html + app.js\n(+ opencv.js: OMR/QR no navegador)")
 
     with Cluster("API (HTTP + JWT + header secreto)"):
         api = APIGateway("HTTP API /api/*")
-        api_fn = Lambda("API Lambda\nsubmissões, rubricas, provas,\ntemplates, model-config,\nevaluations, analytics")
+        api_fn = Lambda("API Lambda\nsubmissões, rubricas, provas,\ntemplates, model-config,\nevaluations, analytics, online-exams")
         secret = SecretsManager("Header de origem")
 
     with Cluster("Assíncrono"):
         queue = SQS("SQS + DLQ")
-        worker = Lambda("Worker\n(conc. reservada)")
+        worker = Lambda("Worker\n(conc. reservada, idempotente)")
         omr = LambdaFunction("OpenCV layer\nOMR cartão + QR (ID_Exam)")
 
     with Cluster("Agentes (AgentCore Runtime)"):
-        runtime = Bedrock("Agentes Strands\ntranscrição/redação/prova/\nautor/answersheet/judge")
+        runtime = Bedrock("Agentes Strands\ntranscrição/redação/prova/autor/\nanswersheet/judge/examgen")
         models = Bedrock("Bedrock Converse\n(modelos parametrizados)")
 
+    with Cluster("Conhecimento (Provas Online)"):
+        kb = Bedrock("Bedrock Knowledge Base\n(RAG — S3 Vectors + Titan v2)")
+
     with Cluster("Dados"):
-        ddb = Dynamodb("DynamoDB\nsubmissions/corrections/rubrics/\nexams/model_config(+templates)/\ntest_registry")
-        uploads = S3("Uploads + referências\nde template")
+        ddb = Dynamodb("DynamoDB\nsubmissions/corrections/rubrics/\nexams/model_config/online-*")
+        uploads = S3("Uploads + referências")
 
     with Cluster("Observabilidade / Config"):
         cw = Cloudwatch("CloudWatch EMF\ntokens/custo/latência")
@@ -57,7 +54,6 @@ with Diagram("Exam Correction v2", filename="docs/architecture/exam-correction-v
 
     users >> Edge(label="HTTPS") >> cf
     cf >> Edge(label="/") >> fe
-    fe >> Edge(style="dashed", label="Ler cartão") >> opencvjs
     cf >> Edge(label="/api/* + header") >> api >> api_fn
     secret >> Edge(style="dotted") >> api_fn
     users >> Edge(label="PKCE", style="dashed") >> cognito
@@ -65,7 +61,8 @@ with Diagram("Exam Correction v2", filename="docs/architecture/exam-correction-v
     api_fn >> ddb
     api_fn >> Edge(label="presigned") >> uploads
     api_fn >> Edge(label="202") >> queue >> worker
-    api_fn >> Edge(label="judge (InvokeAgentRuntime)", style="dashed") >> runtime
+    api_fn >> Edge(label="Retrieve (RAG)", style="dashed") >> kb
+    api_fn >> Edge(label="judge/examgen (InvokeAgentRuntime)", style="dashed") >> runtime
     worker >> Edge(label="InvokeAgentRuntime (IAM)") >> runtime
     worker >> omr
     omr >> Edge(style="dotted", label="imagem + referência") >> uploads

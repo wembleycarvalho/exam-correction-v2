@@ -1,0 +1,9 @@
+.venv
+**/__pycache__
+*.pyc
+tests
+.pytest_cache
+launch.out
+status.out
+deploy_agent.py
+load_neptune.py

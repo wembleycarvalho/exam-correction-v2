@@ -1,0 +1,56 @@
+[
+  {
+    "id": "prog_es",
+    "type": "Program",
+    "name": "Engenharia de Software",
+    "code": "eng-software",
+    "kb_curso_id": "eng-software",
+    "elective_credits_required": 16,
+    "elective_credits_offered": 34
+  },
+  {
+    "id": "prog_cc",
+    "type": "Program",
+    "name": "Ciência da Computação",
+    "code": "ciencia-computacao",
+    "kb_curso_id": "",
+    "elective_credits_required": 16,
+    "elective_credits_offered": 36
+  },
+  {
+    "id": "prog_bd",
+    "type": "Program",
+    "name": "Banco de Dados",
+    "code": "banco-de-dados",
+    "kb_curso_id": "",
+    "elective_credits_required": 8,
+    "elective_credits_offered": 16
+  },
+  {
+    "id": "prog_si",
+    "type": "Program",
+    "name": "Sistemas de Informação",
+    "code": "sistemas-informacao",
+    "kb_curso_id": "",
+    "elective_credits_required": 12,
+    "elective_credits_offered": 26
+  },
+  {
+    "id": "prog_mec",
+    "type": "Program",
+    "name": "Engenharia Mecânica",
+    "code": "eng-mecanica",
+    "kb_curso_id": "",
+    "elective_credits_required": 12,
+    "elective_credits_offered": 22
+  },
+  {
+    "id": "prog_prod",
+    "type": "Program",
+    "name": "Engenharia de Produção",
+    "code": "eng-producao",
+    "kb_curso_id": "",
+    "elective_credits_required": 12,
+    "elective_credits_offered": 26
+  }
+]

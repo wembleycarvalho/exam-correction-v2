@@ -1,7 +1,8 @@
 # Arquitetura — detalhes por subsistema
 
-Complementa o `README.md`. Diagrama: [`architecture/exam-correction-v2.png`](architecture/exam-correction-v2.png)
-(fonte em `architecture/exam-correction-v2.py`).
+Complementa o `README.md` e o [`../avaliacao/README.md`](../avaliacao/README.md). Diagrama do
+módulo: [`architecture/avaliacao.png`](architecture/avaliacao.png) (fonte em
+`architecture/avaliacao.py`); diagrama macro do portal em `architecture/portal.png`.
 
 ## Visão geral do fluxo
 
@@ -35,7 +36,7 @@ Complementa o `README.md`. Diagrama: [`architecture/exam-correction-v2.png`](arc
 
 ## Cartão-resposta / OMR
 
-Mesmo algoritmo no cliente (opencv.js) e no servidor (`backend/worker/omr.py`), a partir de
+Mesmo algoritmo no cliente (opencv.js) e no servidor (`avaliacao/backend/worker/omr.py`), a partir de
 um **template**:
 
 1. **Alinhamento (opcional, recomendado):** detecta a folha e corrige perspectiva.
@@ -87,7 +88,7 @@ DynamoDB (evita o limite de 400 KB por item).
 ## Provas Online / Knowledge Base (RAG)
 
 Módulo de estudo ancorado numa **Amazon Bedrock Knowledge Base** (conteúdo já indexado).
-Helpers compartilhados em `backend/common/online_grading.py`; provas e tentativas em tabelas
+Helpers compartilhados em `avaliacao/backend/common/online_grading.py`; provas e tentativas em tabelas
 próprias (`online-exams`, `online-attempts`).
 
 - **Temas:** `GET /api/online-exams/themes` lê a lista salva; `POST` (admin) reindexa lendo

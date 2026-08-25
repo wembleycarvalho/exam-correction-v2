@@ -6,4 +6,5 @@ window.EXAM_CONFIG = {
   clientId: "xxxxxxxxxxxxxxxxxxxxxxxxxx",
   cognitoDomain: "exam-000000000000", // prefixo do domínio Hosted UI
   apiBase: "/api",
+  interviewerUrl: "", // URL do serviço Entrevistador Virtual (vazio = capítulo em placeholder)
 };

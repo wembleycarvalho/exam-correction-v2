@@ -1,0 +1,73 @@
+<div id="ent-root">
+  <h1>🎯 Avatar</h1>
+  <p class="subtitle">Escolha o avatar da entrevista, envie ou gere uma nova imagem e alinhe olhos/boca.</p>
+
+  <div id="setup">
+    <div class="section-label">Avatares</div>
+    <div id="av-gallery" class="av-gallery"></div>
+
+    <div class="section-label" style="margin-top:1.3rem">Gerar novo avatar</div>
+    <input id="av-genprompt" type="text" placeholder="Descreva o avatar a gerar (ex.: mulher, 30 anos, cabelo curto)" />
+    <div class="av-gen-row">
+      <button id="av-generate" class="icon-btn" type="button" title="Gerar imagem com IA (wizard)">✨</button>
+      <select id="av-style" title="Estilo da imagem gerada">
+        <option value="desenho">Desenho</option>
+        <option value="cartoon">Cartoon 3D</option>
+        <option value="realista">Foto realista</option>
+      </select>
+      <span id="av-status"></span>
+    </div>
+
+    <div class="divider">Ou</div>
+
+    <label class="sec-btn av-upload-btn" for="av-file">⬆️ Enviar imagem</label>
+    <input id="av-file" type="file" accept="image/png,image/jpeg" style="display:none" />
+  </div>
+
+  <div id="av-editor" style="display:none">
+    <div class="divider"></div>
+    <div class="section-label">Editando — <span id="av-editing-name">—</span></div>
+    <div class="av-rename-row">
+      <div class="av-field av-field-name">
+        <label for="av-name">Nome do avatar</label>
+        <input id="av-name" type="text" placeholder="Nome do avatar" />
+      </div>
+      <div class="av-field av-field-gender">
+        <label for="av-gender">Voz</label>
+        <select id="av-gender" title="Voz da entrevista">
+          <option value="female">Feminina</option>
+          <option value="male">Masculina</option>
+        </select>
+      </div>
+      <button id="av-rename" class="sec-btn" type="button">Salvar</button>
+      <span id="av-rename-status"></span>
+    </div>
+    <p class="muted" style="font-size:0.75rem;margin:-0.2rem 0 0.6rem">O nome e o sexo do avatar <b>padrão</b> definem quem se apresenta na entrevista e a voz (feminina/masculina).</p>
+
+    <canvas id="cal-canvas" width="400" height="400" style="border:1px solid #333;border-radius:8px;background:#111"></canvas>
+    <div class="toggle-row" style="display:flex;gap:1rem;margin-top:0.6rem;font-size:0.82rem;color:#aaa">
+      <label><input type="checkbox" id="cal-talk" checked> Simular fala</label>
+      <label><input type="checkbox" id="cal-blink" checked> Simular piscada</label>
+    </div>
+    <div id="cal-sliders">
+      <div class="cal-sec">👁️ Olho Esquerdo</div>
+      <label>X</label><input type="range" id="le-x" min="50" max="350" value="146"><span id="le-x-v"></span>
+      <label>Y</label><input type="range" id="le-y" min="50" max="350" value="192"><span id="le-y-v"></span>
+      <label>Largura</label><input type="range" id="le-w" min="10" max="60" value="16"><span id="le-w-v"></span>
+      <div class="cal-sec">👁️ Olho Direito</div>
+      <label>X</label><input type="range" id="re-x" min="50" max="350" value="253"><span id="re-x-v"></span>
+      <label>Y</label><input type="range" id="re-y" min="50" max="350" value="194"><span id="re-y-v"></span>
+      <label>Largura</label><input type="range" id="re-w" min="10" max="60" value="16"><span id="re-w-v"></span>
+      <div class="cal-sec">👄 Boca</div>
+      <label>X</label><input type="range" id="m-x" min="50" max="350" value="200"><span id="m-x-v"></span>
+      <label>Y</label><input type="range" id="m-y" min="150" max="380" value="297"><span id="m-y-v"></span>
+      <label>Largura</label><input type="range" id="m-w" min="15" max="80" value="39"><span id="m-w-v"></span>
+      <label>Abertura máx</label><input type="range" id="m-open" min="2" max="12" value="6"><span id="m-open-v"></span>
+      <label>Split Y</label><input type="range" id="m-split" min="4" max="16" value="8"><span id="m-split-v"></span>
+    </div>
+    <div style="margin-top:1rem;display:flex;gap:0.8rem;align-items:center">
+      <button id="cal-save">Salvar calibração</button>
+      <span id="cal-status" style="font-size:0.82rem;color:#ffc107"></span>
+    </div>
+  </div>
+</div>

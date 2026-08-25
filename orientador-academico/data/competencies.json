@@ -1,0 +1,177 @@
+[
+  {
+    "id": "comp_001",
+    "type": "Competency",
+    "name": "Pensamento Matemático",
+    "category": "foundational",
+    "description": "Modelar problemas com cálculo, álgebra e abstrações matemáticas."
+  },
+  {
+    "id": "comp_002",
+    "type": "Competency",
+    "name": "Raciocínio Lógico",
+    "category": "foundational",
+    "description": "Formular e avaliar argumentos formais, provas e lógica."
+  },
+  {
+    "id": "comp_003",
+    "type": "Competency",
+    "name": "Programação",
+    "category": "technical",
+    "description": "Escrever, depurar e organizar código em linguagens de propósito geral."
+  },
+  {
+    "id": "comp_004",
+    "type": "Competency",
+    "name": "Estruturas de Dados e Algoritmos",
+    "category": "technical",
+    "description": "Escolher e implementar estruturas e algoritmos eficientes."
+  },
+  {
+    "id": "comp_005",
+    "type": "Competency",
+    "name": "Estatística e Probabilidade",
+    "category": "foundational",
+    "description": "Analisar dados sob incerteza com modelos estatísticos."
+  },
+  {
+    "id": "comp_006",
+    "type": "Competency",
+    "name": "Modelagem de Dados",
+    "category": "technical",
+    "description": "Modelar, normalizar e consultar dados em bancos de dados."
+  },
+  {
+    "id": "comp_007",
+    "type": "Competency",
+    "name": "Machine Learning",
+    "category": "applied",
+    "description": "Treinar, avaliar e ajustar modelos de aprendizado de máquina."
+  },
+  {
+    "id": "comp_008",
+    "type": "Competency",
+    "name": "Engenharia de Software",
+    "category": "technical",
+    "description": "Projetar, testar e manter sistemas de software de forma sustentável."
+  },
+  {
+    "id": "comp_009",
+    "type": "Competency",
+    "name": "Redes e Sistemas Distribuídos",
+    "category": "technical",
+    "description": "Protocolos, concorrência e computação distribuída."
+  },
+  {
+    "id": "comp_010",
+    "type": "Competency",
+    "name": "Infraestrutura e Cloud",
+    "category": "applied",
+    "description": "Provisionar, operar e automatizar infraestrutura em nuvem."
+  },
+  {
+    "id": "comp_011",
+    "type": "Competency",
+    "name": "Análise de Dados",
+    "category": "applied",
+    "description": "Extrair, transformar e visualizar dados para gerar insights."
+  },
+  {
+    "id": "comp_012",
+    "type": "Competency",
+    "name": "Comunicação e Produto",
+    "category": "applied",
+    "description": "Traduzir necessidades de negócio em requisitos e comunicar resultados."
+  },
+  {
+    "id": "comp_013",
+    "type": "Competency",
+    "name": "Segurança da Informação",
+    "category": "technical",
+    "description": "Criptografia, autenticação, ameaças e defesa de sistemas."
+  },
+  {
+    "id": "comp_014",
+    "type": "Competency",
+    "name": "Sistemas Operacionais",
+    "category": "technical",
+    "description": "Processos, memória, concorrência e o kernel."
+  },
+  {
+    "id": "comp_015",
+    "type": "Competency",
+    "name": "Otimização e Pesquisa Operacional",
+    "category": "applied",
+    "description": "Formular e resolver problemas de otimização e decisão."
+  },
+  {
+    "id": "comp_016",
+    "type": "Competency",
+    "name": "Física e Mecânica",
+    "category": "foundational",
+    "description": "Leis do movimento, forças, energia e mecânica aplicada."
+  },
+  {
+    "id": "comp_017",
+    "type": "Competency",
+    "name": "Termodinâmica e Fluidos",
+    "category": "technical",
+    "description": "Calor, energia, escoamentos e fenômenos de transporte."
+  },
+  {
+    "id": "comp_018",
+    "type": "Competency",
+    "name": "Ciência dos Materiais",
+    "category": "technical",
+    "description": "Estrutura, propriedades e seleção de materiais de engenharia."
+  },
+  {
+    "id": "comp_019",
+    "type": "Competency",
+    "name": "Manufatura e Processos",
+    "category": "applied",
+    "description": "Processos de fabricação, automação e manutenção industrial."
+  },
+  {
+    "id": "comp_020",
+    "type": "Competency",
+    "name": "Gestão da Qualidade",
+    "category": "applied",
+    "description": "Controle estatístico, melhoria contínua e normas de qualidade."
+  },
+  {
+    "id": "comp_021",
+    "type": "Competency",
+    "name": "Logística e Cadeia de Suprimentos",
+    "category": "applied",
+    "description": "Planejamento de estoques, transporte e cadeia de valor."
+  },
+  {
+    "id": "comp_022",
+    "type": "Competency",
+    "name": "Gestão de Processos e Operações",
+    "category": "applied",
+    "description": "Mapear, medir e melhorar processos e operações."
+  },
+  {
+    "id": "comp_023",
+    "type": "Competency",
+    "name": "Desenvolvimento Front-end e UX",
+    "category": "technical",
+    "description": "Interfaces web, usabilidade e experiência do usuário."
+  },
+  {
+    "id": "comp_024",
+    "type": "Competency",
+    "name": "Administração de Banco de Dados",
+    "category": "technical",
+    "description": "Operar, tunar e proteger bancos de dados em produção."
+  },
+  {
+    "id": "comp_025",
+    "type": "Competency",
+    "name": "Governança e Ética de Dados",
+    "category": "applied",
+    "description": "Qualidade, privacidade, LGPD e governança de dados."
+  }
+]

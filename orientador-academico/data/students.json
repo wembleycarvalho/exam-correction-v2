@@ -1,0 +1,3121 @@
+[
+  {
+    "id": "student_001",
+    "type": "Student",
+    "name": "Júlia Santos",
+    "program": "prog_es",
+    "current_semester": 3,
+    "target_career": "career_004",
+    "email": "aluno001@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_003",
+        "grade": 7.1,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_005",
+        "grade": 8.2,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_007",
+        "grade": 9.6,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_002",
+        "grade": 7.5,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_018",
+        "grade": 9.4,
+        "semester": 2,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_016",
+        "grade": 7.2,
+        "semester": 2,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_019",
+        "grade": 7.9,
+        "semester": 2,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_008",
+      "disc_011",
+      "disc_020",
+      "disc_015",
+      "disc_024"
+    ]
+  },
+  {
+    "id": "student_002",
+    "type": "Student",
+    "name": "Queila Cardoso",
+    "program": "prog_cc",
+    "current_semester": 8,
+    "target_career": "career_001",
+    "email": "aluno002@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_008",
+        "grade": 7.9,
+        "semester": 1,
+        "year": 2021
+      },
+      {
+        "discipline": "disc_005",
+        "grade": 9.0,
+        "semester": 1,
+        "year": 2021
+      },
+      {
+        "discipline": "disc_002",
+        "grade": 6.1,
+        "semester": 1,
+        "year": 2021
+      },
+      {
+        "discipline": "disc_006",
+        "grade": 6.8,
+        "semester": 1,
+        "year": 2021
+      },
+      {
+        "discipline": "disc_018",
+        "grade": 9.7,
+        "semester": 2,
+        "year": 2021
+      },
+      {
+        "discipline": "disc_016",
+        "grade": 6.9,
+        "semester": 2,
+        "year": 2021
+      },
+      {
+        "discipline": "disc_019",
+        "grade": 9.1,
+        "semester": 2,
+        "year": 2021
+      },
+      {
+        "discipline": "disc_013",
+        "grade": 6.9,
+        "semester": 2,
+        "year": 2021
+      },
+      {
+        "discipline": "disc_023",
+        "grade": 7.0,
+        "semester": 3,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_032",
+        "grade": 6.0,
+        "semester": 3,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_011",
+        "grade": 6.0,
+        "semester": 3,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_015",
+        "grade": 6.7,
+        "semester": 3,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_036",
+        "grade": 9.0,
+        "semester": 3,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_038",
+        "grade": 6.1,
+        "semester": 4,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_020",
+        "grade": 7.6,
+        "semester": 4,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_058",
+        "grade": 9.7,
+        "semester": 5,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_065",
+        "grade": 9.5,
+        "semester": 5,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_071",
+        "grade": 7.9,
+        "semester": 5,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_081",
+        "grade": 6.5,
+        "semester": 6,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_082",
+        "grade": 9.0,
+        "semester": 6,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_042",
+        "grade": 6.9,
+        "semester": 6,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_085",
+        "grade": 7.7,
+        "semester": 7,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_087",
+        "grade": 7.8,
+        "semester": 7,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_080",
+        "grade": 7.7,
+        "semester": 7,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_088",
+        "grade": 8.5,
+        "semester": 7,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_007",
+      "disc_010",
+      "disc_053",
+      "disc_063",
+      "disc_057"
+    ]
+  },
+  {
+    "id": "student_003",
+    "type": "Student",
+    "name": "Fernanda Souza",
+    "program": "prog_bd",
+    "current_semester": 4,
+    "target_career": "career_008",
+    "email": "aluno003@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_003",
+        "grade": 7.2,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_008",
+        "grade": 8.4,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_005",
+        "grade": 6.2,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_007",
+        "grade": 7.1,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_016",
+        "grade": 8.8,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_011",
+        "grade": 7.6,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_015",
+        "grade": 9.7,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_020",
+        "grade": 9.3,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_022",
+        "grade": 7.7,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_031",
+        "grade": 9.3,
+        "semester": 3,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_024",
+      "disc_042",
+      "disc_040",
+      "disc_041",
+      "disc_049"
+    ]
+  },
+  {
+    "id": "student_004",
+    "type": "Student",
+    "name": "Sofia Silva",
+    "program": "prog_si",
+    "current_semester": 5,
+    "target_career": "career_008",
+    "email": "aluno004@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_003",
+        "grade": 7.8,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_005",
+        "grade": 7.0,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_007",
+        "grade": 6.9,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_008",
+        "grade": 8.9,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_016",
+        "grade": 8.6,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_011",
+        "grade": 6.1,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_014",
+        "grade": 9.3,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_035",
+        "grade": 9.7,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_020",
+        "grade": 7.9,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_015",
+        "grade": 8.6,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_021",
+        "grade": 7.5,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_027",
+        "grade": 9.4,
+        "semester": 4,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_037",
+        "grade": 7.7,
+        "semester": 4,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_047",
+        "grade": 9.2,
+        "semester": 4,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_024",
+        "grade": 9.4,
+        "semester": 4,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_001",
+      "disc_022",
+      "disc_031",
+      "disc_040",
+      "disc_046"
+    ]
+  },
+  {
+    "id": "student_005",
+    "type": "Student",
+    "name": "Natália Ribeiro",
+    "program": "prog_mec",
+    "current_semester": 6,
+    "target_career": "career_011",
+    "email": "aluno005@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_002",
+        "grade": 6.9,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_006",
+        "grade": 8.2,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_009",
+        "grade": 6.9,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_004",
+        "grade": 8.1,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_003",
+        "grade": 7.5,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_013",
+        "grade": 8.4,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_010",
+        "grade": 7.5,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_017",
+        "grade": 6.6,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_012",
+        "grade": 6.1,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_025",
+        "grade": 7.7,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_029",
+        "grade": 8.1,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_028",
+        "grade": 7.5,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_026",
+        "grade": 6.5,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_045",
+        "grade": 7.9,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_043",
+        "grade": 8.8,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_052",
+        "grade": 7.7,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_054",
+        "grade": 8.6,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_067",
+        "grade": 7.7,
+        "semester": 5,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_059",
+        "grade": 9.1,
+        "semester": 5,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_064",
+        "grade": 9.3,
+        "semester": 5,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_015",
+      "disc_051",
+      "disc_057",
+      "disc_062",
+      "disc_073"
+    ]
+  },
+  {
+    "id": "student_006",
+    "type": "Student",
+    "name": "Rodrigo Teixeira",
+    "program": "prog_prod",
+    "current_semester": 6,
+    "target_career": "career_015",
+    "email": "aluno006@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_002",
+        "grade": 9.7,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_006",
+        "grade": 7.3,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_009",
+        "grade": 8.6,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_013",
+        "grade": 6.1,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_017",
+        "grade": 7.5,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_014",
+        "grade": 8.1,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_028",
+        "grade": 9.2,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_004",
+        "grade": 8.7,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_026",
+        "grade": 8.6,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_030",
+        "grade": 6.9,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_033",
+        "grade": 7.4,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_050",
+        "grade": 7.6,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_051",
+        "grade": 6.1,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_044",
+        "grade": 7.5,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_066",
+        "grade": 6.3,
+        "semester": 5,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_061",
+        "grade": 7.1,
+        "semester": 5,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_070",
+        "grade": 6.8,
+        "semester": 5,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_001",
+      "disc_003",
+      "disc_015",
+      "disc_046",
+      "disc_063"
+    ]
+  },
+  {
+    "id": "student_007",
+    "type": "Student",
+    "name": "Natália Santos",
+    "program": "prog_es",
+    "current_semester": 5,
+    "target_career": "career_003",
+    "email": "aluno007@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_003",
+        "grade": 8.9,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_008",
+        "grade": 8.7,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_005",
+        "grade": 8.3,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_007",
+        "grade": 8.3,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_002",
+        "grade": 9.4,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_018",
+        "grade": 8.6,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_016",
+        "grade": 8.7,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_019",
+        "grade": 9.5,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_013",
+        "grade": 8.3,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_015",
+        "grade": 8.6,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_037",
+        "grade": 9.1,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_020",
+        "grade": 6.2,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_036",
+        "grade": 7.4,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_039",
+        "grade": 6.2,
+        "semester": 4,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_055",
+        "grade": 8.2,
+        "semester": 4,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_024",
+        "grade": 8.1,
+        "semester": 4,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_046",
+        "grade": 8.9,
+        "semester": 4,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_048",
+        "grade": 6.3,
+        "semester": 4,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_011",
+      "disc_027",
+      "disc_034",
+      "disc_042",
+      "disc_060"
+    ]
+  },
+  {
+    "id": "student_008",
+    "type": "Student",
+    "name": "Isabela Santos",
+    "program": "prog_cc",
+    "current_semester": 6,
+    "target_career": "career_001",
+    "email": "aluno008@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_008",
+        "grade": 7.3,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_005",
+        "grade": 7.1,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_007",
+        "grade": 8.3,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_006",
+        "grade": 9.0,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_018",
+        "grade": 6.1,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_016",
+        "grade": 7.9,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_019",
+        "grade": 7.6,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_013",
+        "grade": 8.3,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_010",
+        "grade": 9.2,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_023",
+        "grade": 6.4,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_015",
+        "grade": 7.8,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_038",
+        "grade": 7.3,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_053",
+        "grade": 8.5,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_027",
+        "grade": 9.2,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_058",
+        "grade": 6.7,
+        "semester": 5,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_057",
+        "grade": 9.7,
+        "semester": 5,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_065",
+        "grade": 9.4,
+        "semester": 5,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_002",
+      "disc_011",
+      "disc_020",
+      "disc_032",
+      "disc_036"
+    ]
+  },
+  {
+    "id": "student_009",
+    "type": "Student",
+    "name": "Otávio Souza",
+    "program": "prog_bd",
+    "current_semester": 6,
+    "target_career": "career_007",
+    "email": "aluno009@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_003",
+        "grade": 6.7,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_008",
+        "grade": 6.2,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_005",
+        "grade": 7.4,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_007",
+        "grade": 7.7,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_016",
+        "grade": 6.2,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_015",
+        "grade": 8.2,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_024",
+        "grade": 6.9,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_022",
+        "grade": 6.4,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_031",
+        "grade": 7.1,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_041",
+        "grade": 7.9,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_049",
+        "grade": 6.9,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_040",
+        "grade": 7.4,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_046",
+        "grade": 9.0,
+        "semester": 5,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_063",
+        "grade": 9.3,
+        "semester": 5,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_062",
+        "grade": 6.6,
+        "semester": 5,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_011",
+      "disc_020",
+      "disc_034"
+    ]
+  },
+  {
+    "id": "student_010",
+    "type": "Student",
+    "name": "Beatriz Santos",
+    "program": "prog_si",
+    "current_semester": 5,
+    "target_career": "career_006",
+    "email": "aluno010@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_003",
+        "grade": 9.5,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_005",
+        "grade": 7.8,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_007",
+        "grade": 9.4,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_016",
+        "grade": 6.3,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_011",
+        "grade": 6.3,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_019",
+        "grade": 6.9,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_035",
+        "grade": 9.6,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_020",
+        "grade": 7.2,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_015",
+        "grade": 8.0,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_021",
+        "grade": 9.8,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_027",
+        "grade": 6.2,
+        "semester": 4,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_037",
+        "grade": 7.8,
+        "semester": 4,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_047",
+        "grade": 8.8,
+        "semester": 4,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_001",
+      "disc_008",
+      "disc_014",
+      "disc_022",
+      "disc_031"
+    ]
+  },
+  {
+    "id": "student_011",
+    "type": "Student",
+    "name": "Gabriela Martins",
+    "program": "prog_mec",
+    "current_semester": 1,
+    "target_career": "career_009",
+    "email": "aluno011@faculdade.edu.br",
+    "completed": [],
+    "enrolled": [
+      "disc_004",
+      "disc_003",
+      "disc_002",
+      "disc_006",
+      "disc_009"
+    ]
+  },
+  {
+    "id": "student_012",
+    "type": "Student",
+    "name": "João Cardoso",
+    "program": "prog_prod",
+    "current_semester": 4,
+    "target_career": "career_014",
+    "email": "aluno012@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_002",
+        "grade": 7.9,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_006",
+        "grade": 6.4,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_003",
+        "grade": 7.7,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_001",
+        "grade": 9.7,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_013",
+        "grade": 9.2,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_017",
+        "grade": 9.1,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_014",
+        "grade": 6.6,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_015",
+        "grade": 7.2,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_028",
+        "grade": 9.7,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_004",
+        "grade": 7.7,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_026",
+        "grade": 6.7,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_033",
+        "grade": 8.0,
+        "semester": 3,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_009",
+      "disc_030",
+      "disc_051",
+      "disc_044",
+      "disc_046"
+    ]
+  },
+  {
+    "id": "student_013",
+    "type": "Student",
+    "name": "Felipe Silva",
+    "program": "prog_es",
+    "current_semester": 2,
+    "target_career": "career_005",
+    "email": "aluno013@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_003",
+        "grade": 7.6,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_005",
+        "grade": 8.2,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_007",
+        "grade": 8.1,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_002",
+        "grade": 8.1,
+        "semester": 1,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_008",
+      "disc_011",
+      "disc_016",
+      "disc_019",
+      "disc_020"
+    ]
+  },
+  {
+    "id": "student_014",
+    "type": "Student",
+    "name": "Ursula Gomes",
+    "program": "prog_cc",
+    "current_semester": 7,
+    "target_career": "career_003",
+    "email": "aluno014@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_008",
+        "grade": 7.6,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_005",
+        "grade": 8.8,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_007",
+        "grade": 7.3,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_002",
+        "grade": 6.3,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_006",
+        "grade": 9.5,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_018",
+        "grade": 9.1,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_016",
+        "grade": 9.0,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_019",
+        "grade": 6.6,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_013",
+        "grade": 7.2,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_010",
+        "grade": 7.6,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_023",
+        "grade": 8.5,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_032",
+        "grade": 8.5,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_011",
+        "grade": 9.6,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_036",
+        "grade": 6.6,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_038",
+        "grade": 6.7,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_053",
+        "grade": 6.9,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_020",
+        "grade": 8.0,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_027",
+        "grade": 9.0,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_058",
+        "grade": 8.5,
+        "semester": 5,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_057",
+        "grade": 6.0,
+        "semester": 5,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_065",
+        "grade": 8.8,
+        "semester": 5,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_075",
+        "grade": 7.4,
+        "semester": 6,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_081",
+        "grade": 8.8,
+        "semester": 6,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_082",
+        "grade": 6.8,
+        "semester": 6,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_015",
+      "disc_071",
+      "disc_063",
+      "disc_080",
+      "disc_088"
+    ]
+  },
+  {
+    "id": "student_015",
+    "type": "Student",
+    "name": "Júlia Moraes",
+    "program": "prog_bd",
+    "current_semester": 1,
+    "target_career": "career_007",
+    "email": "aluno015@faculdade.edu.br",
+    "completed": [],
+    "enrolled": [
+      "disc_005",
+      "disc_007",
+      "disc_003",
+      "disc_008",
+      "disc_011"
+    ]
+  },
+  {
+    "id": "student_016",
+    "type": "Student",
+    "name": "Ursula Cardoso",
+    "program": "prog_si",
+    "current_semester": 1,
+    "target_career": "career_005",
+    "email": "aluno016@faculdade.edu.br",
+    "completed": [],
+    "enrolled": [
+      "disc_005",
+      "disc_007",
+      "disc_001",
+      "disc_003",
+      "disc_011"
+    ]
+  },
+  {
+    "id": "student_017",
+    "type": "Student",
+    "name": "Ana Ribeiro",
+    "program": "prog_mec",
+    "current_semester": 3,
+    "target_career": "career_012",
+    "email": "aluno017@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_006",
+        "grade": 6.4,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_004",
+        "grade": 7.3,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_003",
+        "grade": 7.8,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_013",
+        "grade": 7.6,
+        "semester": 2,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_010",
+        "grade": 7.5,
+        "semester": 2,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_017",
+        "grade": 9.2,
+        "semester": 2,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_012",
+        "grade": 8.5,
+        "semester": 2,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_002",
+      "disc_009",
+      "disc_026",
+      "disc_028",
+      "disc_029"
+    ]
+  },
+  {
+    "id": "student_018",
+    "type": "Student",
+    "name": "Larissa Silva",
+    "program": "prog_prod",
+    "current_semester": 6,
+    "target_career": "career_010",
+    "email": "aluno018@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_006",
+        "grade": 8.3,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_003",
+        "grade": 9.3,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_001",
+        "grade": 8.5,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_013",
+        "grade": 7.3,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_017",
+        "grade": 9.6,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_014",
+        "grade": 8.5,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_015",
+        "grade": 9.1,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_028",
+        "grade": 6.9,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_026",
+        "grade": 8.2,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_030",
+        "grade": 9.3,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_033",
+        "grade": 9.3,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_050",
+        "grade": 8.4,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_052",
+        "grade": 8.4,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_051",
+        "grade": 6.3,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_044",
+        "grade": 6.9,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_066",
+        "grade": 8.6,
+        "semester": 5,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_061",
+        "grade": 7.2,
+        "semester": 5,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_070",
+        "grade": 6.9,
+        "semester": 5,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_004",
+      "disc_002",
+      "disc_046",
+      "disc_063",
+      "disc_062"
+    ]
+  },
+  {
+    "id": "student_019",
+    "type": "Student",
+    "name": "Caio Nunes",
+    "program": "prog_es",
+    "current_semester": 4,
+    "target_career": "career_001",
+    "email": "aluno019@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_003",
+        "grade": 7.5,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_008",
+        "grade": 8.3,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_005",
+        "grade": 7.4,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_007",
+        "grade": 6.0,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_002",
+        "grade": 7.7,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_018",
+        "grade": 7.7,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_016",
+        "grade": 8.3,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_019",
+        "grade": 9.2,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_011",
+        "grade": 7.1,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_013",
+        "grade": 6.0,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_015",
+        "grade": 8.9,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_027",
+        "grade": 8.3,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_037",
+        "grade": 7.8,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_036",
+        "grade": 6.1,
+        "semester": 3,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_020",
+      "disc_024",
+      "disc_039",
+      "disc_042",
+      "disc_048"
+    ]
+  },
+  {
+    "id": "student_020",
+    "type": "Student",
+    "name": "Felipe Rocha",
+    "program": "prog_cc",
+    "current_semester": 1,
+    "target_career": "career_001",
+    "email": "aluno020@faculdade.edu.br",
+    "completed": [],
+    "enrolled": [
+      "disc_005",
+      "disc_007",
+      "disc_002",
+      "disc_006",
+      "disc_008"
+    ]
+  },
+  {
+    "id": "student_021",
+    "type": "Student",
+    "name": "Paula Lima",
+    "program": "prog_bd",
+    "current_semester": 6,
+    "target_career": "career_008",
+    "email": "aluno021@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_003",
+        "grade": 9.5,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_008",
+        "grade": 7.7,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_005",
+        "grade": 7.5,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_007",
+        "grade": 6.3,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_016",
+        "grade": 7.7,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_011",
+        "grade": 7.1,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_020",
+        "grade": 7.1,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_024",
+        "grade": 7.8,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_022",
+        "grade": 8.8,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_031",
+        "grade": 6.0,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_034",
+        "grade": 9.0,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_041",
+        "grade": 8.8,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_049",
+        "grade": 9.3,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_040",
+        "grade": 8.7,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_056",
+        "grade": 6.2,
+        "semester": 5,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_046",
+        "grade": 9.6,
+        "semester": 5,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_062",
+        "grade": 9.3,
+        "semester": 5,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_063"
+    ]
+  },
+  {
+    "id": "student_022",
+    "type": "Student",
+    "name": "Natália Gomes",
+    "program": "prog_si",
+    "current_semester": 3,
+    "target_career": "career_008",
+    "email": "aluno022@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_003",
+        "grade": 8.5,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_001",
+        "grade": 6.1,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_005",
+        "grade": 7.1,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_007",
+        "grade": 6.6,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_016",
+        "grade": 6.8,
+        "semester": 2,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_014",
+        "grade": 9.7,
+        "semester": 2,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_019",
+        "grade": 7.0,
+        "semester": 2,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_011",
+      "disc_020",
+      "disc_021",
+      "disc_024",
+      "disc_027"
+    ]
+  },
+  {
+    "id": "student_023",
+    "type": "Student",
+    "name": "Hugo Costa",
+    "program": "prog_mec",
+    "current_semester": 3,
+    "target_career": "career_011",
+    "email": "aluno023@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_002",
+        "grade": 7.7,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_006",
+        "grade": 7.0,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_009",
+        "grade": 7.9,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_004",
+        "grade": 8.6,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_003",
+        "grade": 6.4,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_013",
+        "grade": 8.9,
+        "semester": 2,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_010",
+        "grade": 7.0,
+        "semester": 2,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_017",
+        "grade": 8.5,
+        "semester": 2,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_012",
+        "grade": 7.9,
+        "semester": 2,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_015",
+      "disc_026",
+      "disc_028",
+      "disc_029",
+      "disc_025"
+    ]
+  },
+  {
+    "id": "student_024",
+    "type": "Student",
+    "name": "Caio Fernandes",
+    "program": "prog_prod",
+    "current_semester": 4,
+    "target_career": "career_015",
+    "email": "aluno024@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_002",
+        "grade": 9.2,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_006",
+        "grade": 9.7,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_003",
+        "grade": 9.4,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_009",
+        "grade": 6.0,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_013",
+        "grade": 6.6,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_017",
+        "grade": 7.0,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_014",
+        "grade": 7.7,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_015",
+        "grade": 7.3,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_004",
+        "grade": 9.6,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_026",
+        "grade": 8.9,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_030",
+        "grade": 7.7,
+        "semester": 3,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_001",
+      "disc_028",
+      "disc_033",
+      "disc_051",
+      "disc_044"
+    ]
+  },
+  {
+    "id": "student_025",
+    "type": "Student",
+    "name": "Paula Pereira",
+    "program": "prog_es",
+    "current_semester": 1,
+    "target_career": "career_006",
+    "email": "aluno025@faculdade.edu.br",
+    "completed": [],
+    "enrolled": [
+      "disc_005",
+      "disc_007",
+      "disc_003",
+      "disc_002",
+      "disc_008"
+    ]
+  },
+  {
+    "id": "student_026",
+    "type": "Student",
+    "name": "Matheus Moraes",
+    "program": "prog_cc",
+    "current_semester": 1,
+    "target_career": "career_001",
+    "email": "aluno026@faculdade.edu.br",
+    "completed": [],
+    "enrolled": [
+      "disc_005",
+      "disc_007",
+      "disc_002",
+      "disc_006",
+      "disc_008"
+    ]
+  },
+  {
+    "id": "student_027",
+    "type": "Student",
+    "name": "Kleber Souza",
+    "program": "prog_bd",
+    "current_semester": 1,
+    "target_career": "career_007",
+    "email": "aluno027@faculdade.edu.br",
+    "completed": [],
+    "enrolled": [
+      "disc_005",
+      "disc_007",
+      "disc_003",
+      "disc_008",
+      "disc_011"
+    ]
+  },
+  {
+    "id": "student_028",
+    "type": "Student",
+    "name": "Bruno Teixeira",
+    "program": "prog_si",
+    "current_semester": 2,
+    "target_career": "career_008",
+    "email": "aluno028@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_003",
+        "grade": 9.5,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_001",
+        "grade": 6.5,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_005",
+        "grade": 7.6,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_007",
+        "grade": 6.9,
+        "semester": 1,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_011",
+      "disc_016",
+      "disc_019",
+      "disc_020",
+      "disc_014"
+    ]
+  },
+  {
+    "id": "student_029",
+    "type": "Student",
+    "name": "Fernanda Rocha",
+    "program": "prog_mec",
+    "current_semester": 1,
+    "target_career": "career_009",
+    "email": "aluno029@faculdade.edu.br",
+    "completed": [],
+    "enrolled": [
+      "disc_004",
+      "disc_003",
+      "disc_002",
+      "disc_006",
+      "disc_009"
+    ]
+  },
+  {
+    "id": "student_030",
+    "type": "Student",
+    "name": "Ana Almeida",
+    "program": "prog_prod",
+    "current_semester": 7,
+    "target_career": "career_010",
+    "email": "aluno030@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_002",
+        "grade": 7.3,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_006",
+        "grade": 7.7,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_003",
+        "grade": 7.0,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_001",
+        "grade": 8.0,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_013",
+        "grade": 9.0,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_017",
+        "grade": 9.0,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_014",
+        "grade": 7.9,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_015",
+        "grade": 6.7,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_028",
+        "grade": 8.8,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_030",
+        "grade": 9.7,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_033",
+        "grade": 7.7,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_050",
+        "grade": 8.4,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_051",
+        "grade": 8.2,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_044",
+        "grade": 9.6,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_069",
+        "grade": 8.0,
+        "semester": 5,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_066",
+        "grade": 7.9,
+        "semester": 5,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_061",
+        "grade": 7.0,
+        "semester": 5,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_070",
+        "grade": 8.6,
+        "semester": 5,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_078",
+        "grade": 8.5,
+        "semester": 6,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_046",
+        "grade": 6.5,
+        "semester": 6,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_079",
+        "grade": 9.5,
+        "semester": 6,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_004",
+      "disc_063",
+      "disc_062",
+      "disc_080",
+      "disc_088"
+    ]
+  },
+  {
+    "id": "student_031",
+    "type": "Student",
+    "name": "Olívia Barbosa",
+    "program": "prog_es",
+    "current_semester": 6,
+    "target_career": "career_006",
+    "email": "aluno031@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_003",
+        "grade": 8.1,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_008",
+        "grade": 8.8,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_007",
+        "grade": 6.5,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_002",
+        "grade": 9.1,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_018",
+        "grade": 8.5,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_016",
+        "grade": 6.6,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_011",
+        "grade": 6.3,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_015",
+        "grade": 6.7,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_027",
+        "grade": 8.5,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_020",
+        "grade": 8.0,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_039",
+        "grade": 8.5,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_024",
+        "grade": 7.4,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_046",
+        "grade": 8.7,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_060",
+        "grade": 9.7,
+        "semester": 5,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_068",
+        "grade": 7.1,
+        "semester": 5,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_042",
+        "grade": 9.4,
+        "semester": 5,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_005",
+      "disc_019",
+      "disc_013",
+      "disc_037",
+      "disc_048"
+    ]
+  },
+  {
+    "id": "student_032",
+    "type": "Student",
+    "name": "Felipe Pereira",
+    "program": "prog_cc",
+    "current_semester": 4,
+    "target_career": "career_003",
+    "email": "aluno032@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_008",
+        "grade": 6.2,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_005",
+        "grade": 7.1,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_007",
+        "grade": 8.0,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_002",
+        "grade": 6.6,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_006",
+        "grade": 6.4,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_018",
+        "grade": 9.6,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_016",
+        "grade": 6.0,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_019",
+        "grade": 7.7,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_010",
+        "grade": 7.3,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_023",
+        "grade": 6.2,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_032",
+        "grade": 7.6,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_011",
+        "grade": 7.7,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_015",
+        "grade": 6.1,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_036",
+        "grade": 7.5,
+        "semester": 3,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_020",
+      "disc_013",
+      "disc_027",
+      "disc_034",
+      "disc_038"
+    ]
+  },
+  {
+    "id": "student_033",
+    "type": "Student",
+    "name": "Pedro Almeida",
+    "program": "prog_bd",
+    "current_semester": 7,
+    "target_career": "career_007",
+    "email": "aluno033@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_003",
+        "grade": 6.8,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_005",
+        "grade": 8.8,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_007",
+        "grade": 7.0,
+        "semester": 1,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_016",
+        "grade": 8.3,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_011",
+        "grade": 9.3,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_015",
+        "grade": 6.9,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_020",
+        "grade": 6.4,
+        "semester": 2,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_024",
+        "grade": 6.9,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_022",
+        "grade": 8.3,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_031",
+        "grade": 7.7,
+        "semester": 3,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_041",
+        "grade": 6.8,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_049",
+        "grade": 7.5,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_042",
+        "grade": 8.1,
+        "semester": 4,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_056",
+        "grade": 7.0,
+        "semester": 5,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_046",
+        "grade": 9.8,
+        "semester": 5,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_063",
+        "grade": 8.8,
+        "semester": 5,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_062",
+        "grade": 7.4,
+        "semester": 5,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_008",
+      "disc_040"
+    ]
+  },
+  {
+    "id": "student_034",
+    "type": "Student",
+    "name": "Rafael Souza",
+    "program": "prog_si",
+    "current_semester": 8,
+    "target_career": "career_008",
+    "email": "aluno034@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_003",
+        "grade": 9.4,
+        "semester": 1,
+        "year": 2021
+      },
+      {
+        "discipline": "disc_005",
+        "grade": 8.7,
+        "semester": 1,
+        "year": 2021
+      },
+      {
+        "discipline": "disc_007",
+        "grade": 8.0,
+        "semester": 1,
+        "year": 2021
+      },
+      {
+        "discipline": "disc_011",
+        "grade": 8.6,
+        "semester": 2,
+        "year": 2021
+      },
+      {
+        "discipline": "disc_014",
+        "grade": 6.9,
+        "semester": 2,
+        "year": 2021
+      },
+      {
+        "discipline": "disc_035",
+        "grade": 6.5,
+        "semester": 3,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_015",
+        "grade": 8.9,
+        "semester": 3,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_021",
+        "grade": 6.5,
+        "semester": 3,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_027",
+        "grade": 8.1,
+        "semester": 4,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_037",
+        "grade": 6.4,
+        "semester": 4,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_047",
+        "grade": 8.0,
+        "semester": 4,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_024",
+        "grade": 8.3,
+        "semester": 4,
+        "year": 2022
+      },
+      {
+        "discipline": "disc_022",
+        "grade": 9.4,
+        "semester": 5,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_046",
+        "grade": 7.2,
+        "semester": 5,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_034",
+        "grade": 6.1,
+        "semester": 5,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_031",
+        "grade": 9.5,
+        "semester": 6,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_080",
+        "grade": 6.8,
+        "semester": 6,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_088",
+        "grade": 8.9,
+        "semester": 7,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_062",
+        "grade": 8.4,
+        "semester": 7,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_001",
+      "disc_016",
+      "disc_020",
+      "disc_040",
+      "disc_063"
+    ]
+  },
+  {
+    "id": "student_035",
+    "type": "Student",
+    "name": "Fernanda Fernandes",
+    "program": "prog_mec",
+    "current_semester": 5,
+    "target_career": "career_009",
+    "email": "aluno035@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_002",
+        "grade": 6.3,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_009",
+        "grade": 8.0,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_004",
+        "grade": 7.0,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_003",
+        "grade": 6.5,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_017",
+        "grade": 9.4,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_012",
+        "grade": 6.8,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_025",
+        "grade": 6.4,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_029",
+        "grade": 6.8,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_026",
+        "grade": 9.6,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_015",
+        "grade": 6.4,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_045",
+        "grade": 8.4,
+        "semester": 4,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_052",
+        "grade": 7.9,
+        "semester": 4,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_054",
+        "grade": 6.3,
+        "semester": 4,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_006",
+      "disc_010",
+      "disc_013",
+      "disc_028",
+      "disc_043"
+    ]
+  },
+  {
+    "id": "student_036",
+    "type": "Student",
+    "name": "Olívia Moraes",
+    "program": "prog_prod",
+    "current_semester": 4,
+    "target_career": "career_010",
+    "email": "aluno036@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_002",
+        "grade": 8.9,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_003",
+        "grade": 9.7,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_001",
+        "grade": 6.7,
+        "semester": 1,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_013",
+        "grade": 7.9,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_017",
+        "grade": 7.8,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_014",
+        "grade": 8.5,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_015",
+        "grade": 9.2,
+        "semester": 2,
+        "year": 2023
+      },
+      {
+        "discipline": "disc_004",
+        "grade": 7.7,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_026",
+        "grade": 9.5,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_030",
+        "grade": 7.7,
+        "semester": 3,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_033",
+        "grade": 8.2,
+        "semester": 3,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_006",
+      "disc_009",
+      "disc_028",
+      "disc_051",
+      "disc_044"
+    ]
+  },
+  {
+    "id": "student_037",
+    "type": "Student",
+    "name": "Otávio Moraes",
+    "program": "prog_es",
+    "current_semester": 2,
+    "target_career": "career_003",
+    "email": "aluno037@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_003",
+        "grade": 8.6,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_005",
+        "grade": 9.3,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_007",
+        "grade": 7.6,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_002",
+        "grade": 7.6,
+        "semester": 1,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_008",
+      "disc_011",
+      "disc_016",
+      "disc_019",
+      "disc_020"
+    ]
+  },
+  {
+    "id": "student_038",
+    "type": "Student",
+    "name": "Sofia Carvalho",
+    "program": "prog_cc",
+    "current_semester": 1,
+    "target_career": "career_003",
+    "email": "aluno038@faculdade.edu.br",
+    "completed": [],
+    "enrolled": [
+      "disc_005",
+      "disc_007",
+      "disc_002",
+      "disc_006",
+      "disc_008"
+    ]
+  },
+  {
+    "id": "student_039",
+    "type": "Student",
+    "name": "Rodrigo Nunes",
+    "program": "prog_bd",
+    "current_semester": 1,
+    "target_career": "career_007",
+    "email": "aluno039@faculdade.edu.br",
+    "completed": [],
+    "enrolled": [
+      "disc_005",
+      "disc_007",
+      "disc_003",
+      "disc_008",
+      "disc_011"
+    ]
+  },
+  {
+    "id": "student_040",
+    "type": "Student",
+    "name": "Rafael Araújo",
+    "program": "prog_si",
+    "current_semester": 2,
+    "target_career": "career_006",
+    "email": "aluno040@faculdade.edu.br",
+    "completed": [
+      {
+        "discipline": "disc_003",
+        "grade": 6.4,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_001",
+        "grade": 7.9,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_005",
+        "grade": 9.0,
+        "semester": 1,
+        "year": 2024
+      },
+      {
+        "discipline": "disc_007",
+        "grade": 9.5,
+        "semester": 1,
+        "year": 2024
+      }
+    ],
+    "enrolled": [
+      "disc_008",
+      "disc_011",
+      "disc_016",
+      "disc_019",
+      "disc_020"
+    ]
+  }
+]

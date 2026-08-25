@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Calibrar Avatar</title>
+<style>
+  body { background: #111; color: #eee; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 1rem; }
+  h2 { color: #8b9cf7; margin-bottom: 0.3rem; font-size: 1.2rem; }
+  .row { display: flex; gap: 1.5rem; align-items: flex-start; margin-top: 0.8rem; }
+  canvas { border: 1px solid #333; cursor: crosshair; border-radius: 8px; }
+  .label { font-size: 0.75rem; color: #888; text-align: center; margin-bottom: 0.3rem; }
+  .panel { display: flex; flex-direction: column; align-items: center; }
+  #sliders { margin-top: 1rem; display: grid; grid-template-columns: 120px 1fr 40px; gap: 0.3rem 0.8rem; align-items: center; font-size: 0.8rem; width: 100%; max-width: 500px; }
+  #sliders label { color: #aaa; text-align: right; }
+  #sliders input[type=range] { width: 100%; }
+  #sliders span { color: #8b9cf7; font-family: monospace; }
+  .section-title { grid-column: 1 / -1; color: #ffc107; font-weight: 600; margin-top: 0.5rem; font-size: 0.85rem; }
+  button { padding: 0.4rem 1rem; background: #8b9cf7; color: #111; border: none; border-radius: 6px; cursor: pointer; font-size: 0.82rem; }
+  button:hover { background: #a0b0ff; }
+  .controls { margin-top: 0.8rem; display: flex; gap: 0.5rem; }
+  #code { margin-top: 0.8rem; font-family: monospace; font-size: 0.75rem; background: #1a1a2e; padding: 0.8rem; border-radius: 8px; white-space: pre; max-width: 550px; width: 100%; }
+  .toggle-row { display: flex; gap: 1rem; margin-top: 0.5rem; font-size: 0.8rem; }
+  .toggle-row label { color: #aaa; cursor: pointer; }
+</style>
+</head>
+<body>
+<h2>🎯 Calibração do Avatar</h2>
+
+<div class="row">
+  <div class="panel">
+    <div class="label">Preview ao vivo</div>
+    <canvas id="preview" width="400" height="400"></canvas>
+  </div>
+</div>
+
+<div class="toggle-row">
+  <label><input type="checkbox" id="chk-talk" checked> Simular fala</label>
+  <label><input type="checkbox" id="chk-blink" checked> Simular piscada</label>
+</div>
+
+<div id="sliders">
+  <div class="section-title">👁️ Olho Esquerdo</div>
+  <label>X</label><input type="range" id="le-x" min="50" max="350" value="150"><span id="le-x-v">150</span>
+  <label>Y</label><input type="range" id="le-y" min="50" max="350" value="190"><span id="le-y-v">190</span>
+  <label>Largura</label><input type="range" id="le-w" min="10" max="60" value="40"><span id="le-w-v">40</span>
+
+  <div class="section-title">👁️ Olho Direito</div>
+  <label>X</label><input type="range" id="re-x" min="50" max="350" value="250"><span id="re-x-v">250</span>
+  <label>Y</label><input type="range" id="re-y" min="50" max="350" value="191"><span id="re-y-v">191</span>
+  <label>Largura</label><input type="range" id="re-w" min="10" max="60" value="40"><span id="re-w-v">40</span>
+
+  <div class="section-title">👄 Boca</div>
+  <label>X</label><input type="range" id="m-x" min="50" max="350" value="200"><span id="m-x-v">200</span>
+  <label>Y</label><input type="range" id="m-y" min="150" max="380" value="297"><span id="m-y-v">297</span>
+  <label>Largura</label><input type="range" id="m-w" min="15" max="80" value="55"><span id="m-w-v">55</span>
+  <label>Abertura max</label><input type="range" id="m-open" min="2" max="12" value="6"><span id="m-open-v">6</span>
+  <label>Split Y</label><input type="range" id="m-split" min="4" max="16" value="8"><span id="m-split-v">8</span>
+</div>
+
+<div class="controls">
+  <button id="btn-copy">📋 Copiar código</button>
+</div>
+<div id="code"></div>
+
+<script>
+const canvas = document.getElementById("preview");
+const ctx = canvas.getContext("2d");
+const img = new Image();
+img.src = "/static/carolina_photo.jpg";
+
+// Slider refs
+const sliders = {};
+const ids = ["le-x","le-y","le-w","re-x","re-y","re-w","m-x","m-y","m-w","m-open","m-split"];
+ids.forEach(id => {
+  const el = document.getElementById(id);
+  const vEl = document.getElementById(id + "-v");
+  sliders[id] = { el, vEl };
+  el.addEventListener("input", () => { vEl.textContent = el.value; updateCode(); });
+});
+
+const chkTalk = document.getElementById("chk-talk");
+const chkBlink = document.getElementById("chk-blink");
+const codeEl = document.getElementById("code");
+
+function getFace() {
+  const v = (id) => parseInt(sliders[id].el.value);
+  return {
+    leftEye:  { x: v("le-x"), y: v("le-y"), w: v("le-w"), h: Math.round(v("le-w") * 0.4) },
+    rightEye: { x: v("re-x"), y: v("re-y"), w: v("re-w"), h: Math.round(v("re-w") * 0.4) },
+    mouth:    { x: v("m-x"), y: v("m-y"), w: v("m-w"), h: Math.round(v("m-w") * 0.2) },
+    mouthOpenMax: v("m-open"),
+    mouthSplitH: v("m-split"),
+  };
+}
+
+function updateCode() {
+  const f = getFace();
+  codeEl.textContent = `let FACE = {
+  leftEye:  { x: ${f.leftEye.x}, y: ${f.leftEye.y}, w: ${f.leftEye.w}, h: ${f.leftEye.h} },
+  rightEye: { x: ${f.rightEye.x}, y: ${f.rightEye.y}, w: ${f.rightEye.w}, h: ${f.rightEye.h} },
+  mouth:    { x: ${f.mouth.x}, y: ${f.mouth.y}, w: ${f.mouth.w}, h: ${f.mouth.h} },
+};`;
+}
+updateCode();
+
+// ---- Render loop ----
+let photoLoaded = false;
+img.onload = () => { photoLoaded = true; };
+
+function render() {
+  requestAnimationFrame(render);
+  if (!photoLoaded) return;
+
+  const face = getFace();
+  const t = Date.now();
+
+  // Mouth animation
+  let mouthOpen = 0;
+  if (chkTalk.checked) {
+    mouthOpen = 0.3 + Math.sin(t / 120) * 0.3 + Math.sin(t / 80) * 0.2;
+    mouthOpen = Math.max(0, Math.min(1, mouthOpen));
+  }
+
+  // Blink
+  let blinkProgress = 0;
+  if (chkBlink.checked) {
+    const cycle = t % 3500;
+    if (cycle > 3200) {
+      const p = (cycle - 3200) / 300;
+      blinkProgress = p < 0.5 ? p * 2 : 2 - p * 2; // 0->1->0
+    }
+  }
+
+  // Draw photo
+  ctx.drawImage(img, 0, 0, 400, 400);
+
+  // Draw guide markers
+  ctx.globalAlpha = 0.4;
+  for (const eye of [face.leftEye, face.rightEye]) {
+    ctx.strokeStyle = "#6ec6ff"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.ellipse(eye.x, eye.y, eye.w, eye.h, 0, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.strokeStyle = "#f44"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.ellipse(face.mouth.x, face.mouth.y, face.mouth.w, face.mouth.h + 4, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = "#ffc107"; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(face.mouth.x - face.mouth.w, face.mouth.y); ctx.lineTo(face.mouth.x + face.mouth.w, face.mouth.y); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+
+  // Blink — eyelid curtain technique
+  if (blinkProgress > 0.02) {
+    // Get photo pixels for lid building
+    const tmpC = document.createElement("canvas");
+    tmpC.width = 400; tmpC.height = 400;
+    const tmpCtx = tmpC.getContext("2d");
+    tmpCtx.drawImage(img, 0, 0, 400, 400);
+
+    for (const eye of [face.leftEye, face.rightEye]) {
+      const lidW = eye.w * 2 + 8, lidH = eye.h * 2 + 4;
+      const lidCanvas = document.createElement("canvas");
+      lidCanvas.width = lidW; lidCanvas.height = lidH;
+      const lc = lidCanvas.getContext("2d");
+      const srcX = eye.x - lidW / 2;
+      const srcY = eye.y - lidH - eye.h * 0.3;
+      lc.drawImage(tmpC, srcX, srcY, lidW, lidH, 0, 0, lidW, lidH);
+      lc.globalCompositeOperation = "destination-in";
+      const fg = lc.createLinearGradient(0, 0, lidW, 0);
+      fg.addColorStop(0, "rgba(0,0,0,0)"); fg.addColorStop(0.15, "rgba(0,0,0,1)");
+      fg.addColorStop(0.85, "rgba(0,0,0,1)"); fg.addColorStop(1, "rgba(0,0,0,0)");
+      lc.fillStyle = fg; lc.fillRect(0, 0, lidW, lidH);
+      lc.globalCompositeOperation = "source-over";
+
+      const eyeTop = eye.y - eye.h;
+      const eyeHeight = eye.h * 2;
+      const yOffset = blinkProgress * eyeHeight;
+      const drawY = eyeTop - lidH + yOffset;
+
+      ctx.save();
+      ctx.beginPath(); ctx.ellipse(eye.x, eye.y, eye.w + 2, eye.h + 2, 0, 0, Math.PI * 2); ctx.clip();
+      ctx.drawImage(lidCanvas, eye.x - lidW / 2, drawY);
+      if (blinkProgress > 0.1) {
+        const lineY = eyeTop + yOffset;
+        ctx.strokeStyle = `rgba(100,70,50,${0.3 * blinkProgress})`;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(eye.x - eye.w * 0.8, lineY);
+        ctx.quadraticCurveTo(eye.x, lineY + 1.5, eye.x + eye.w * 0.8, lineY);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
+  // Mouth
+  if (mouthOpen > 0.03) {
+    const m = face.mouth;
+    const gap = mouthOpen * face.mouthOpenMax;
+    const halfH = face.mouthSplitH;
+
+    // Cavity
+    ctx.fillStyle = "#1A0808";
+    ctx.beginPath(); ctx.ellipse(m.x, m.y, m.w * 0.55, gap * 0.5 + 0.5, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Teeth
+    if (gap > 1.5) {
+      ctx.fillStyle = "rgba(248,244,238,0.5)";
+      ctx.beginPath(); ctx.ellipse(m.x, m.y - gap * 0.15, m.w * 0.38, Math.min(2.5, gap * 0.25), 0, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Shift upper lip
+    const srcX = m.x - m.w - 5, srcW = m.w * 2 + 10;
+    ctx.drawImage(img,
+      (srcX/400)*img.naturalWidth, ((m.y - halfH)/400)*img.naturalHeight,
+      (srcW/400)*img.naturalWidth, (halfH/400)*img.naturalHeight,
+      srcX, m.y - halfH - gap * 0.4, srcW, halfH
+    );
+    // Shift lower lip
+    ctx.drawImage(img,
+      (srcX/400)*img.naturalWidth, (m.y/400)*img.naturalHeight,
+      (srcW/400)*img.naturalWidth, ((halfH+4)/400)*img.naturalHeight,
+      srcX, m.y + gap * 0.4, srcW, halfH + 4
+    );
+  }
+}
+render();
+
+document.getElementById("btn-copy").addEventListener("click", () => {
+  navigator.clipboard.writeText(codeEl.textContent);
+  document.getElementById("btn-copy").textContent = "✅ Copiado!";
+  setTimeout(() => { document.getElementById("btn-copy").textContent = "📋 Copiar código"; }, 2000);
+});
+</script>
+</body>
+</html>

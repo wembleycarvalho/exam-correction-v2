@@ -12,7 +12,7 @@ from decimal import Decimal
 
 import boto3
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "avaliacao", "backend"))
 from common.rubric_seed import ENEM_RUBRIC  # noqa: E402
 from common.model_config import CAPABILITIES  # noqa: E402
 from common.metrics import price_for  # noqa: E402

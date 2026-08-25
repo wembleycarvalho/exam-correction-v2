@@ -13,10 +13,10 @@ export AWS_REGION
 
 BUILD="$(mktemp -d)"
 echo ">> Empacotando agentes em ${BUILD}"
-cp agents/entrypoint.py agents/prompts.py agents/specialists.py agents/requirements.txt "$BUILD/"
+cp avaliacao/agents/entrypoint.py avaliacao/agents/prompts.py avaliacao/agents/specialists.py avaliacao/agents/requirements.txt "$BUILD/"
 # 'common' é usado pelos agentes (extract_json). Copiado para dentro do pacote CodeZip.
 mkdir -p "$BUILD/common"
-cp backend/common/__init__.py backend/common/json_utils.py "$BUILD/common/"
+cp avaliacao/backend/common/__init__.py avaliacao/backend/common/json_utils.py "$BUILD/common/"
 
 pushd "$BUILD" >/dev/null
 # Configura o agente (cria role de execução; instrumentação OTel habilitada por padrão).

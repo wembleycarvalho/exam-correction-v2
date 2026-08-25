@@ -1,5 +1,10 @@
-# Stack e Decisões Técnicas — Exam Correction v2
+# Stack e Decisões Técnicas — A Arte do Possível WEB (portal de demos)
 
+> Produto: **A Arte do Possível WEB**, um **portal de demos de IA** (cada demo = um capítulo
+> do menu). O diretório/stack ainda se chama `exam-correction` por histórico. As demos de
+> correção são serverless; demos que exigem outra arquitetura (ex.: **Entrevistador Virtual**,
+> voz em tempo real → Fargate) são **exceções conscientes e documentadas**, na mesma stack.
+>
 > Princípio-guia: **simplicidade → serverless → segurança → custo**. A infra anterior
 > (SAM com 7 nested stacks, React/MUI, 8 Lambdas) foi descartada por complexidade
 > desnecessária e preservada em `OldVersion-sam/` apenas como referência.
@@ -11,9 +16,13 @@
   disponível; o que ainda não tiver cobertura em CloudFormation entra via **custom
   resource** ou via **AgentCore CLI/starter toolkit** no fluxo de deploy.
 - **Compute:** **2 Lambdas** (Python 3.12):
-  - `backend/api/handler.py` — **router único** de toda a API HTTP (submissions + admin).
-  - `backend/worker/handler.py` — **worker SQS** fininho: faz a ponte `SQS → InvokeAgentRuntime`,
+  - `avaliacao/backend/api/handler.py` — **router único** de toda a API HTTP (submissions + admin).
+  - `avaliacao/backend/worker/handler.py` — **worker SQS** fininho: faz a ponte `SQS → InvokeAgentRuntime`,
     persiste a correção, atualiza status e emite métricas. Não contém a lógica do agente.
+  - **Exceção (Entrevistador Virtual):** serviço persistente **FastAPI + WebSocket** em
+    **ECS Fargate** (código em `interviewer/`), para voz em tempo real (Nova Sonic, streaming
+    bidirecional). Na mesma stack CDK, servido pelo mesmo CloudFront sob `/entrevistador/*`.
+    Voz em tempo real não cabe no modelo Lambda/job-based — daí a exceção deliberada.
 - **Agentes:** **Strands Agents** rodando no **Amazon Bedrock AgentCore Runtime**
   (deploy **CodeZip**, sem Docker local). Especialistas: `transcription`, `essay`,
   `exam`, `author`, `judge`, `examgen` (geração de Provas Online) e `answersheet`.
@@ -94,18 +103,23 @@ infra/
   app.py                 # CDK app
   exam_stack.py          # stack única (Cognito, S3, DynamoDB, SQS+DLQ, 2 Lambdas, HTTP API, CloudFront, AgentCore Runtime/Evaluator)
   cdk.json, requirements.txt
-backend/
-  common/                # lógica compartilhada (gabarito, rubrica ENEM, metrics, http, json_utils, authz, model_config)
-  api/                   # router único + rotas (submissions + admin)
-  worker/                # worker SQS (ponte SQS → InvokeAgentRuntime)
-agents/                  # agentes Strands (deploy no AgentCore Runtime via CodeZip)
+avaliacao/               # módulo Avaliações (provas: discursiva, redação, objetiva, online)
+  backend/
+    common/              # lógica compartilhada (gabarito, rubrica ENEM, metrics, http, json_utils, authz, model_config)
+    api/                 # router único + rotas (submissions + admin)
+    worker/              # worker SQS (ponte SQS → InvokeAgentRuntime) + omr.py
+  agents/                # agentes Strands (deploy no AgentCore Runtime via CodeZip)
+  tests/                 # pytest do módulo (+ pytest.ini)
+lms/                     # módulo LMS de Vídeo (lms/tests/)
+interviewer/             # módulo Entrevistador Virtual (FastAPI + WebSocket, Fargate) (interviewer/tests/)
+orientador-academico/    # módulo Orientador Acadêmico (Neptune + AgentCore) (tests/, venv próprio)
 tools/                   # Lambdas expostas como tools (read_test_id; read_answer_sheet fase 2)
 frontend/
   index.html             # SPA única (vanilla) + Cognito Hosted UI (PKCE)
 assets/kb-demo/          # acervo SINTÉTICO do KB (Provas Online) — só para demonstração
 scripts/
-  deploy.sh, deploy-agents.sh, deploy-kb.sh, build-omr-layer.sh, create-admin-user.sh
-tests/                   # pytest
+  deploy.sh, deploy-agents.sh, deploy-kb.sh, build-omr-layer.sh, create-admin-user.sh,
+  test-all.sh (regressão por módulo), smoke-test.sh (e2e ao vivo)
 OldVersion/              # v1 original (NUNCA modificar)
 OldVersion-sam/          # tentativa SAM/React descartada (referência, não usar)
 .kiro/specs/exam-correction-v2/
@@ -120,7 +134,8 @@ OldVersion-sam/          # tentativa SAM/React descartada (referência, não usa
   `./scripts/deploy-kb.sh` avulso (acervo sintético + S3 Vectors + ingestion; grava
   `infra/kb-config.json`). Produção: `KB_ID`/`KB_BUCKET` de um KB próprio.
 - Deploy dos agentes no Runtime: `./scripts/deploy-agents.sh` (AgentCore starter toolkit / CLI, CodeZip — **sem Docker**).
-- Testes: `pytest -q`
+- Testes: por módulo (`cd avaliacao && pytest -q`; `cd lms && pytest -q`; orientador usa venv próprio).
+  Regressão de todos os módulos: `./scripts/test-all.sh`. E2e ao vivo: `./scripts/smoke-test.sh`.
 - Long-running (dev server/watch): **não** rodar via terminal bloqueante — instruir o usuário.
 
 ## Regras de execução

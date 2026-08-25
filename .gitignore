@@ -39,3 +39,27 @@ frontend/public/runtime-config.js
 # Test / tooling caches
 .pytest_cache/
 .DS_Store
+
+# Entrevistador Virtual (serviço próprio) — segredos e artefatos de runtime
+interviewer/.env
+interviewer/records/
+interviewer/.venv/
+interviewer/**/__pycache__/
+
+# LMS demo — vídeos gerados/baixados (mantém o gerador, ignora as mídias)
+assets/lms-demo/videos/
+assets/lms-demo/public/
+assets/lms-demo/chapters_cache.json
+assets/lms-demo/images/
+assets/lms-demo/audio/
+
+# CDK context cache (VPC lookup: account/VPC/subnets) — gerado por conta/ambiente
+infra/cdk.context.json
+# AgentCore starter toolkit — config/artefatos com account/role/ECR (gerados por deploy)
+**/.bedrock_agentcore.yaml
+**/.bedrock_agentcore/
+**/launch.out
+**/status.out
+# Credenciais AWS locais que não devem ir para o repo
+.aws/
+credentials

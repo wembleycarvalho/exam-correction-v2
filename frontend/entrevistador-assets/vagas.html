@@ -1,0 +1,17 @@
+<div id="ent-root">
+  <h1>🗂️ Vagas</h1>
+  <p class="subtitle">Crie e gerencie vagas — elas aparecem em <b>Entrevista</b>.</p>
+  <div id="setup">
+    <div class="section-label">Nova vaga</div>
+    <input id="v-title" type="text" placeholder="Título (ex.: Desenvolvedor Python Sênior)" />
+    <textarea id="v-desc" placeholder="Descrição da vaga — ou digite só o cargo e clique em ✨ para gerar a descrição completa com IA (wizard)."></textarea>
+    <div class="v-actions">
+      <button id="v-save">Salvar vaga</button>
+      <button id="v-generate" class="icon-btn" type="button" title="Gerar descrição completa com IA (wizard)">✨</button>
+      <button id="v-cancel" class="sec-btn" type="button" style="display:none">Cancelar</button>
+      <span id="v-genstatus"></span>
+    </div>
+    <div class="section-label" style="margin-top:1.2rem">Vagas criadas</div>
+    <div id="v-list"></div>
+  </div>
+</div>

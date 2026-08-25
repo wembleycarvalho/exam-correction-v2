@@ -24,10 +24,21 @@ from aws_cdk import (
 )
 from constructs import Construct
 
+from modules.entrevistador import EntrevistadorModule
+from modules.lms import LmsModule
+from modules.orientador import OrientadorModule
+
 
 class ExamStack(Stack):
     def __init__(self, scope: Construct, cid: str, **kwargs) -> None:
         super().__init__(scope, cid, **kwargs)
+
+        # Portal "A Arte do Possível WEB" — módulos selecionáveis via `-c modules=...`.
+        # Fase atual: `correcao` (monolítico, ainda acoplado) + `entrevistador` (módulo próprio).
+        # O desacoplamento das demos de correção em módulos vem numa fase seguinte.
+        modules = {m.strip() for m in
+                   (self.node.try_get_context("modules") or "correcao,entrevistador").split(",")
+                   if m.strip()}
 
         worker_concurrency = int(self.node.try_get_context("workerConcurrency") or 5)
         default_model = self.node.try_get_context("defaultModelId") or ""
@@ -194,7 +205,7 @@ class ExamStack(Stack):
             "KB_THEMES_PREFIX": self.node.try_get_context("kbThemesPrefix")
             or "privado/graduacao/eng-software/",
         }
-        code = lambda_.Code.from_asset("../backend")
+        code = lambda_.Code.from_asset("../avaliacao/backend")
 
         # Layer com boto3 recente (o boto3 do runtime Lambda pode não conhecer
         # o serviço `bedrock-agentcore` — necessário para InvokeAgentRuntime).
@@ -297,7 +308,9 @@ class ExamStack(Stack):
                     access_control_max_age=Duration.days(365), include_subdomains=True, override=True),
                 content_type_options=cloudfront.ResponseHeadersContentTypeOptions(override=True),
                 frame_options=cloudfront.ResponseHeadersFrameOptions(
-                    frame_option=cloudfront.HeadersFrameOption.DENY, override=True),
+                    # SAMEORIGIN (não DENY): o capítulo Entrevistador embute /entrevistador/
+                    # via iframe de MESMA origem; DENY bloquearia qualquer enquadramento.
+                    frame_option=cloudfront.HeadersFrameOption.SAMEORIGIN, override=True),
                 referrer_policy=cloudfront.ResponseHeadersReferrerPolicy(
                     referrer_policy=cloudfront.HeadersReferrerPolicy.SAME_ORIGIN, override=True),
             ),
@@ -329,6 +342,78 @@ class ExamStack(Stack):
             error_responses=[cloudfront.ErrorResponse(
                 http_status=403, response_http_status=200, response_page_path="/index.html")],
         )
+
+        # ---------------- Módulo: Entrevistador Virtual (Fargate) ----------------
+        # Serviço próprio de voz em tempo real, servido pelo MESMO CloudFront sob
+        # /entrevistador/*. ALB protegido pelo header secreto (só aceita tráfego do CloudFront).
+        if "entrevistador" in modules:
+            entrevistador = EntrevistadorModule(
+                self, "Entrevistador",
+                origin_verify_secret=origin_secret_param.value_as_string,
+            )
+            distribution.add_behavior(
+                "/entrevistador/*",
+                origins.LoadBalancerV2Origin(
+                    entrevistador.alb,
+                    custom_headers={"x-origin-verify": origin_secret_param.value_as_string},
+                    protocol_policy=cloudfront.OriginProtocolPolicy.HTTP_ONLY,
+                ),
+                viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                allowed_methods=cloudfront.AllowedMethods.ALLOW_ALL,
+                cache_policy=cloudfront.CachePolicy.CACHING_DISABLED,
+                origin_request_policy=cloudfront.OriginRequestPolicy.ALL_VIEWER,
+                response_headers_policy=security_headers,
+            )
+            CfnOutput(self, "EntrevistadorAlbDns", value=entrevistador.alb.load_balancer_dns_name)
+
+        # ---------------- Módulo: Orientador Acadêmico (Neptune + AgentCore) ----------------
+        # Desacoplado do módulo de correção: HTTP API própria (bridge Lambda) servida pelo
+        # mesmo CloudFront sob /orientador/* e protegida pelo mesmo Cognito.
+        if "orientador" in modules:
+            orientador = OrientadorModule(
+                self, "Orientador", stack_name=self.stack_name,
+                user_pool=user_pool, user_pool_client=client, boto3_layer=boto3_layer,
+                model_id=self.node.try_get_context("orientadorModelId") or "amazon.nova-pro-v1:0",
+            )
+            distribution.add_behavior(
+                "/orientador/*",
+                origins.HttpOrigin(orientador.api_domain,
+                                   protocol_policy=cloudfront.OriginProtocolPolicy.HTTPS_ONLY),
+                viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                allowed_methods=cloudfront.AllowedMethods.ALLOW_ALL,
+                cache_policy=cloudfront.CachePolicy.CACHING_DISABLED,
+                origin_request_policy=cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+                response_headers_policy=security_headers,
+            )
+
+        # ---------------- Módulo: LMS de Vídeo (Marengo + S3 Vectors) ----------------
+        # Busca multimodal em vídeo. API sob /lms/* (HTTP API + JWT) e mídia sob /lms/media/*
+        # (S3 privado via OAC). O índice S3 Vectors é criado fora do CDK (deploy-lms.sh).
+        if "lms" in modules:
+            lms = LmsModule(
+                self, "Lms", stack_name=self.stack_name,
+                user_pool=user_pool, user_pool_client=client, boto3_layer=boto3_layer,
+                vector_bucket=self.node.try_get_context("lmsVectorBucket") or "",
+                marengo_model_id=self.node.try_get_context("lmsMarengoModelId")
+                or "twelvelabs.marengo-embed-3-0-v1:0",
+            )
+            distribution.add_behavior(
+                "/lms/media/*",
+                origins.S3BucketOrigin.with_origin_access_control(lms.media_bucket),
+                viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                cache_policy=cloudfront.CachePolicy.CACHING_OPTIMIZED,
+                response_headers_policy=security_headers,
+            )
+            distribution.add_behavior(
+                "/lms/*",
+                origins.HttpOrigin(lms.api_domain,
+                                   protocol_policy=cloudfront.OriginProtocolPolicy.HTTPS_ONLY),
+                viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                allowed_methods=cloudfront.AllowedMethods.ALLOW_ALL,
+                cache_policy=cloudfront.CachePolicy.CACHING_DISABLED,
+                origin_request_policy=cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+                response_headers_policy=security_headers,
+            )
 
         # ---------------- Outputs ----------------
         CfnOutput(self, "DistributionDomain", value=distribution.distribution_domain_name)

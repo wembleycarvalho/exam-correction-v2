@@ -71,31 +71,63 @@ async function submitCorrection(type, file, options){
 }
 
 /* ---------------- Menu ---------------- */
-const GROUPS = [
-  ["Prova Discursiva", [["ex-corrige","Correção"],["ex-criar","Criação"],["ex-hist","Histórico"]]],
-  ["Redação", [["red-rubrica","Rubricas"],["red-corrige","Correção"],["red-hist","Histórico"]]],
-  ["Prova Objetiva", [["cartao-load","Carregar cartão"],["cartao-read","Ler cartão (OpenCV)"],["cartao-tpl","Templates"],["cartao-hist","Histórico"]]],
-  ["Provas Online", [["po-criar","Provas"],["po-teste","Teste de prova"],["po-hist","Histórico"]]],
-  ["Configuração", [["modelos","Modelos"]]],
-  ["Analytics", [["analytics","Dados Analíticos"],["evaluation","Evaluation"]]],
+// Árvore do menu: um nó é [chave, rótulo] (folha, navega) OU [nome, filhos] (grupo).
+// "Avaliações" agrupa as provas + Configuração + Evaluation; os demais módulos ficam no topo.
+const MENU = [
+  ["Avaliações", [
+    ["Prova Discursiva", [["ex-corrige","Correção"],["ex-criar","Criação"],["ex-hist","Histórico"]]],
+    ["Redação", [["red-rubrica","Rubricas"],["red-corrige","Correção"],["red-hist","Histórico"]]],
+    ["Prova Objetiva", [["cartao-load","Carregar cartão"],["cartao-read","Ler cartão (OpenCV)"],["cartao-tpl","Templates"],["cartao-hist","Histórico"]]],
+    ["Provas Online", [["po-criar","Provas"],["po-teste","Teste de prova"],["po-hist","Histórico"]]],
+    ["Configuração", [["modelos","Modelos"]]],
+    ["Evaluation", [["evaluation","Model-as-judge"]]],
+  ]],
+  ["LMS de Vídeo", [["lms-busca","Busca em Vídeo"],["lms-catalogo","Catálogo"],["lms-qualidade","Qualidade"]]],
+  ["Entrevistador Virtual", [["ent-entrevista","Entrevista"],["ent-vagas","Vagas"],["ent-avatar","Avatar"],["ent-relatorio","Histórico"]]],
+  ["Orientador Acadêmico", [["ori-alunos","Alunos"],["ori-cursos","Cursos"],["ori-carreiras","Carreiras"],["ori-chat","Chat"],["ori-trilha","Trilha"],["ori-grafo","Grafo"],["ori-insights","Insights"],["ori-curriculo","Currículo"],["ori-competencias","Competências"],["ori-coord","Coordenação"]]],
+  ["Atendimento", [["atend-chat","Chat"]]],
+  ["Analytics", [["analytics","Dados Analíticos"]]],
 ];
+// Grupos de topo que ficam SEMPRE por último (separados por uma linha).
+const TRAILING_GROUPS = ["Analytics"];
+
+// Um nó é grupo quando seu 2º elemento é lista (filhos); senão é folha [chave, rótulo].
+function _isGroup(node){ return Array.isArray(node[1]); }
+function _menuHasKey(children, active){
+  return children.some(n => _isGroup(n) ? _menuHasKey(n[1], active) : n[0] === active);
+}
+function _renderNode(node, active, depth){
+  if(!_isGroup(node)){
+    const [k,t] = node;
+    return `<a href="#${k}" class="${k===active?'active':''}">${t}</a>`;
+  }
+  const [name, children] = node;
+  const open = _menuHasKey(children, active);
+  const sub = depth > 0 ? " sub" : "";
+  return `<div class="grp${sub}${open?" open":""}">`+
+    `<div class="gh" onclick="toggleGrp(this)">${name}<span class="chev">▸</span></div>`+
+    `<div class="grp-items">`+
+    children.map(c => _renderNode(c, active, depth+1)).join("")+
+    `</div></div>`;
+}
 function renderNav(active){
-  // Menu em acordeão: grupos recolhidos; abre só o grupo do item ativo (um por vez).
-  el("nav").innerHTML = GROUPS.map(([g,items],gi)=>{
-    const open = items.some(([k])=>k===active);
-    return `<div class="grp${open?" open":""}">`+
-      `<div class="gh" onclick="toggleGrp(${gi})">${g}<span class="chev">▸</span></div>`+
-      `<div class="grp-items">`+
-      items.map(([k,t])=>`<a href="#${k}" class="${k===active?'active':''}">${t}</a>`).join("")+
-      `</div></div>`;
-  }).join("");
+  // Acordeão: abre o caminho até o item ativo (guarda-chuva + subgrupo).
+  const normal = MENU.filter(([g]) => !TRAILING_GROUPS.includes(g));
+  const trailing = TRAILING_GROUPS.map(n => MENU.find(([g]) => g === n)).filter(Boolean);
+  el("nav").innerHTML =
+    normal.map(g => _renderNode(g, active, 0)).join("") +
+    (trailing.length ? `<div class="nav-sep"></div>` : "") +
+    trailing.map(g => _renderNode(g, active, 0)).join("");
   const c=claims(); el("who").textContent=(c.email||"")+(isAdmin()?" · admin":" · professor");
 }
-// Abre o grupo clicado e recolhe os demais (accordion).
-function toggleGrp(gi){
-  el("nav").querySelectorAll(".grp").forEach((grp,i)=>{
-    if(i===gi) grp.classList.toggle("open"); else grp.classList.remove("open");
+// Abre/fecha o grupo clicado; recolhe os irmãos do MESMO nível (accordion).
+function toggleGrp(gh){
+  const grp = gh.parentElement, container = grp.parentElement;
+  const willOpen = !grp.classList.contains("open");
+  Array.from(container.children).forEach(ch => {
+    if(ch !== grp && ch.classList && ch.classList.contains("grp")) ch.classList.remove("open");
   });
+  grp.classList.toggle("open", willOpen);
 }
 
 /* ---------------- Correção (assíncrona) ---------------- */
@@ -1516,6 +1548,1222 @@ function onlineResultDetail(att){
   return (att.results||[]).map(q=> disc?_discResultCard(q, aid):_mcResultCard(q, aid)).join("");
 }
 
+/* ---------------- Entrevistador Virtual (4 submenus, nativo) ---------------- */
+// UI servida do S3 (parte do portal); o Fargate atende só WebSocket/API. Cada submenu
+// injeta seu fragmento + carrega scripts + chama a init correspondente.
+const _EA = "/entrevistador-assets";
+function _loadEntScript(src){
+  return new Promise((res,rej)=>{
+    if(document.querySelector(`script[data-ent="${src}"]`)) return res();
+    const s=document.createElement("script"); s.src=src; s.dataset.ent=src;
+    s.onload=()=>res(); s.onerror=()=>rej(new Error("Falha ao carregar "+src));
+    document.head.appendChild(s);
+  });
+}
+function _entCss(){
+  if(!document.getElementById("ent-css")){
+    const l=document.createElement("link"); l.id="ent-css"; l.rel="stylesheet"; l.href=`${_EA}/interview.css`;
+    document.head.appendChild(l);
+  }
+}
+async function _entRender(fragment, scripts, initFn){
+  _entCss();
+  h(`<div class="card muted">Carregando…</div>`);
+  try{
+    const html = await (await fetch(`${_EA}/${fragment}`)).text();
+    el("view").innerHTML = html;
+    for(const s of scripts) await _loadEntScript(`${_EA}/${s}`);
+    if(initFn){ if(typeof window[initFn]==="function") window[initFn](); else throw new Error(initFn+" indisponível"); }
+  }catch(e){ h(`<h2>Entrevistador Virtual</h2><div class="card danger">Falha ao carregar: ${esc(e.message)}</div>`); }
+}
+function viewEntEntrevista(){ return _entRender("interview.html", ["avatar.js","app.js"], "initInterviewer"); }
+function viewEntVagas(){ return _entRender("vagas.html", ["ent-modules.js"], "initVagas"); }
+function viewEntAvatar(){ return _entRender("avatar.html", ["avatar.js","ent-modules.js"], "initAvatar"); }
+function viewEntRelatorio(){ return _entRender("relatorio.html", ["ent-modules.js"], "initRelatorio"); }
+
+/* ---------------- Atendimento (Amazon Connect) ----------------
+   O embed em iframe é bloqueado pela CSP (frame-ancestors) da instância my.connect.aws,
+   mesmo com o domínio nos Approved Origins. Por isso abrimos o painel do Connect em janela
+   dedicada (voz + WhatsApp + chat + tasks funcionam 100% lá). */
+const CONNECT_INSTANCE_URL = "https://connect-demo-ps.my.connect.aws";
+const CONNECT_WORKSPACE_URL = CONNECT_INSTANCE_URL + "/agent-app-v2/";
+
+function viewAtendimentoChat(){
+  h(`<div class="hdr"><h2>Atendimento — Chat</h2></div>
+     <div class="card">
+       <p>O painel de atendimento do <b>Amazon Connect</b> (voz, WhatsApp, chat e tasks) abre em uma janela dedicada.</p>
+       <p class="muted">No 1º acesso, faça login no Connect e permita o microfone para atender chamadas de voz.</p>
+       <div class="row" style="margin-top:1rem">
+         <button onclick="window.open('${CONNECT_WORKSPACE_URL}','connectWorkspace','width=1280,height=880')">Abrir painel de atendimento ↗</button>
+       </div>
+     </div>`);
+}
+
+/* ---------------- Orientador Acadêmico (Neptune + AgentCore, via /orientador/api) ---------------- */
+const ORI = "/orientador/api";
+let _oriBoot = null;
+
+async function oriApi(path, opts = {}, _retried) {
+  const r = await fetch(ORI + path, { ...opts, headers: {
+    "Content-Type": "application/json", "Authorization": "Bearer " + ID_TOKEN, ...(opts.headers || {}) } });
+  if (r.status === 401 && !_retried) {
+    // Mesmo comportamento do api(): token expirado -> renova em silêncio e repete; senão, login.
+    if (await refreshToken()) return oriApi(path, opts, true);
+    login(); throw new Error("Sessão expirada. Redirecionando para o login…");
+  }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+  return data;
+}
+
+async function oriBoot() {
+  if (!_oriBoot) _oriBoot = await oriApi("/bootstrap");
+  return _oriBoot.result || _oriBoot;
+}
+
+function _oriStudentSelect(boot, id, withCoord) {
+  const pName = {}; (boot.programs || []).forEach(p => { pName[p.id] = p.name; });
+  const byProg = {};
+  (boot.students || []).forEach(s => { (byProg[s.program] = byProg[s.program] || []).push(s); });
+  const groups = Object.keys(byProg)
+    .sort((a, b) => (pName[a] || a).localeCompare(pName[b] || b))
+    .map(pid => {
+      const opts = byProg[pid].slice()
+        .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+        .map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join("");
+      return `<optgroup label="${esc(pName[pid] || pid)}">${opts}</optgroup>`;
+    }).join("");
+  // Modo coordenação (só no chat): pergunta sobre TODOS os alunos/cursos.
+  const coord = withCoord
+    ? `<optgroup label="Coordenação"><option value="__coord__">👤 Coordenador do curso (todos os alunos)</option></optgroup>`
+    : "";
+  return `<select id="${id}">${coord}${groups}</select>`;
+}
+
+// Markdown leve e SEGURO p/ respostas do Orientador: escapa o HTML primeiro e só então
+// converte um subconjunto (negrito, código, títulos #, listas - / 1.). Nada de HTML cru.
+function _oriMd(raw) {
+  const inline = s => esc(s)
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/`([^`]+?)`/g, "<code>$1</code>");
+  let html = "", ul = false, ol = false;
+  const closeLists = () => { if (ul) { html += "</ul>"; ul = false; } if (ol) { html += "</ol>"; ol = false; } };
+  for (const line of String(raw || "").split(/\r?\n/)) {
+    const t = line.trim();
+    if (!t) { closeLists(); continue; }
+    let m;
+    if ((m = t.match(/^#{1,6}\s+(.*)$/))) { closeLists(); html += `<div class="ori-md-h">${inline(m[1])}</div>`; }
+    else if ((m = t.match(/^[-•*]\s+(.*)$/))) { if (ol) { html += "</ol>"; ol = false; } if (!ul) { html += "<ul class='ori-md-list'>"; ul = true; } html += `<li>${inline(m[1])}</li>`; }
+    else if ((m = t.match(/^\d+\.\s+(.*)$/))) { if (ul) { html += "</ul>"; ul = false; } if (!ol) { html += "<ol class='ori-md-list'>"; ol = true; } html += `<li>${inline(m[1])}</li>`; }
+    else { closeLists(); html += `<div>${inline(t)}</div>`; }
+  }
+  closeLists();
+  return html;
+}
+
+async function viewOrientadorChat() {
+  h(`<div class="hdr"><h2>Orientador Acadêmico — Chat</h2></div><div class="card muted">Carregando…</div>`);
+  let boot;
+  try { boot = await oriBoot(); } catch (e) { return h(`<div class="card danger">${esc(e.message)}</div>`); }
+  h(`<div class="hdr"><h2>Orientador Acadêmico — Chat</h2></div>
+     <div class="card">
+       <div class="row"><label>Consultar:</label> ${_oriStudentSelect(boot, "ori-student", true)}</div>
+       <div id="ori-chat" class="ori-chat"></div>
+       <div class="ori-ask">
+         <input id="ori-q" type="text" placeholder="Ex.: quero trabalhar com IA, o que curso agora?" />
+         <button id="ori-send">Perguntar</button>
+       </div>
+       <div class="ori-chips" id="ori-chips"></div>
+     </div>`);
+  const chat = el("ori-chat"), input = el("ori-q");
+  let history = [];  // memória da conversa: [{role:'user'|'assistant', content}]
+  const CHIPS_ALUNO = ["Quero trabalhar com IA, o que curso agora?", "Posso pular Estrutura de Dados?",
+    "Diferença entre Cientista de Dados e Engenheiro de Machine Learning?",
+    "O que Cálculo I tem a ver com Machine Learning?"];
+  const CHIPS_COORD = ["Quais alunos estão no curso de Banco de Dados?",
+    "Quais alunos já cursaram Estrutura de Dados?",
+    "Há alunos de cursos diferentes desenvolvendo a competência de Machine Learning?",
+    "Quantos alunos há por curso?"];
+  function add(role, text) {
+    const d = document.createElement("div");
+    d.className = "ori-msg ori-" + role;
+    // Usuário: texto puro; bot: markdown leve (negrito, títulos, listas) bem formatado.
+    d.innerHTML = role === "user"
+      ? "🧑 " + esc(text).replace(/\n/g, "<br>")
+      : `<div class="ori-md">${_oriMd(text)}</div>`;
+    chat.appendChild(d); chat.scrollTop = chat.scrollHeight;
+  }
+  const isCoord = () => el("ori-student").value === "__coord__";
+  // Renderiza os chips de exemplo conforme o modo (aluno x coordenação) e religa o clique.
+  function renderChips() {
+    const box = el("ori-chips"); if (!box) return;
+    box.innerHTML = (isCoord() ? CHIPS_COORD : CHIPS_ALUNO)
+      .map(q => `<span class="ori-chip">${esc(q)}</span>`).join("");
+    box.querySelectorAll(".ori-chip").forEach(c =>
+      c.addEventListener("click", () => { input.value = c.textContent; send(); }));
+  }
+  // Trocar de aluno/modo reinicia a conversa (memória é por seleção).
+  el("ori-student").addEventListener("change", () => { history = []; chat.innerHTML = ""; renderChips(); });
+  async function send() {
+    const q = (input.value || "").trim(); if (!q) return;
+    const coord = isCoord();
+    add("user", q); input.value = "";
+    const wait = document.createElement("div"); wait.className = "ori-msg ori-bot muted"; wait.textContent = "🎓 pensando…";
+    chat.appendChild(wait);
+    try {
+      const body = coord ? { mode: "coordinator", question: q, history }
+                         : { student_id: el("ori-student").value, question: q, history };
+      const d = await oriApi("/ask", { method: "POST", body: JSON.stringify(body) });
+      const answer = d.answer || d.error || "(sem resposta)";
+      wait.remove(); add("bot", answer);
+      history.push({ role: "user", content: q }, { role: "assistant", content: answer });
+      if (history.length > 16) history = history.slice(-16);
+    } catch (e) { wait.remove(); add("bot", "Erro: " + e.message); }
+  }
+  el("ori-send").addEventListener("click", send);
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+  renderChips();
+}
+
+async function viewOrientadorTrilha() {
+  h(`<div class="hdr"><h2>Orientador Acadêmico — Trilha</h2></div><div class="card muted">Carregando…</div>`);
+  let boot;
+  try { boot = await oriBoot(); } catch (e) { return h(`<div class="card danger">${esc(e.message)}</div>`); }
+  const careers = (boot.careers || []).map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("");
+  h(`<div class="hdr"><h2>Orientador Acadêmico — Trilha</h2></div>
+     <div class="card">
+       <div class="row"><label>Aluno:</label> ${_oriStudentSelect(boot, "ori-student")}</div>
+       <div class="row"><label>Carreira-alvo:</label>
+         <select id="ori-career"><option value="">(usar a do aluno)</option>${careers}</select>
+         <button id="ori-gen">Gerar trilha</button></div>
+       <div id="ori-plan"></div>
+     </div>`);
+  async function gen() {
+    const sid = el("ori-student").value, cid = el("ori-career").value || null;
+    const out = el("ori-plan"); out.innerHTML = `<div class="muted">Calculando…</div>`;
+    try {
+      const [rec, prog] = await Promise.all([
+        oriApi("/recommend", { method: "POST", body: JSON.stringify({ student_id: sid, career_id: cid }) }),
+        oriApi("/progress", { method: "POST", body: JSON.stringify({ student_id: sid }) }),
+      ]);
+      const r = rec.result || {}, p = prog.result || {};
+      const reqMap = {}; (r.recommended_order || []).forEach(d => { reqMap[d.id] = d.requirement; });
+      const badge = id => reqMap[id] === "elective"
+        ? '<span class="ori-pill ori-pend">eletiva</span>' : '<span class="ori-pill ori-ok">obrigatória</span>';
+      const plan = (r.semester_plan || []).map(b =>
+        `<div class="ori-sem"><b>Semestre +${b.semester_offset}</b><ul>${
+          b.disciplines.map(d => `<li>${badge(d.id)} ${esc(d.name)} <span class="muted">(${esc(d.code || "")}, ${esc(d.area || "")}, ${d.credits ?? "?"} créd)</span></li>`).join("")
+        }</ul></div>`).join("");
+      const el2 = p.electives || {};
+      const quota = el2.credits_required
+        ? (el2.quota_met ? ' · cota eletiva concluída'
+           : ` · faltam ${el2.credits_remaining} de ${el2.credits_required} créd eletivos`)
+        : "";
+      out.innerHTML = `
+        <div class="ori-progress">Progresso: <b>${p.completion_pct ?? "—"}%</b>
+          — ${(p.completed || []).length} concluídas, ${(p.pending || []).length} pendentes${quota}</div>
+        <p class="muted">Trilha recomendada (${r.total_disciplines || 0} disciplinas: obrigatórias faltantes + eletivas para fechar a cota, respeitando pré-requisitos):</p>
+        <div class="ori-plan-grid">${plan || '<div class="muted">Nada pendente para essa carreira. 🎉</div>'}</div>`;
+    } catch (e) { out.innerHTML = `<div class="danger">${esc(e.message)}</div>`; }
+  }
+  el("ori-gen").addEventListener("click", gen);
+  gen();
+}
+
+async function viewOrientadorAlunos() {
+  h(`<div class="hdr"><h2>Orientador Acadêmico — Alunos</h2></div><div class="card muted">Carregando…</div>`);
+  let boot;
+  try { boot = await oriBoot(); } catch (e) { return h(`<div class="card danger">${esc(e.message)}</div>`); }
+  h(`<div class="hdr"><h2>Orientador Acadêmico — Alunos</h2></div>
+     <div class="card">
+       <div class="row"><label>Aluno:</label> ${_oriStudentSelect(boot, "ori-student")}
+         <button id="ori-dir">🎯 Direcionador de carreira</button></div>
+       <div id="ori-prof"></div>
+     </div>`);
+  async function go() {
+    const sid = el("ori-student").value;
+    const out = el("ori-prof"); out.innerHTML = `<div class="muted">Carregando…</div>`;
+    try {
+      const p = (await oriApi("/student", { method: "POST", body: JSON.stringify({ student_id: sid }) })).result || {};
+      const car = p.target_career || {}, prog = p.program || {};
+      const demand = car.demand_level ? ` · demanda ${esc(car.demand_level)}` : "";
+      const cr = d => `${d.credits ?? "?"} créd`;
+      // Cor: eletiva=azul (sempre); senão concluída=verde, pendente=amarelo.
+      const dotColor = (d, done) => d.requirement === "elective" ? "#3d8bfd" : (done ? "#2fbf71" : "#f5c518");
+      const dot = c => `<span class="ori-dot" style="background:${c}"></span>`;
+      const elecLabel = d => d.requirement === "elective" ? ' <span class="muted">· eletiva</span>' : "";
+      const reqTag = d => d.requirement === "elective"
+        ? '<span class="ori-pill ori-pend">eletiva</span>'
+        : '<span class="ori-pill ori-ok">obrigatória</span>';
+      const done = (p.completed || []).map(d =>
+        `<li>${dot(dotColor(d, true))}${esc(d.name)} <span class="muted">(${esc(d.code || "")}, ${cr(d)})</span>${elecLabel(d)}${d.grade != null ? ` — nota <b>${esc(String(d.grade))}</b>` : ""}</li>`).join("");
+      const pend = (p.pending || []).map(d =>
+        `<span class="ori-tag">${dot(dotColor(d, false))}${esc(d.name)} <span class="muted">${esc(d.code || "")} · ${cr(d)}</span>${elecLabel(d)}</span>`).join("");
+      const emcurso = (p.enrolled || []).map(d =>
+        `<span class="ori-tag">${dot("#a855f7")}${esc(d.name)} <span class="muted">${esc(d.code || "")} · ${cr(d)}</span> ${reqTag(d)}</span>`).join("");
+      const comps = (p.competencies || []).map(c =>
+        `<span class="ori-tag" title="via: ${esc((c.from_disciplines || []).join(', '))}">${esc(c.name)}</span>`).join("");
+      const next = (p.recommended_next || []).map(d =>
+        `<li>${dot(dotColor(d, false))}${esc(d.name)} <span class="muted">(${esc(d.code || "")}, ${cr(d)})</span>${elecLabel(d)}</li>`).join("");
+      const colorLegend = `<div class="ori-sub"><span class="ori-dot" style="background:#2fbf71"></span>concluída
+        <span class="ori-dot" style="background:#a855f7"></span>em curso (semestre atual)
+        <span class="ori-dot" style="background:#f5c518"></span>faltante obrigatória
+        <span class="ori-dot" style="background:#3d8bfd"></span>eletiva</div>`;
+      const mand = p.mandatory || {}, elec = p.electives || {};
+      const quota = `<div class="ori-sub">Obrigatórias: <b>${mand.done ?? "—"}/${mand.total ?? "—"}</b>
+        · Créditos eletivos: <b>${elec.credits_done ?? 0}/${elec.credits_required ?? 0}</b>
+        ${elec.quota_met ? '<span class="ori-pill ori-ok">cota eletiva concluída</span>'
+          : `<span class="ori-pill ori-pend">faltam ${elec.credits_remaining ?? 0} créd eletivos</span>`}</div>`;
+      const cc = p.course_change_request;
+      const ccBanner = cc ? `<div class="ori-rec ori-rec-course">
+        📨 <b>Pedido de troca de curso</b> — para <b>${esc((cc.to_program||{}).name || "")}</b>
+        <span class="ori-pill ori-pend">${esc(cc.status || "pendente")}</span>
+        <div class="ori-sub muted">${cc.career && cc.career.name ? "Motivado pela carreira " + esc(cc.career.name) + ". " : ""}Solicitado em ${esc(cc.at || "—")} · aguardando análise do coordenador.</div>
+      </div>` : "";
+      out.innerHTML = `
+        <div class="ori-prof-head">
+          <div><div class="ori-prof-name">${esc(p.name || "")}</div>
+            <div class="muted">${esc(prog.name || "")} · alvo: <b>${esc(car.name || "—")}</b>${demand}</div></div>
+          <div class="ori-prof-pct"><b>${p.completion_pct ?? "—"}%</b><div class="muted">concluído</div></div>
+        </div>
+        ${ccBanner}
+        ${quota}
+        ${colorLegend}
+        <div class="ori-grid2col">
+          <div><h3>Concluídas <span class="muted">(${(p.completed || []).length})</span></h3>
+            <ul class="ori-list">${done || '<li class="muted">Nenhuma.</li>'}</ul></div>
+          <div><h3>Próximos passos <span class="muted">(sugeridos)</span></h3>
+            <ol class="ori-list">${next || '<li class="muted">Nada pendente. 🎉</li>'}</ol></div>
+        </div>
+        <h3>Em curso <span class="muted">(${(p.enrolled || []).length}, neste semestre)</span></h3>
+        <div class="ori-tags">${emcurso || '<span class="muted">—</span>'}</div>
+        <h3>Competências já desenvolvidas</h3>
+        <div class="ori-tags">${comps || '<span class="muted">—</span>'}</div>
+        <h3>Faltantes <span class="muted">(${(p.pending || []).length}, em ordem de pré-requisito)</span></h3>
+        <div class="ori-tags">${pend || '<span class="muted">—</span>'}</div>`;
+    } catch (e) { out.innerHTML = `<div class="danger">${esc(e.message)}</div>`; }
+  }
+  el("ori-dir").addEventListener("click", () => oriDirecionador(el("ori-student").value, el("ori-prof"), go));
+  // Trocar de aluno volta para o perfil (evita misturar respostas entre alunos).
+  el("ori-student").addEventListener("change", go);
+  go();
+}
+
+const ORI_IMP = { critical:["ori-gap","crítica"], important:["ori-pend","importante"], "nice-to-have":["ori-ok","desejável"] };
+
+async function viewOrientadorCursos() {
+  h(`<div class="hdr"><h2>Orientador Acadêmico — Cursos</h2></div><div class="card muted">Carregando…</div>`);
+  let boot;
+  try { boot = await oriBoot(); } catch (e) { return h(`<div class="card danger">${esc(e.message)}</div>`); }
+  const opts = (boot.programs || []).map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("");
+  h(`<div class="hdr"><h2>Orientador Acadêmico — Cursos</h2></div>
+     <div class="card">
+       <div class="row"><label>Curso:</label> <select id="ori-prog">${opts}</select></div>
+       <div id="ori-cd"></div>
+     </div>`);
+  async function go() {
+    const out = el("ori-cd"); out.innerHTML = `<div class="muted">Carregando…</div>`;
+    try {
+      const p = (await oriApi("/program", { method: "POST", body: JSON.stringify({ program_id: el("ori-prog").value }) })).result || {};
+      const c = p.counts || {};
+      const areas = Object.entries(p.by_area || {}).sort((a,b)=>b[1]-a[1])
+        .map(([a,n]) => `<span class="ori-tag">${esc(a)} <b>${n}</b></span>`).join("");
+      const reqBadge = r => r === "elective"
+        ? `<span class="ori-pill ori-pend">eletiva</span>` : `<span class="ori-pill ori-ok">obrigatória</span>`;
+      const sems = (p.semesters || []).map(s =>
+        `<div class="ori-sem"><b>${s.semester ? s.semester + "º semestre" : "Sem semestre definido"}</b>
+          <ul>${s.disciplines.map(d => `<li>${reqBadge(d.requirement)} ${esc(d.name)} <span class="muted">(${esc(d.code||"")}, ${esc(d.area||"")}, ${d.credits ?? "?"} créd)</span></li>`).join("")}</ul></div>`).join("");
+      const studs = (p.students || []).map(s =>
+        `<li>${esc(s.name)} <span class="muted">— ${s.current_semester ? s.current_semester+"º sem" : "?"}${s.target_career_name ? ", alvo: "+esc(s.target_career_name) : ""}</span></li>`).join("");
+      out.innerHTML = `
+        <div class="ori-prof-head">
+          <div><div class="ori-prof-name">${esc(p.name || "")}</div><div class="muted">${esc(p.code || "")}</div></div>
+          <div class="ori-prof-pct"><b>${c.disciplines || 0}</b><div class="muted">disciplinas</div></div>
+        </div>
+        <div class="muted" style="margin:-.4rem 0 .8rem">${c.credits||0} créditos · ${c.mandatory||0} obrigatórias · ${c.elective||0} eletivas (exige ${c.elective_credits_required||0} créd eletivos) · ${c.shared||0} compartilhadas · ${c.students||0} aluno(s)</div>
+        <h3>Disciplinas por área</h3><div class="ori-tags">${areas || '<span class="muted">—</span>'}</div>
+        <h3>Alunos matriculados</h3><ul class="ori-list">${studs || '<li class="muted">Nenhum.</li>'}</ul>
+        <h3>Grade por semestre</h3><div class="ori-plan-grid">${sems || '<span class="muted">—</span>'}</div>`;
+    } catch (e) { out.innerHTML = `<div class="danger">${esc(e.message)}</div>`; }
+  }
+  el("ori-prog").addEventListener("change", go);
+  go();
+}
+
+async function viewOrientadorCarreiras() {
+  h(`<div class="hdr"><h2>Orientador Acadêmico — Carreiras</h2></div><div class="card muted">Carregando…</div>`);
+  let boot;
+  try { boot = await oriBoot(); } catch (e) { return h(`<div class="card danger">${esc(e.message)}</div>`); }
+  const opts = (boot.careers || []).map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("");
+  h(`<div class="hdr"><h2>Orientador Acadêmico — Carreiras</h2></div>
+     <div class="card">
+       <div class="row"><label>Carreira:</label> <select id="ori-career">${opts}</select></div>
+       <div id="ori-cd"></div>
+     </div>`);
+  async function go() {
+    const out = el("ori-cd"); out.innerHTML = `<div class="muted">Carregando…</div>`;
+    try {
+      const c = (await oriApi("/career", { method: "POST", body: JSON.stringify({ career_id: el("ori-career").value }) })).result || {};
+      const toolsArr = Array.isArray(c.key_tools) ? c.key_tools
+        : String(c.key_tools || "").split(/[;,]/).map(s => s.trim()).filter(Boolean);
+      const tools = toolsArr.map(t => `<span class="ori-tag">${esc(t)}</span>`).join("");
+      const comps = (c.competencies || []).map(x => {
+        const [cls,lbl] = ORI_IMP[x.importance] || ["",""];
+        return `<div class="ori-grow"><span class="ori-pill ${cls}">${lbl}</span> <b>${esc(x.name)}</b>
+          <span class="muted">— ${x.developed_by} disciplina(s) desenvolvem</span></div>`;
+      }).join("");
+      const maxRel = Math.max(1e-6, ...(c.top_disciplines || []).map(d => d.relevance || 0));
+      const top = (c.top_disciplines || []).map(d => {
+        const w = Math.round(100 * (d.relevance||0) / maxRel);
+        return `<div class="ori-brow"><div class="ori-bar"><span style="width:${w}%"></span></div>
+          <b>${esc(d.name)}</b> <span class="muted">(${esc(d.code||"")})</span></div>`;
+      }).join("");
+      const studs = (c.students || []).map(s => `<li>${esc(s.name)} <span class="muted">— ${esc(s.program_name||"")}</span></li>`).join("");
+      out.innerHTML = `
+        <div class="ori-prof-head">
+          <div><div class="ori-prof-name">${esc(c.name || "")}</div>
+            <div class="muted">${esc(c.area || "")}</div></div>
+          <div class="ori-prof-pct"><b>${esc(c.demand_level || "—")}</b><div class="muted">demanda</div></div>
+        </div>
+        <h3>Ferramentas-chave</h3><div class="ori-tags">${tools || '<span class="muted">—</span>'}</div>
+        <h3>Competências exigidas</h3>${comps || '<span class="muted">—</span>'}
+        <h3>Disciplinas mais relevantes</h3>${top || '<span class="muted">—</span>'}
+        <h3>Alunos com esta carreira-alvo</h3><ul class="ori-list">${studs || '<li class="muted">Nenhum.</li>'}</ul>`;
+    } catch (e) { out.innerHTML = `<div class="danger">${esc(e.message)}</div>`; }
+  }
+  el("ori-career").addEventListener("change", go);
+  go();
+}
+
+let _oriQuestions = null;
+const ORI_SCALE_LBL = ["Discordo totalmente", "Discordo", "Neutro", "Concordo", "Concordo totalmente"];
+
+/* Direcionador de Carreira: wizard (1 pergunta por vez) dentro da tela de Alunos.
+   host = elemento onde renderizar; back = callback para voltar ao perfil do aluno. */
+async function oriDirecionador(sid, host, back) {
+  host.innerHTML = `<div class="muted">Carregando questionário…</div>`;
+  let qs;
+  try {
+    if (!_oriQuestions) _oriQuestions = ((await oriApi("/career-questions")).result || {}).questions || [];
+    qs = _oriQuestions;
+  } catch (e) { host.innerHTML = `<div class="danger">${esc(e.message)}</div>`; return; }
+
+  const answers = {};
+  let i = 0;
+
+  function renderQ() {
+    const q = qs[i];
+    const pct = Math.round(100 * i / qs.length);
+    host.innerHTML = `
+      <div class="ori-wiz">
+        <div class="ori-wiz-top"><span class="muted">Pergunta ${i + 1} de ${qs.length}</span>
+          <div class="ori-wiz-bar"><span style="width:${pct}%"></span></div></div>
+        <div class="ori-wiz-q">${esc(q.question)}</div>
+        <div class="ori-wiz-opts">
+          ${[0,1,2,3,4].map(v => `<button class="ori-wiz-opt" data-v="${v}"><b>${v}</b><span>${ORI_SCALE_LBL[v]}</span></button>`).join("")}
+        </div>
+        <div class="row" style="margin-top:.6rem">
+          ${i > 0 ? `<button id="ori-wiz-back" class="ghost">← Voltar</button>` : ""}
+          <button id="ori-wiz-cancel" class="ghost">Cancelar</button>
+        </div>
+      </div>`;
+    host.querySelectorAll(".ori-wiz-opt").forEach(b => b.addEventListener("click", () => {
+      answers[q.competency] = Number(b.getAttribute("data-v"));
+      if (i < qs.length - 1) { i++; renderQ(); } else { finish(); }
+    }));
+    const bk = host.querySelector("#ori-wiz-back");
+    if (bk) bk.addEventListener("click", () => { i = Math.max(0, i - 1); renderQ(); });
+    host.querySelector("#ori-wiz-cancel").addEventListener("click", () => back && back());
+  }
+
+  async function finish() {
+    host.innerHTML = `<div class="muted">Analisando suas respostas…</div>`;
+    try {
+      const d = (await oriApi("/career-result", { method: "POST", body: JSON.stringify({ student_id: sid, answers }) })).result || {};
+      renderResult(d, (d.report || {}).career);
+    } catch (e) { host.innerHTML = `<div class="danger">${esc(e.message)}</div>`; }
+  }
+
+  async function reRun(careerId) {
+    host.innerHTML = `<div class="muted">Analisando…</div>`;
+    try {
+      const d = (await oriApi("/career-result", { method: "POST", body: JSON.stringify({ student_id: sid, answers, chosen_career_id: careerId }) })).result || {};
+      renderResult(d, careerId);
+    } catch (e) { host.innerHTML = `<div class="danger">${esc(e.message)}</div>`; }
+  }
+
+  function renderResult(d, chosenId) {
+    const ranking = d.ranking || [], rep = d.report || {};
+    chosenId = chosenId || rep.career;
+    const ct = d.current_target;
+    const curTxt = ct
+      ? `Objetivo de carreira atual: <b>${esc(ct.name)}</b>`
+      : `Este aluno <b>ainda não tem</b> um objetivo de carreira definido.`;
+
+    const maxFit = Math.max(1e-6, ...ranking.map(r => r.fit || 0));
+    const rank = ranking.map((r, k) => {
+      const w = Math.round(100 * (r.fit || 0) / maxFit);
+      const sel = r.career === chosenId ? " ori-rank-sel" : "";
+      return `<div class="ori-brow ori-rank${sel}" data-career="${r.career}">
+        <div class="ori-bar"><span style="width:${w}%"></span></div>
+        <b>${k + 1}. ${esc(r.name)}</b> <span class="muted">— ${r.fit_pct}% de aderência${r.demand_level ? " · demanda " + esc(r.demand_level) : ""}</span></div>`;
+    }).join("");
+
+    const cur = rep.current || {}, best = rep.best_program || {};
+    const missing = (cur.missing || []).map(m => `<span class="ori-tag">${esc(m.name)} <span class="muted">(${IMP_LABEL[m.importance] || m.importance})</span></span>`).join("") || '<span class="muted">nenhuma 🎉</span>';
+    const extras = (cur.extras || []).map(x => {
+      const inp = (x.in_program || []).map(dd => `${esc(dd.name)} <span class="muted">(${esc(dd.code || "")})</span>`).join(", ");
+      const ext = (x.external || []).map(dd => `${esc(dd.name)} <span class="muted">(${(dd.programs || []).map(esc).join("/")})</span>`).join(", ");
+      return `<div class="ori-sub"><b>${esc(x.competency_name)}</b>: ${inp ? "eletiva no seu curso — " + inp : (ext ? "em outro curso — " + ext : "sem oferta")}</div>`;
+    }).join("");
+    const isCurrent = ct && ct.id === chosenId;
+    const chosenFit = (ranking.find(r => r.career === chosenId) || {}).fit_pct;
+
+    // Bloco 1 — recomendação de CARREIRA (troca de alvo), com motivo e aceitar/não.
+    let careerRec;
+    if (isCurrent) {
+      careerRec = `<div class="ori-rec"><div class="ori-sub">🎯 <b>Carreira:</b> <b>${esc(rep.career_name)}</b> já é o objetivo atual — nada a mudar.</div></div>`;
+    } else {
+      const motivo = `é a carreira que mais combina com as respostas${chosenFit != null ? ` (${chosenFit}% de aderência)` : ""}`
+        + (rep.aligned ? `, e o curso atual já a atende bem (${cur.coverage_pct}%).`
+                       : ` — porém o curso atual cobre só ${cur.coverage_pct}% do que ela exige.`);
+      careerRec = `<div class="ori-rec">
+        <div class="ori-sub">🎯 <b>Mudança de carreira recomendada:</b> ${ct ? `de <b>${esc(ct.name)}</b> para ` : "definir como "}<b>${esc(rep.career_name)}</b>.</div>
+        <div class="ori-sub muted">Motivo: ${motivo}</div>
+        <div class="row" style="margin-top:.5rem">
+          <button id="ori-set">✔ Aceitar nova carreira</button>
+          <button id="ori-decline" class="ghost">Manter atual</button>
+          <span id="ori-set-msg" class="muted"></span>
+        </div></div>`;
+    }
+
+    // Bloco 2 — recomendação de CURSO. Troca de curso passa pela instituição: botão de
+    // "enviar sugestão ao coordenador" (simulado). Se não recomendada, apenas informa.
+    const courseSug = rep.change_recommended
+      ? `<div class="ori-rec ori-rec-course">
+           <div class="ori-sub">📚 <b>Possível troca de curso:</b> <b>${esc(best.name)}</b> alinha melhor (${best.coverage_pct}% vs ${cur.coverage_pct}% no atual). Aproveitando <b>${best.aproveita_disciplinas}</b> disciplinas, faltariam ${best.faltam_disciplinas} disciplinas / ${best.faltam_creditos} créditos (~${best.semestres_restantes} sem).</div>
+           <div class="ori-sub muted">Trocar de curso depende de análise da instituição.</div>
+           <div class="row" style="margin-top:.5rem">
+             <button id="ori-req">📨 Enviar sugestão ao coordenador</button>
+             <span id="ori-req-msg" class="muted"></span>
+           </div></div>`
+      : `<div class="ori-sub" style="padding:.3rem 0">📚 <b>Curso:</b> manter em <b>${esc(cur.name)}</b> — atende bem esse objetivo (${cur.coverage_pct}%). Sem necessidade de troca.</div>`;
+    host.innerHTML = `
+      <div class="ori-sub" style="font-size:.95rem">${curTxt}</div>
+      <h3>Carreiras que mais combinam com as respostas</h3>
+      <p class="muted">Clique numa carreira para ver o relatório dela.</p>
+      ${rank}
+      <h3>Carreira indicada: ${esc(rep.career_name || "")}</h3>
+      <div class="ori-sumline">Curso do aluno: <b>${esc(cur.name || "")}</b>
+        <span class="ori-pill ${rep.aligned ? "ori-ok" : "ori-gap"}">${rep.aligned ? "condizente" : "pouco alinhado"} (${cur.coverage_pct ?? "—"}%)</span></div>
+      <h4>Competências que faltam no curso</h4><div class="ori-tags">${missing}</div>
+      ${extras ? `<h4>Como cobrir (disciplinas extras)</h4>${extras}` : ""}
+      <h3>Recomendação</h3>
+      ${careerRec}
+      ${courseSug}
+      <div class="row" style="margin-top:.8rem"><button id="ori-back" class="ghost">Voltar ao perfil</button></div>`;
+
+    host.querySelectorAll(".ori-rank").forEach(elm =>
+      elm.addEventListener("click", () => reRun(elm.getAttribute("data-career"))));
+    const bkBtn = host.querySelector("#ori-back");
+    if (bkBtn) bkBtn.addEventListener("click", () => back && back());
+    const setBtn = host.querySelector("#ori-set");
+    if (setBtn) setBtn.addEventListener("click", async () => {
+      if (!confirm(`Definir "${rep.career_name}" como o objetivo de carreira deste aluno? Isso altera o cadastro.`)) return;
+      const msg = host.querySelector("#ori-set-msg"); msg.textContent = "Salvando…";
+      try {
+        await oriApi("/set-target", { method: "POST", body: JSON.stringify({ student_id: sid, career_id: chosenId }) });
+        _oriBoot = null;  // reflete o novo alvo nas outras telas
+        setBtn.disabled = true;
+        msg.innerHTML = `<span class="ori-pill ori-ok">nova carreira salva ✓</span>`;
+      } catch (e) { msg.innerHTML = `<span class="ori-pill ori-gap">erro: ${esc(e.message)}</span>`; }
+    });
+    const decBtn = host.querySelector("#ori-decline");
+    if (decBtn) decBtn.addEventListener("click", () => back && back());
+    const reqBtn = host.querySelector("#ori-req");
+    if (reqBtn) reqBtn.addEventListener("click", async () => {
+      const rmsg = host.querySelector("#ori-req-msg"); rmsg.textContent = "Enviando…"; reqBtn.disabled = true;
+      try {
+        await oriApi("/request-course-change", { method: "POST", body: JSON.stringify({ student_id: sid, program_id: best.id, career_id: chosenId }) });
+        _oriBoot = null;
+        rmsg.innerHTML = `<span class="ori-pill ori-ok">pedido registrado no perfil do aluno ✓</span>`;
+      } catch (e) { reqBtn.disabled = false; rmsg.innerHTML = `<span class="ori-pill ori-gap">erro: ${esc(e.message)}</span>`; }
+    });
+  }
+
+  renderQ();
+}
+
+async function viewCoordTransfers() {
+  h(`<div class="hdr"><h2>Coordenação — Pedidos de transferência</h2></div><div id="ori-coord-list" class="card muted">Carregando…</div>`);
+  const host = el("ori-coord-list");
+  async function load() {
+    host.className = "card"; host.innerHTML = `<div class="muted">Carregando…</div>`;
+    try {
+      const reqs = ((await oriApi("/transfers")).result || {}).requests || [];
+      if (!reqs.length) { host.innerHTML = `<div class="muted">Nenhum pedido de transferência pendente. 🎉</div>`; return; }
+      host.innerHTML = reqs.map((r, i) => `
+        <div class="ori-req-card" data-i="${i}">
+          <div class="ori-req-head"><b>${esc(r.name)}</b>
+            <span class="ori-pill ori-pend">${esc(r.status || "pendente")}</span></div>
+          <div class="ori-sub">De <b>${esc((r.from_program||{}).name||"—")}</b> → para <b>${esc((r.to_program||{}).name||"—")}</b></div>
+          <div class="ori-sub muted">${r.career && r.career.name ? "Motivado pela carreira " + esc(r.career.name) + " · " : ""}Solicitado em ${esc(r.at || "—")}</div>
+          <div class="row" style="margin-top:.5rem">
+            <button class="ori-accept" data-sid="${r.student_id}" data-name="${esc(r.name)}" data-to="${esc((r.to_program||{}).name||"")}">✔ Aceitar transferência</button>
+            <button class="ghost ori-deny" data-sid="${r.student_id}" data-name="${esc(r.name)}">✖ Negar</button>
+          </div>
+        </div>`).join("");
+      host.querySelectorAll(".ori-accept").forEach(b => b.addEventListener("click", () => decide(b.dataset.sid, "accept", b.dataset.name, b.dataset.to)));
+      host.querySelectorAll(".ori-deny").forEach(b => b.addEventListener("click", () => decide(b.dataset.sid, "deny", b.dataset.name)));
+    } catch (e) { host.innerHTML = `<div class="danger">${esc(e.message)}</div>`; }
+  }
+  async function decide(sid, decision, name, toName) {
+    const q = decision === "accept"
+      ? `Aceitar a transferência de ${name} para ${toName}? O curso do aluno será alterado.`
+      : `Negar o pedido de transferência de ${name}?`;
+    if (!confirm(q)) return;
+    try {
+      await oriApi("/transfer-resolve", { method: "POST", body: JSON.stringify({ student_id: sid, decision }) });
+      _oriBoot = null;  // curso pode ter mudado
+      load();
+    } catch (e) { alert("Erro: " + e.message); }
+  }
+  load();
+}
+
+const ORI_STATUS = { lacuna: ["ori-gap", "Lacuna"], pendente: ["ori-pend", "Pendente"], coberta: ["ori-ok", "Coberta"] };
+const IMP_LABEL = { critical: "crítica", important: "importante", "nice-to-have": "desejável" };
+
+function _oriDiscList(discs) {
+  if (!discs || !discs.length) return `<span class="muted">—</span>`;
+  return discs.map(d => `${esc(d.name)} <span class="muted">(${esc(d.code || "")})</span>`).join(", ");
+}
+
+async function viewOrientadorInsights() {
+  h(`<div class="hdr"><h2>Orientador Acadêmico — Insights</h2></div><div class="card muted">Carregando…</div>`);
+  let boot;
+  try { boot = await oriBoot(); } catch (e) { return h(`<div class="card danger">${esc(e.message)}</div>`); }
+  h(`<div class="hdr"><h2>Orientador Acadêmico — Insights</h2></div>
+     <div class="card">
+       <div class="row"><label>Aluno:</label> ${_oriStudentSelect(boot, "ori-student")}</div>
+       <p class="muted">Análises nativas do grafo: disciplinas-gargalo, caminho crítico de pré-requisitos e lacunas de competência para a carreira-alvo.</p>
+       <div id="ori-ins"></div>
+     </div>`);
+  async function go() {
+    const sid = el("ori-student").value;
+    const out = el("ori-ins"); out.innerHTML = `<div class="muted">Calculando…</div>`;
+    try {
+      const d = (await oriApi("/insights", { method: "POST", body: JSON.stringify({ student_id: sid }) })).result || {};
+      const b = (d.bottlenecks || []).map(x => {
+        const ind = Math.max(0, (x.unlocks_total || 0) - (x.unlocks_direct || 0));
+        return `<div class="ori-brow"><span class="ori-badge" title="total de disciplinas que dependem desta (diretas + indiretas)">${x.unlocks_total}</span>
+          <b>${esc(x.name)}</b> <span class="muted">(${esc(x.code || "")}, ${esc(x.area || "")})</span>
+          <span class="muted">— destrava <b>${x.unlocks_direct}</b> diretas + <b>${ind}</b> indiretas</span></div>`;
+      }).join("") || `<span class="muted">—</span>`;
+      const cp = d.critical_path || {};
+      const chain = (cp.path || []).map(x => `<span class="ori-node" title="${esc(x.name)}">${esc(x.code || x.name)}</span>`).join('<span class="ori-arrow">→</span>');
+      const g = d.competency_gaps || {}, sm = g.summary || {};
+      const gaps = (g.gaps || []).map(x => {
+        const [cls, lbl] = ORI_STATUS[x.status] || ["", x.status];
+        let close = "";
+        if (x.status === "lacuna")
+          close = `<div class="ori-sub">Nenhuma disciplina do seu curso desenvolve esta competência — considere uma eletiva ou curso externo.</div>`;
+        else if (x.status === "pendente")
+          close = `<div class="ori-sub">Você fecha cursando: ${_oriDiscList(x.close_with)}</div>`;
+        return `<div class="ori-grow"><span class="ori-pill ${cls}">${lbl}</span>
+          <b>${esc(x.competency_name)}</b> <span class="muted">(${IMP_LABEL[x.importance] || x.importance})</span>${close}</div>`;
+      }).join("");
+      out.innerHTML = `
+        <h3>Disciplinas-gargalo</h3>
+        <p class="muted">São as disciplinas das quais mais outras dependem. O número em destaque é o <b>total</b> que ela destrava (diretas + indiretas). São prioridade: se você travar numa delas, trava muita coisa à frente.</p>
+        ${b}
+        <h3>Caminho crítico <span class="muted">(${cp.length || 0} disciplinas em cadeia)</span></h3>
+        <p class="muted">A maior sequência de pré-requisitos encadeados do seu curso (cada uma exige a anterior). O tamanho é o <b>mínimo de semestres</b> se elas fossem cursadas uma após a outra.</p>
+        <div class="ori-chain">${chain || '<span class="muted">—</span>'}</div>
+        <h3>Lacunas de competência → ${esc(g.career_name || "")}</h3>
+        <p class="muted">Compara as competências exigidas pela carreira-alvo com o que seu curso oferece: <b>lacuna</b> = nenhuma disciplina do curso desenvolve; <b>pendente</b> = existe disciplina, mas você ainda não cursou; <b>coberta</b> = você já desenvolveu.</p>
+        <div class="ori-sumline"><span class="ori-pill ori-gap">${sm.lacunas || 0} lacunas</span>
+          <span class="ori-pill ori-pend">${sm.pendentes || 0} pendentes</span>
+          <span class="ori-pill ori-ok">${sm.cobertas || 0} cobertas</span></div>
+        ${gaps}`;
+    } catch (e) { out.innerHTML = `<div class="danger">${esc(e.message)}</div>`; }
+  }
+  el("ori-student").addEventListener("change", go);
+  go();
+}
+
+async function viewOrientadorCurriculo() {
+  h(`<div class="hdr"><h2>Orientador Acadêmico — Currículo</h2></div><div class="card muted">Carregando…</div>`);
+  let d;
+  try { d = (await oriApi("/curriculum")).result || {}; } catch (e) { return h(`<div class="card danger">${esc(e.message)}</div>`); }
+  const progs = (d.programs || []).map(p =>
+    `<div class="ori-prog-card"><b>${esc(p.name)}</b>
+       <div class="ori-prog-nums"><span>${p.total_disciplines} disciplinas</span>
+       <span class="muted">${p.exclusive} exclusivas · ${p.shared} compartilhadas</span></div></div>`).join("");
+  const overlaps = (d.overlaps || []).map(o =>
+    `<div class="ori-sub"><b>${esc(o.a_name)} × ${esc(o.b_name)}</b>: ${o.shared} disciplinas em comum</div>
+     <div class="ori-tags">${(o.shared_disciplines || []).map(x => `<span class="ori-tag">${esc(x.code || x.name)}</span>`).join("")}</div>`).join("");
+  const maxScore = Math.max(1e-6, ...(d.strategic_competencies || []).map(s => s.strategic_score));
+  const strat = (d.strategic_competencies || []).map(s => {
+    const w = Math.round(100 * s.strategic_score / maxScore);
+    return `<div class="ori-brow"><div class="ori-bar"><span style="width:${w}%"></span></div>
+      <b>${esc(s.name)}</b> <span class="muted">— demanda ${s.demand}, ${s.coverage} disciplina(s)</span></div>`;
+  }).join("");
+  h(`<div class="hdr"><h2>Orientador Acadêmico — Currículo</h2></div>
+     <div class="card">
+       <h3>Programas</h3><div class="ori-grid2">${progs}</div>
+       <h3>Sobreposição entre cursos <span class="muted">(disciplinas-ponte)</span></h3>${overlaps || '<span class="muted">—</span>'}
+       <h3>Competências estratégicas <span class="muted">(muita demanda, pouca oferta)</span></h3>
+       <p class="muted">Onde vale investir no currículo. <b>Demanda</b> = o quanto as carreiras pedem a competência (ponderado por importância na carreira e pela demanda de mercado dela). <b>N disciplina(s)</b> = quantas disciplinas do acervo a desenvolvem (a oferta). A <b>barra</b> combina os dois (demanda ÷ oferta): quanto maior, mais a competência é muito pedida e pouco ensinada — candidata a novas disciplinas/turmas.</p>
+       ${strat || '<span class="muted">—</span>'}
+     </div>`);
+}
+
+async function viewOrientadorCompetencias() {
+  h(`<div class="hdr"><h2>Orientador Acadêmico — Competências</h2></div><div class="card muted">Carregando…</div>`);
+  let boot;
+  try { boot = await oriBoot(); } catch (e) { return h(`<div class="card danger">${esc(e.message)}</div>`); }
+  const careers = (boot.careers || []).map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("");
+  h(`<div class="hdr"><h2>Orientador Acadêmico — Competências</h2></div>
+     <div class="card">
+       <div class="row"><label>Carreira:</label><select id="ori-career">${careers}</select></div>
+       <p class="muted">Competências exigidas pela carreira e quais cursos conseguem desenvolvê-las. Programa com 0 disciplinas = lacuna de currículo.</p>
+       <div id="ori-rep"></div>
+     </div>`);
+  async function go() {
+    const cid = el("ori-career").value;
+    const out = el("ori-rep"); out.innerHTML = `<div class="muted">Carregando…</div>`;
+    try {
+      const d = (await oriApi("/competency-report", { method: "POST", body: JSON.stringify({ career_id: cid }) })).result || {};
+      const progs = d.programs || [];
+      const rows = (d.competencies || []).map(c => {
+        const cells = progs.map(p => {
+          const bp = (c.by_program || {})[p.id] || { count: 0, disciplines: [] };
+          const cls = bp.count ? "ori-ok" : "ori-gap";
+          return `<td class="${cls}" title="${esc((bp.disciplines || []).map(x => x.name).join(', '))}">${bp.count}</td>`;
+        }).join("");
+        return `<tr><td><b>${esc(c.competency_name)}</b><br><span class="muted">${IMP_LABEL[c.importance] || c.importance}</span></td>${cells}</tr>`;
+      }).join("");
+      const head = progs.map(p => `<th>${esc(p.name)}</th>`).join("");
+      out.innerHTML = `<table class="ori-table"><thead><tr><th>Competência</th>${head}</tr></thead><tbody>${rows}</tbody></table>
+        <p class="muted">Verde = o curso desenvolve a competência; vermelho = lacuna nesse currículo. Passe o mouse para ver as disciplinas.</p>`;
+    } catch (e) { out.innerHTML = `<div class="danger">${esc(e.message)}</div>`; }
+  }
+  el("ori-career").addEventListener("change", go);
+  go();
+}
+
+/* ---------------- Grafo visual (força dirigida, SVG puro, sem libs) ---------------- */
+const ORI_COLORS = { Student:"#e0555b", Discipline:"#3d8bfd", Competency:"#f5a623", Career:"#17c3b2", Program:"#a259f7" };
+const ORI_TYPE_PT = { Student:"Aluno", Discipline:"Disciplina", Competency:"Competência", Career:"Carreira", Program:"Curso" };
+// Cores por status (usado no escopo Aluno): verde=concluída/alcançada, azul=falta, amarelo=carreira.
+const ORI_STATUS_COLORS = { done:"#2fbf71", todo:"#3d8bfd", career:"#f5c518", student:"#e0555b" };
+function _oriStar(r) {
+  const pts = [];
+  for (let i = 0; i < 10; i++) {
+    const ang = -Math.PI / 2 + i * Math.PI / 5;
+    const rad = (i % 2 === 0) ? r : r * 0.45;
+    pts.push((Math.cos(ang) * rad).toFixed(1) + "," + (Math.sin(ang) * rad).toFixed(1));
+  }
+  return pts.join(" ");
+}
+
+function _oriForceGraph(container, data, onNodeClick) {
+  const NS = "http://www.w3.org/2000/svg";
+  const W = Math.max(320, container.clientWidth || 800);
+  const H = Math.max(560, Math.round((window.innerHeight || 900) * 0.78));
+  container.innerHTML = "";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("class", "ori-graph"); svg.setAttribute("width", "100%");
+  svg.setAttribute("height", H); svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const cam = document.createElementNS(NS, "g"); svg.appendChild(cam); container.appendChild(svg);
+
+  const nodes = (data.nodes || []).map(n => ({ ...n,
+    x: W/2 + (Math.random()-.5)*W*0.6, y: H/2 + (Math.random()-.5)*H*0.6, vx:0, vy:0 }));
+  const idx = {}; nodes.forEach(n => idx[n.id] = n);
+  const links = (data.edges || []).map(e => ({ source: idx[e.source], target: idx[e.target], label: e.label }))
+    .filter(l => l.source && l.target);
+  const N = nodes.length || 1;
+  const bigGraph = N > 28;
+  const k = Math.sqrt((W*H)/N) * 0.75;
+
+  const lines = links.map(() => { const e = document.createElementNS(NS,"line"); e.setAttribute("class","ori-edge"); cam.appendChild(e); return e; });
+  nodes.forEach(n => {
+    const gg = document.createElementNS(NS,"g"); gg.setAttribute("class","ori-gnode");
+    const r = 6 + Math.min(16, (n.degree||0)*1.1);
+    // Cor: por status quando houver (escopo Aluno), senão por tipo.
+    const fill = n.status ? (ORI_STATUS_COLORS[n.status] || ORI_COLORS[n.type] || "#999")
+                          : (ORI_COLORS[n.type] || "#999");
+    // Forma: estrela para Competência, bolinha para o resto.
+    let c;
+    if (n.type === "Competency") { c = document.createElementNS(NS,"polygon"); c.setAttribute("points", _oriStar(r+2)); }
+    else { c = document.createElementNS(NS,"circle"); c.setAttribute("r", r); }
+    c.setAttribute("fill", fill);
+    const t = document.createElementNS(NS,"text"); t.setAttribute("class","ori-glabel");
+    t.setAttribute("x", r+3); t.setAttribute("y", 4);
+    t.textContent = n.label || "";
+    const hide = bigGraph && (n.degree||0) < 4;
+    if (hide) t.style.display = "none";
+    gg.appendChild(c); gg.appendChild(t); cam.appendChild(gg);
+    n._el = gg; n._c = c; n._r = r; n._t = t;
+    c.addEventListener("mouseenter", () => { t.style.display = ""; });
+    c.addEventListener("mouseleave", () => { if (hide && !n._pin) t.style.display = "none"; });
+    const st = { done:" (concluída/alcançada)", todo:" (falta)", career:" (carreira-alvo)" }[n.status] || "";
+    const title = document.createElementNS(NS,"title");
+    title.textContent = `${n.label} — ${ORI_TYPE_PT[n.type] || n.type}${st}`; gg.appendChild(title);
+  });
+
+  function render() {
+    for (let i=0;i<links.length;i++){ const l=links[i], e=lines[i];
+      e.setAttribute("x1",l.source.x); e.setAttribute("y1",l.source.y);
+      e.setAttribute("x2",l.target.x); e.setAttribute("y2",l.target.y); }
+    for (const n of nodes) n._el.setAttribute("transform", `translate(${n.x},${n.y})`);
+  }
+  let alpha = 1, ticks = 0, raf = null;
+  function step() {
+    for (let i=0;i<N;i++){ const a=nodes[i];
+      for (let j=i+1;j<N;j++){ const b=nodes[j];
+        let dx=a.x-b.x, dy=a.y-b.y, d=Math.sqrt(dx*dx+dy*dy)||0.01;
+        const f=(k*k)/d, fx=dx/d*f, fy=dy/d*f;
+        a.vx+=fx; a.vy+=fy; b.vx-=fx; b.vy-=fy; } }
+    for (const l of links){ const a=l.source, b=l.target;
+      let dx=a.x-b.x, dy=a.y-b.y, d=Math.sqrt(dx*dx+dy*dy)||0.01;
+      const f=(d*d)/k, fx=dx/d*f, fy=dy/d*f;
+      a.vx-=fx; a.vy-=fy; b.vx+=fx; b.vy+=fy; }
+    for (const n of nodes){
+      n.vx += (W/2-n.x)*0.012; n.vy += (H/2-n.y)*0.012;
+      if (n._pin){ n.vx=0; n.vy=0; }
+      else { n.x += Math.max(-25,Math.min(25,n.vx*alpha*0.08)); n.y += Math.max(-25,Math.min(25,n.vy*alpha*0.08)); }
+      n.vx*=0.86; n.vy*=0.86;
+    }
+    render();
+    alpha *= 0.992; ticks++;
+    raf = (ticks < 500 && alpha > 0.015) ? requestAnimationFrame(step) : null;
+  }
+  function kick(a){ alpha = Math.max(alpha, a||0.3); if (!raf) raf = requestAnimationFrame(step); }
+  raf = requestAnimationFrame(step);
+
+  // pan / zoom / drag
+  let tx=0, ty=0, scale=1, drag=null;
+  const applyCam = () => cam.setAttribute("transform", `translate(${tx},${ty}) scale(${scale})`);
+  function worldXY(e){ const r=svg.getBoundingClientRect();
+    const sx=(e.clientX-r.left)*(W/r.width), sy=(e.clientY-r.top)*(H/r.height);
+    return { x:(sx-tx)/scale, y:(sy-ty)/scale }; }
+  svg.addEventListener("wheel", (e) => { e.preventDefault();
+    // Zoom suave: proporcional ao scroll (trackpad manda deltas pequenos) e com teto de
+    // ±5% por evento, ancorado no ponto sob o cursor.
+    const r = svg.getBoundingClientRect();
+    const sx = (e.clientX-r.left)*(W/r.width), sy = (e.clientY-r.top)*(H/r.height);
+    const wx = (sx-tx)/scale, wy = (sy-ty)/scale;
+    const f = Math.min(1.05, Math.max(0.95, Math.exp(-e.deltaY * 0.0008)));
+    const ns = Math.max(0.3, Math.min(3, scale * f));
+    tx = sx - wx*ns; ty = sy - wy*ns; scale = ns; applyCam();
+  }, { passive:false });
+  nodes.forEach(n => n._c.addEventListener("pointerdown", (e) => {
+    e.stopPropagation(); const w=worldXY(e); n._pin=true; n.x=w.x; n.y=w.y; n._t.style.display="";
+    drag={node:n}; svg.setPointerCapture(e.pointerId); kick(0.4);
+    n._moved=false; n._downX=e.clientX; n._downY=e.clientY;
+  }));
+  svg.addEventListener("pointerdown", (e) => { if (!drag){ drag={pan:true,x:e.clientX,y:e.clientY}; svg.setPointerCapture(e.pointerId); } });
+  svg.addEventListener("pointermove", (e) => { if (!drag) return;
+    if (drag.node){ const w=worldXY(e); drag.node.x=w.x; drag.node.y=w.y;
+      if (Math.abs(e.clientX-drag.node._downX)+Math.abs(e.clientY-drag.node._downY)>4) drag.node._moved=true;
+      if (!raf) render(); }
+    else if (drag.pan){ tx+=e.clientX-drag.x; ty+=e.clientY-drag.y; drag.x=e.clientX; drag.y=e.clientY; applyCam(); }
+  });
+  svg.addEventListener("pointerup", (e) => {
+    if (drag && drag.node){ const n=drag.node; n._pin=false; kick(0.2);
+      if (!n._moved && onNodeClick) onNodeClick(n); }
+    drag=null;
+  });
+  applyCam();
+}
+
+async function viewOrientadorGrafo() {
+  h(`<div class="hdr"><h2>Orientador Acadêmico — Grafo</h2></div><div class="card muted">Carregando…</div>`);
+  let boot;
+  try { boot = await oriBoot(); } catch (e) { return h(`<div class="card danger">${esc(e.message)}</div>`); }
+  const typeLegend = Object.keys(ORI_COLORS).map(t =>
+    `<span class="ori-leg"><i style="background:${ORI_COLORS[t]}"></i>${ORI_TYPE_PT[t]}</span>`).join("");
+  const studentLegend =
+    `<span class="ori-leg"><i style="background:${ORI_STATUS_COLORS.done}"></i>Concluída/alcançada</span>
+     <span class="ori-leg"><i style="background:${ORI_STATUS_COLORS.todo}"></i>Falta</span>
+     <span class="ori-leg"><i style="background:${ORI_STATUS_COLORS.career}"></i>Carreira-alvo</span>
+     <span class="ori-leg">● disciplina</span><span class="ori-leg">★ competência</span>`;
+  h(`<div class="hdr"><h2>Orientador Acadêmico — Grafo</h2></div>
+     <div class="card">
+       <div class="row">
+         <label>Ver:</label>
+         <select id="ori-scope">
+           <option value="student">Aluno</option>
+           <option value="discipline">Disciplina</option>
+           <option value="career">Carreira</option>
+           <option value="full">Tudo</option>
+         </select>
+         <select id="ori-ent"></select>
+         <button id="ori-go">Montar grafo</button>
+         <span id="ori-gcount" class="muted"></span>
+       </div>
+       <div class="ori-legend" id="ori-legend">${studentLegend}</div>
+       <div id="ori-canvas" class="ori-canvas"></div>
+       <p class="muted">Arraste os nós, use a roda para dar zoom e arraste o fundo para mover. Clique num nó (Aluno/Disciplina/Carreira) para recentralizar nele.</p>
+     </div>`);
+
+  const scopeSel = el("ori-scope"), entSel = el("ori-ent");
+  function fillEntities() {
+    const scope = scopeSel.value;
+    let opts = "";
+    if (scope === "student") opts = (boot.students||[]).map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join("");
+    else if (scope === "discipline") opts = (boot.disciplines||[]).slice().sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(d => `<option value="${d.id}">${esc(d.name)} (${esc(d.code||"")})</option>`).join("");
+    else if (scope === "career") opts = (boot.careers||[]).map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("");
+    entSel.innerHTML = opts; entSel.style.display = scope === "full" ? "none" : "";
+  }
+  async function load() {
+    const scope = scopeSel.value, id = scope === "full" ? null : entSel.value;
+    el("ori-legend").innerHTML = (scope === "student") ? studentLegend : typeLegend;
+    const cv = el("ori-canvas"); cv.innerHTML = `<div class="muted" style="padding:1rem">Montando…</div>`;
+    el("ori-gcount").textContent = "";
+    try {
+      const d = (await oriApi("/graph", { method: "POST", body: JSON.stringify({ scope, id }) })).result || {};
+      el("ori-gcount").textContent = `${d.counts?.nodes||0} nós · ${d.counts?.edges||0} ligações`;
+      _oriForceGraph(cv, d, (n) => {
+        const map = { Student:"student", Discipline:"discipline", Career:"career" };
+        if (!map[n.type]) return;
+        scopeSel.value = map[n.type]; fillEntities(); entSel.value = n.id; load();
+      });
+    } catch (e) { cv.innerHTML = `<div class="danger" style="padding:1rem">${esc(e.message)}</div>`; }
+  }
+  scopeSel.addEventListener("change", () => { fillEntities(); load(); });
+  el("ori-go").addEventListener("click", load);
+  fillEntities(); load();
+}
+
+/* ---------------- LMS de Vídeo (Marengo + S3 Vectors, via /lms) ---------------- */
+const LMS = "/lms";
+let _lmsCat = null;
+
+let _lmsDebug = [];
+// Trunca campos grandes (base64 de imagem/áudio/vídeo) para não poluir o painel de debug.
+function _lmsSanitize(o) {
+  if (typeof o === "string") return o.length > 160 ? `<${o.length} chars>` : o;
+  if (Array.isArray(o)) return o.map(_lmsSanitize);
+  if (o && typeof o === "object") { const r = {}; for (const k in o) r[k] = _lmsSanitize(o[k]); return r; }
+  return o;
+}
+function _lmsRecord(method, path, reqBody, status, data) {
+  let req = null; try { req = reqBody ? _lmsSanitize(JSON.parse(reqBody)) : null; } catch (e) { req = reqBody; }
+  _lmsDebug.unshift({ ts: new Date().toLocaleTimeString(), method, path, status,
+                      request: req, response: _lmsSanitize(data) });
+  _lmsDebug = _lmsDebug.slice(0, 20);
+  lmsRefreshDebug();
+}
+function _lmsBackendHtml(dbg) {
+  if (!dbg || typeof dbg !== "object") return "";
+  let h = '<div class="lms-be"><div class="lms-be-h">🔧 o que o backend fez por trás</div>';
+  if (dbg.fluxo) h += `<div class="muted" style="font-size:12px;margin-bottom:6px">${esc(dbg.fluxo)}</div>`;
+  if (Array.isArray(dbg.trace)) h += '<ol class="lms-trace">' + dbg.trace.map(s =>
+    `<li><span class="lms-ms">${s.ms}ms</span> ${esc(s.acao)}` +
+    (s.detalhe ? `<pre>${esc(JSON.stringify(s.detalhe, null, 2))}</pre>` : "") + `</li>`).join("") + '</ol>';
+  if (Array.isArray(dbg.raw_hits)) h += `<div class="muted" style="font-size:12px;margin-top:6px">matches brutos do S3 Vectors (chave · distância · modalidade):</div>` +
+    `<pre>${esc(JSON.stringify(dbg.raw_hits, null, 2))}</pre>`;
+  if (dbg.erro) h += `<div class="danger">erro: ${esc(dbg.erro)}</div>`;
+  return h + '</div>';
+}
+
+function lmsRefreshDebug() {
+  const box = el("lmsDebug"); if (!box) return;
+  if (!_lmsDebug.length) { box.innerHTML = ""; return; }
+  box.innerHTML = `<details class="lms-debug"><summary>🐞 Debug — ${_lmsDebug.length} requisição(ões) ao backend (clique para expandir)</summary>`+
+    _lmsDebug.map(e => {
+      const resp = (e.response && typeof e.response === "object") ? { ...e.response } : e.response;
+      const dbg = resp && resp.debug; if (resp && resp.debug) delete resp.debug;
+      return `<div class="lms-dbg-item"><div class="muted" style="font-size:12px">${esc(e.ts)} · ${esc(e.method)} ${esc(e.path)} · HTTP ${e.status}</div>`+
+        _lmsBackendHtml(dbg)+
+        `<div class="lms-dbg-cols"><div><div class="muted">↑ enviado</div><pre>${esc(JSON.stringify(e.request, null, 2))}</pre></div>`+
+        `<div><div class="muted">↓ recebido</div><pre>${esc(JSON.stringify(resp, null, 2))}</pre></div></div></div>`;
+    }).join("")+
+    `</details>`;
+}
+
+async function lmsApi(path, opts = {}, _retried) {
+  const r = await fetch(LMS + path, { ...opts, headers: {
+    "Content-Type": "application/json", "Authorization": "Bearer " + ID_TOKEN, ...(opts.headers || {}) } });
+  if (r.status === 401 && !_retried) {
+    if (await refreshToken()) return lmsApi(path, opts, true);
+    login(); throw new Error("Sessão expirada. Redirecionando para o login…");
+  }
+  const data = await r.json().catch(() => ({}));
+  _lmsRecord((opts.method || "GET").toUpperCase(), path, opts.body, r.status, data);
+  if (!r.ok) throw new Error(data.message || data.error || ("HTTP " + r.status));
+  return data;
+}
+
+async function lmsCatalog(force) { if (force || !_lmsCat) _lmsCat = await lmsApi("/catalog"); return _lmsCat; }
+
+function _lmsFmt(s) { s = Math.max(0, Math.round(s || 0)); const m = Math.floor(s / 60); return (m > 0 ? m + "m" : "") + (s % 60) + "s"; }
+
+function _lmsFileB64(input) {
+  return new Promise((res, rej) => {
+    const f = input && input.files && input.files[0];
+    if (!f) return res("");
+    const rd = new FileReader();
+    rd.onload = () => res(String(rd.result).split(",").pop());
+    rd.onerror = rej; rd.readAsDataURL(f);
+  });
+}
+
+let _lmsNowPlaying = null;
+
+function lmsPlay(url, t, disc_id, video) {
+  const v = el("lmsPlayer"); if (!v) return;
+  _lmsNowPlaying = (disc_id && video) ? { disc_id, video } : null;
+  v.style.display = "block"; v.src = url;
+  v.onloadedmetadata = () => { try { v.currentTime = t || 0; } catch (e) {} v.play().catch(() => {}); };
+  v.load(); v.scrollIntoView({ behavior: "smooth", block: "center" });
+  // barra do player: botão de cenas semelhantes ao INSTANTE ATUAL (só quando sabemos qual vídeo é)
+  let bar = el("lmsPlayerBar");
+  if (!bar) {
+    v.insertAdjacentHTML("afterend", '<div id="lmsPlayerBar" style="display:none;margin:6px 0 10px"></div>');
+    bar = el("lmsPlayerBar");
+  }
+  if (_lmsNowPlaying) {
+    bar.style.display = "block";
+    bar.innerHTML = `<button class="sec" onclick="lmsSimilarNow()" title="Busca cenas parecidas com o instante que está passando agora no vídeo (inclusive de outros cursos)">🔎 cenas semelhantes ao trecho atual</button> <span class="muted" style="font-size:12px">usa o instante atual do vídeo</span>`;
+  } else {
+    bar.style.display = "none"; bar.innerHTML = "";
+  }
+}
+
+// Garante um container de resultados (a view de catálogo não tem #lmsResults nativo).
+function _lmsEnsureResultsBox() {
+  let box = el("lmsResults");
+  if (!box) {
+    const anchor = el("lmsPlayerBar") || el("lmsPlayer");
+    if (anchor) { anchor.insertAdjacentHTML("afterend", '<div id="lmsResults" class="card muted"></div>'); box = el("lmsResults"); }
+  }
+  return box;
+}
+
+// Cenas semelhantes ao instante ATUAL do player (usa video.currentTime -> at_sec).
+async function lmsSimilarNow() {
+  if (!_lmsNowPlaying) return;
+  const v = el("lmsPlayer");
+  const at = v ? (v.currentTime || 0) : 0;
+  const box = _lmsEnsureResultsBox();
+  if (box) { box.className = "card muted"; box.textContent = "Buscando cenas semelhantes ao trecho atual…"; }
+  try {
+    const r = await lmsApi("/similar", { method: "POST", body: JSON.stringify({
+      disc_id: _lmsNowPlaying.disc_id, video: _lmsNowPlaying.video,
+      at_sec: at, modality: "visual", top_k: 12, debug: true }) });
+    lmsRenderResults(r.results || []);
+    if ((r.results || []).length && el("lmsResults"))
+      el("lmsResults").insertAdjacentHTML("afterbegin",
+        `<div class="muted" style="font-size:12px;margin-bottom:6px">Cenas semelhantes ao instante ${_lmsFmt(at)} do vídeo (inclusive de outros cursos):</div>`);
+  } catch (e) { if (box) { box.className = "card danger"; box.textContent = e.message; } }
+}
+
+function lmsModeChange() {
+  const m = el("lmsMode").value;
+  if (m === "text")
+    el("lmsInput").innerHTML = `<label>Consulta</label><input id="lmsQuery" placeholder="ex.: pilhas e filas, motor a vapor, normalização">`;
+  else if (m === "image")
+    el("lmsInput").innerHTML = `<label>Imagem de referência (cena/objeto)</label><input type="file" id="lmsFile" accept="image/*">`;
+  else
+    el("lmsInput").innerHTML = `<label>Clipe de áudio</label><input type="file" id="lmsFile" accept="audio/*">`+
+      `<div class="muted" style="font-size:12px">Busca por voz é assíncrona (pode levar alguns segundos).</div>`;
+}
+
+async function viewLmsBusca() {
+  h(`<div class="hdr"><h2>LMS de Vídeo — Busca</h2></div>
+     <div class="card">
+       <div class="row"><label>Modo</label>
+         <select id="lmsMode" onchange="lmsModeChange()">
+           <option value="text">Texto</option>
+           <option value="image">Imagem (cena/objeto)</option>
+           <option value="audio">Voz / Áudio</option>
+         </select>
+       </div>
+       <div id="lmsInput"></div>
+       <div class="row" style="margin-top:8px">
+         <label>Curso</label><select id="lmsCurso"><option value="">Todos os cursos</option></select>
+         <label>Área</label><select id="lmsArea"><option value="">Todas as áreas</option></select>
+       </div>
+       <div style="margin-top:10px"><button id="lmsGo" onclick="lmsSearch()">Buscar</button></div>
+     </div>
+     <video id="lmsPlayer" controls playsinline style="width:100%;max-width:820px;border-radius:10px;background:#000;display:none;margin:10px 0"></video>
+     <div id="lmsPanel"></div>
+     <div id="lmsResults" class="card muted">Faça uma busca para ver os trechos.</div>
+     <div id="lmsDebug"></div>`);
+  lmsModeChange(); lmsRefreshDebug();
+  try {
+    const cat = await lmsCatalog();
+    el("lmsCurso").innerHTML = '<option value="">Todos os cursos</option>' +
+      (cat.courses || []).map(c => `<option value="${esc(c.code)}">${esc(c.name)}</option>`).join("");
+    el("lmsArea").innerHTML = '<option value="">Todas as áreas</option>' +
+      (cat.areas || []).map(a => `<option value="${esc(a)}">${esc(a)}</option>`).join("");
+  } catch (e) { /* catálogo pode estar vazio antes da ingestão */ }
+}
+
+async function lmsSearch() {
+  const mode = el("lmsMode").value;
+  const filters = {}; const curso = el("lmsCurso").value; const area = el("lmsArea").value;
+  if (curso) filters.programs = [curso];
+  if (area) filters.area = area;
+  const body = { mode, filters, top_k: 12, debug: true };
+  if (mode === "text") { body.query = (el("lmsQuery").value || "").trim(); if (!body.query) return; }
+  else if (mode === "image") { const b = await _lmsFileB64(el("lmsFile")); if (!b) return alert("Selecione uma imagem."); body.image_b64 = b; }
+  else { const b = await _lmsFileB64(el("lmsFile")); if (!b) return alert("Selecione um áudio."); body.audio_ref = { base64: b }; }
+  el("lmsGo").disabled = true;
+  el("lmsResults").className = "card muted"; el("lmsResults").textContent = "Buscando…";
+  try {
+    const r = await lmsApi("/search", { method: "POST", body: JSON.stringify(body) });
+    lmsRenderResults(r.results || []);
+  } catch (e) { el("lmsResults").className = "card danger"; el("lmsResults").textContent = e.message; }
+  finally { el("lmsGo").disabled = false; }
+}
+
+function lmsRenderResults(items) {
+  const box = el("lmsResults");
+  if (!items.length) { box.className = "card muted"; box.textContent = "Nenhum trecho encontrado."; return; }
+  box.className = "card";
+  box.innerHTML = `<h3>${items.length} trecho(s)</h3>` + items.map(it => {
+    const cursos = (it.programs || []).join(", ");
+    const meta = `${esc(cursos)} · ${_lmsFmt(it.start_sec)} · ${esc(it.modality || "")}` +
+      (it.score != null ? ` · score ${it.score}` : "");
+    const vid = it.video || (it.media_url || '').replace('/lms/media/', '');
+    const play = `lmsPlay(${JSON.stringify(it.media_url)}, ${it.start_sec || 0}, ${JSON.stringify(it.disc_id)}, ${JSON.stringify(vid)})`;
+    const sum = `event.stopPropagation();lmsSummary(${JSON.stringify(it.disc_id)},${JSON.stringify(it.name || '')})`;
+    return `<div class="lms-hit" onclick='${play}'>`+
+      `<div><b>${esc(it.chapter_title || "—")}</b> — ${esc(it.name || "")}</div>`+
+      `<div class="muted" style="font-size:12px">${meta}</div>`+
+      `<div style="margin-top:4px">`+
+      `<button class="sec" onclick='${sum}' title="Resumo e perguntas sobre o vídeo desta disciplina (Pegasus)">📝 resumo da aula</button>`+
+      `<span class="muted" style="font-size:12px;margin-left:8px">▶ toque para tocar; use “cenas semelhantes ao trecho atual” no player</span></div></div>`;
+  }).join("");
+}
+
+// media_url = /lms/media/<video>; deriva o path relativo do vídeo p/ o /lms/similar.
+function _lmsVideoFromUrl(u) { return String(u || "").replace(/^.*\/lms\/media\//, ""); }
+
+async function lmsSimilar(disc_id, video, start_sec) {
+  const box = el("lmsResults");
+  box.className = "card muted"; box.textContent = "Buscando trechos parecidos…";
+  try {
+    const r = await lmsApi("/similar", { method: "POST",
+      body: JSON.stringify({ disc_id, video, start_sec, modality: "visual", top_k: 12, debug: true }) });
+    lmsRenderResults(r.results || []);
+    if ((r.results || []).length) el("lmsResults").insertAdjacentHTML("afterbegin",
+      '<div class="muted" style="font-size:12px;margin-bottom:6px">Trechos visualmente parecidos (inclusive de outros cursos):</div>');
+  } catch (e) { box.className = "card danger"; box.textContent = e.message; }
+}
+
+async function lmsSummary(disc_id, name) {
+  const p = el("lmsPanel"); if (!p) return;
+  p.innerHTML = `<div class="card muted">Gerando resumo de "${esc(name)}" (Pegasus)…</div>`;
+  try {
+    const r = await lmsApi("/summary", { method: "POST", body: JSON.stringify({ disc_id, debug: true }) });
+    p.innerHTML = `<div class="card"><h3>📝 ${esc(name)}</h3>`+
+      `<div style="white-space:pre-wrap;font-size:14px">${esc(r.summary || "")}</div>`+
+      `<div class="row" style="margin-top:10px"><input id="lmsAskQ" placeholder="Pergunte sobre o vídeo…">`+
+      `<button class="sec" onclick='lmsAsk(${JSON.stringify(disc_id)})'>Perguntar</button></div>`+
+      `<div id="lmsAskA" class="muted" style="margin-top:8px"></div></div>`;
+    p.scrollIntoView({ behavior: "smooth", block: "center" });
+  } catch (e) { p.innerHTML = `<div class="card danger">${esc(e.message)}</div>`; }
+}
+
+async function lmsAsk(disc_id) {
+  const q = (el("lmsAskQ").value || "").trim(); if (!q) return;
+  const a = el("lmsAskA"); a.className = "muted"; a.textContent = "Consultando o vídeo (Pegasus)…";
+  try {
+    const r = await lmsApi("/ask", { method: "POST", body: JSON.stringify({ disc_id, question: q, debug: true }) });
+    a.className = ""; a.style.whiteSpace = "pre-wrap"; a.textContent = r.answer || "";
+  } catch (e) { a.className = "danger"; a.textContent = e.message; }
+}
+
+async function viewLmsQualidade() {
+  h(`<div class="hdr"><h2>LMS de Vídeo — Qualidade da busca</h2></div>
+     <div class="card">
+       <p style="margin:0 0 6px">Mede, <b>sem curadoria manual</b>, se a busca em vídeo leva ao <b>momento certo</b> da aula.</p>
+       <p class="muted" style="font-size:12.5px;margin:0">Para cada capítulo do acervo, usamos o texto falado nele como consulta e conferimos se o trecho devolvido cai justamente naquele ponto do vídeo. Quanto maior o acerto, melhor a busca encontra o instante certo.</p>
+       <div class="row" style="margin-top:10px">
+         <label>Disciplinas (amostra)</label><input id="lmsEvalLimit" type="number" value="8" min="1" max="89">
+         <label>resultados por busca (k)</label><input id="lmsEvalK" type="number" value="5" min="1" max="20">
+         <button id="lmsEvalGo" onclick="lmsRunEval()">Avaliar</button>
+       </div>
+     </div>
+     <div id="lmsEvalOut" class="card muted">Clique em “Avaliar” para medir a qualidade da busca.</div>
+     <div id="lmsDebug"></div>`);
+  lmsRefreshDebug();
+}
+
+async function lmsRunEval() {
+  const limit = parseInt(el("lmsEvalLimit").value || "8", 10);
+  const k = parseInt(el("lmsEvalK").value || "5", 10);
+  const out = el("lmsEvalOut"); out.className = "card muted";
+  out.textContent = `Avaliando ${limit} disciplina(s)… (pode levar alguns segundos)`;
+  el("lmsEvalGo").disabled = true;
+  try {
+    // Roda a avaliação e busca o catálogo em paralelo p/ traduzir ids -> nomes legíveis.
+    const [r, cat] = await Promise.all([
+      lmsApi("/eval", { method: "POST", body: JSON.stringify({ limit, k, verbose: true }) }),
+      lmsCatalog().catch(() => ({ disciplines: [] })),
+    ]);
+    const map = {};
+    (cat.disciplines || []).forEach(d => {
+      map[d.disc_id] = { name: d.name, chaps: {} };
+      (d.chapters || []).forEach(c => { map[d.disc_id].chaps[c.index] = c.title; });
+    });
+    const nm = id => (map[id] && map[id].name) || id;
+    const chTitle = (id, idx) => (map[id] && map[id].chaps[idx]) || ("capítulo " + idx);
+    const pc = x => (x != null ? (x * 100).toFixed(0) + "%" : "—");
+    const cls = x => x >= 0.8 ? "good" : (x >= 0.5 ? "mid" : "bad");
+    const metric = (v, label, desc) =>
+      `<div class="lms-metric ${cls(v)}"><div class="v">${pc(v)}</div><div class="l">${label}</div><div class="d">${desc}</div></div>`;
+    const snip = s => { s = (s || "").trim(); return esc(s.length > 70 ? s.slice(0, 70) + "…" : s); };
+    const per = (r.per_query || []).map(q =>
+      `<tr><td>${esc(nm(q.disc_id))}</td><td>${esc(chTitle(q.disc_id, q.chapter_index))}</td>`+
+      `<td class="muted">${snip(q.query)}</td>`+
+      `<td style="text-align:center">${q.hit1 ? "✅" : "❌"}</td>`+
+      `<td style="text-align:center">${q.hitk ? "✅" : "❌"}</td></tr>`).join("");
+    out.className = "card";
+    out.innerHTML =
+      `<div class="lms-verdict">A busca levou ao <b>momento exato</b> da aula em `+
+        `<b>${pc(r.precision_at_1)}</b> das ${r.total} consultas (1º resultado). `+
+        `Considerando os ${r.k} primeiros resultados, o acerto sobe para <b>${pc(r.hit_at_k)}</b>.</div>`+
+      `<div class="lms-metrics">`+
+        metric(r.precision_at_1, "Acerto no 1º resultado", "O topo da busca caiu no trecho certo do vídeo (o caso ideal).")+
+        metric(r.hit_at_k, `Acerto entre os ${r.k} primeiros`, "O trecho certo apareceu na lista, mesmo que não no topo.")+
+        metric(r.discipline_at_1, "Aula certa no 1º", "O 1º resultado veio da disciplina correta (ainda que em outro trecho).")+
+      `</div>`+
+      `<div class="muted" style="font-size:12px;margin:2px 0 6px">Amostra de ${r.total} consultas (um capítulo = uma consulta) · tolerância de ${r.tolerance_sec}s na janela do capítulo.</div>`+
+      (per ? `<table style="margin-top:6px"><tr><th>Disciplina</th><th>Trecho (capítulo)</th><th>Consulta</th>`+
+             `<th style="text-align:center">1º ✓</th><th style="text-align:center">top-${r.k} ✓</th></tr>${per}</table>` : "");
+  } catch (e) { out.className = "card danger"; out.textContent = e.message; }
+  finally { el("lmsEvalGo").disabled = false; }
+}
+
+async function viewLmsCatalogo() {
+  h(`<div class="hdr"><h2>LMS de Vídeo — Catálogo</h2></div><div class="card muted">Carregando…</div>`);
+  let cat; try { cat = await lmsCatalog(true); } catch (e) { return h(`<div class="hdr"><h2>LMS de Vídeo — Catálogo</h2></div><div class="card danger">${esc(e.message)}</div>`); }
+  const disc = cat.disciplines || [];
+  if (!disc.length) return h(`<div class="hdr"><h2>LMS de Vídeo — Catálogo</h2></div><div class="card muted">Catálogo vazio. Rode a ingestão (scripts/deploy-lms.sh).</div>`);
+  const byArea = {}; disc.forEach(d => { (byArea[d.area] = byArea[d.area] || []).push(d); });
+  const blocks = Object.keys(byArea).sort().map(a =>
+    `<div class="card lms-cat-area"><h3>${esc(a)} <span class="muted" style="font-size:12px">(${byArea[a].length})</span></h3>` +
+    byArea[a].map(d => {
+      const cursos = (d.programs || []).map(p => `<span class="lms-course">${esc(p.code)}</span>`).join("");
+      const chaps = (d.chapters || []).map(c =>
+        `<a class="lms-chap" onclick='lmsPlay(${JSON.stringify("/lms/media/" + d.video)}, ${c.start_sec || 0}, ${JSON.stringify(d.disc_id)}, ${JSON.stringify(d.video)})'>`
+        + `<span class="lms-chap-ic">▶</span> ${esc(c.title)} <span class="lms-chap-t">${_lmsFmt(c.start_sec)}</span></a>`).join("");
+      return `<div class="lms-disc"><div class="lms-disc-head"><b>${esc(d.name)}</b>${cursos}</div>`
+        + `<div class="lms-chaps">${chaps || '<span class="muted" style="font-size:12px">sem capítulos</span>'}</div></div>`;
+    }).join("") + `</div>`).join("");
+  h(`<div class="hdr"><h2>LMS de Vídeo — Catálogo</h2></div>
+     <video id="lmsPlayer" controls playsinline style="width:100%;max-width:820px;border-radius:10px;background:#000;display:none;margin:10px 0"></video>${blocks}
+     <div id="lmsDebug"></div>`);
+  lmsRefreshDebug();
+}
+
 /* ---------------- Roteamento ---------------- */
 const ROUTES = {
   "ex-corrige":()=>viewCorrecao("exam"), "ex-criar":viewCriar, "ex-hist":()=>viewHistorico("exam"),
@@ -1524,6 +2772,15 @@ const ROUTES = {
   "cartao-hist":viewCartaoHist, "cartao":viewCartaoLoad,
   "modelos":viewModelos, "analytics":viewAnalytics, "evaluation":viewEvaluation,
   "po-criar":viewOnlineCreate, "po-teste":viewOnlineTest, "po-hist":viewOnlineHist,
+  "ent-entrevista":viewEntEntrevista, "ent-vagas":viewEntVagas,
+  "ent-avatar":viewEntAvatar, "ent-relatorio":viewEntRelatorio,
+  "atend-chat":viewAtendimentoChat,
+  "ori-alunos":viewOrientadorAlunos, "ori-cursos":viewOrientadorCursos, "ori-carreiras":viewOrientadorCarreiras,
+  "ori-coord":viewCoordTransfers,
+  "ori-grafo":viewOrientadorGrafo,
+  "ori-chat":viewOrientadorChat, "ori-trilha":viewOrientadorTrilha,
+  "ori-insights":viewOrientadorInsights, "ori-curriculo":viewOrientadorCurriculo, "ori-competencias":viewOrientadorCompetencias,
+  "lms-busca":viewLmsBusca, "lms-catalogo":viewLmsCatalogo, "lms-qualidade":viewLmsQualidade,
 };
 function route(){ const k=location.hash.slice(1)||"ex-corrige"; renderNav(ROUTES[k]?k:"ex-corrige"); (ROUTES[k]||ROUTES["ex-corrige"])(); toggleSide(false); }
 window.addEventListener("hashchange", route);

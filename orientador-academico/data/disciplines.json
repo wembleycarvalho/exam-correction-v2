@@ -1,0 +1,1798 @@
+[
+  {
+    "id": "disc_001",
+    "type": "Discipline",
+    "name": "Administração",
+    "code": "GES001",
+    "semester_suggested": 1,
+    "credits": 4,
+    "area": "Gestão",
+    "difficulty": "easy",
+    "programs": [
+      "prog_si",
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_si": "mandatory",
+      "prog_prod": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_002",
+    "type": "Discipline",
+    "name": "Cálculo I",
+    "code": "MAT002",
+    "semester_suggested": 1,
+    "credits": 4,
+    "area": "Matemática",
+    "difficulty": "medium",
+    "programs": [
+      "prog_es",
+      "prog_cc",
+      "prog_mec",
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_es": "mandatory",
+      "prog_cc": "mandatory",
+      "prog_mec": "mandatory",
+      "prog_prod": "mandatory"
+    },
+    "kb_slug": "calculo_i",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_003",
+    "type": "Discipline",
+    "name": "Comunicação e Expressão",
+    "code": "HUM003",
+    "semester_suggested": 1,
+    "credits": 2,
+    "area": "Humanas",
+    "difficulty": "easy",
+    "programs": [
+      "prog_es",
+      "prog_bd",
+      "prog_si",
+      "prog_mec",
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_es": "mandatory",
+      "prog_bd": "mandatory",
+      "prog_si": "mandatory",
+      "prog_mec": "mandatory",
+      "prog_prod": "mandatory"
+    },
+    "kb_slug": "comunicacao_e_expressao",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_004",
+    "type": "Discipline",
+    "name": "Desenho Técnico",
+    "code": "ENG004",
+    "semester_suggested": 1,
+    "credits": 4,
+    "area": "Engenharia",
+    "difficulty": "easy",
+    "programs": [
+      "prog_mec",
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_mec": "mandatory",
+      "prog_prod": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_005",
+    "type": "Discipline",
+    "name": "Fundamentos de Computação",
+    "code": "CC005",
+    "semester_suggested": 1,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "easy",
+    "programs": [
+      "prog_es",
+      "prog_cc",
+      "prog_bd",
+      "prog_si"
+    ],
+    "requirements": {
+      "prog_es": "mandatory",
+      "prog_cc": "mandatory",
+      "prog_bd": "mandatory",
+      "prog_si": "mandatory"
+    },
+    "kb_slug": "fundamentos_de_computacao",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_006",
+    "type": "Discipline",
+    "name": "Geometria Analítica",
+    "code": "MAT006",
+    "semester_suggested": 1,
+    "credits": 4,
+    "area": "Matemática",
+    "difficulty": "easy",
+    "programs": [
+      "prog_cc",
+      "prog_mec",
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_cc": "mandatory",
+      "prog_mec": "mandatory",
+      "prog_prod": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_007",
+    "type": "Discipline",
+    "name": "Introdução à Programação (Python)",
+    "code": "CC007",
+    "semester_suggested": 1,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "easy",
+    "programs": [
+      "prog_es",
+      "prog_cc",
+      "prog_bd",
+      "prog_si"
+    ],
+    "requirements": {
+      "prog_es": "mandatory",
+      "prog_cc": "mandatory",
+      "prog_bd": "mandatory",
+      "prog_si": "mandatory"
+    },
+    "kb_slug": "introducao_a_programacao_python",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_008",
+    "type": "Discipline",
+    "name": "Lógica Matemática",
+    "code": "MAT008",
+    "semester_suggested": 1,
+    "credits": 4,
+    "area": "Matemática",
+    "difficulty": "easy",
+    "programs": [
+      "prog_es",
+      "prog_cc",
+      "prog_bd",
+      "prog_si"
+    ],
+    "requirements": {
+      "prog_es": "mandatory",
+      "prog_cc": "mandatory",
+      "prog_bd": "mandatory",
+      "prog_si": "elective"
+    },
+    "kb_slug": "logica_matematica",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_009",
+    "type": "Discipline",
+    "name": "Química Geral",
+    "code": "QUI009",
+    "semester_suggested": 1,
+    "credits": 4,
+    "area": "Química",
+    "difficulty": "easy",
+    "programs": [
+      "prog_mec",
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_mec": "mandatory",
+      "prog_prod": "elective"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_010",
+    "type": "Discipline",
+    "name": "Álgebra Linear",
+    "code": "MAT010",
+    "semester_suggested": 2,
+    "credits": 4,
+    "area": "Matemática",
+    "difficulty": "medium",
+    "programs": [
+      "prog_cc",
+      "prog_mec"
+    ],
+    "requirements": {
+      "prog_cc": "mandatory",
+      "prog_mec": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_011",
+    "type": "Discipline",
+    "name": "Banco de Dados I",
+    "code": "CC011",
+    "semester_suggested": 2,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "medium",
+    "programs": [
+      "prog_es",
+      "prog_cc",
+      "prog_bd",
+      "prog_si"
+    ],
+    "requirements": {
+      "prog_es": "mandatory",
+      "prog_cc": "mandatory",
+      "prog_bd": "mandatory",
+      "prog_si": "mandatory"
+    },
+    "kb_slug": "banco_de_dados_i",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_012",
+    "type": "Discipline",
+    "name": "Projeto Assistido por Computador (CAD)",
+    "code": "ENG012",
+    "semester_suggested": 2,
+    "credits": 4,
+    "area": "Engenharia",
+    "difficulty": "medium",
+    "programs": [
+      "prog_mec"
+    ],
+    "requirements": {
+      "prog_mec": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_013",
+    "type": "Discipline",
+    "name": "Cálculo II",
+    "code": "MAT013",
+    "semester_suggested": 2,
+    "credits": 4,
+    "area": "Matemática",
+    "difficulty": "medium",
+    "programs": [
+      "prog_es",
+      "prog_cc",
+      "prog_mec",
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_es": "elective",
+      "prog_cc": "mandatory",
+      "prog_mec": "mandatory",
+      "prog_prod": "mandatory"
+    },
+    "kb_slug": "calculo_ii",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_014",
+    "type": "Discipline",
+    "name": "Economia",
+    "code": "GES014",
+    "semester_suggested": 2,
+    "credits": 4,
+    "area": "Gestão",
+    "difficulty": "easy",
+    "programs": [
+      "prog_si",
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_si": "mandatory",
+      "prog_prod": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_015",
+    "type": "Discipline",
+    "name": "Estatística",
+    "code": "MAT015",
+    "semester_suggested": 2,
+    "credits": 4,
+    "area": "Matemática",
+    "difficulty": "medium",
+    "programs": [
+      "prog_es",
+      "prog_cc",
+      "prog_bd",
+      "prog_si",
+      "prog_mec",
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_es": "mandatory",
+      "prog_cc": "mandatory",
+      "prog_bd": "mandatory",
+      "prog_si": "mandatory",
+      "prog_mec": "elective",
+      "prog_prod": "mandatory"
+    },
+    "kb_slug": "estatistica",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_016",
+    "type": "Discipline",
+    "name": "Estrutura de Dados",
+    "code": "CC016",
+    "semester_suggested": 2,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "medium",
+    "programs": [
+      "prog_es",
+      "prog_cc",
+      "prog_bd",
+      "prog_si"
+    ],
+    "requirements": {
+      "prog_es": "mandatory",
+      "prog_cc": "mandatory",
+      "prog_bd": "mandatory",
+      "prog_si": "mandatory"
+    },
+    "kb_slug": "estrutura_de_dados",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_017",
+    "type": "Discipline",
+    "name": "Física I (Mecânica)",
+    "code": "FIS017",
+    "semester_suggested": 2,
+    "credits": 4,
+    "area": "Física",
+    "difficulty": "medium",
+    "programs": [
+      "prog_mec",
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_mec": "mandatory",
+      "prog_prod": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_018",
+    "type": "Discipline",
+    "name": "Matemática Discreta",
+    "code": "MAT018",
+    "semester_suggested": 2,
+    "credits": 4,
+    "area": "Matemática",
+    "difficulty": "medium",
+    "programs": [
+      "prog_es",
+      "prog_cc"
+    ],
+    "requirements": {
+      "prog_es": "mandatory",
+      "prog_cc": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_019",
+    "type": "Discipline",
+    "name": "Programação Orientada a Objetos",
+    "code": "CC019",
+    "semester_suggested": 2,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "medium",
+    "programs": [
+      "prog_es",
+      "prog_cc",
+      "prog_si"
+    ],
+    "requirements": {
+      "prog_es": "mandatory",
+      "prog_cc": "mandatory",
+      "prog_si": "elective"
+    },
+    "kb_slug": "programacao_orientada_a_objetos",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_020",
+    "type": "Discipline",
+    "name": "Redes de Computadores",
+    "code": "CC020",
+    "semester_suggested": 2,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "medium",
+    "programs": [
+      "prog_es",
+      "prog_cc",
+      "prog_bd",
+      "prog_si"
+    ],
+    "requirements": {
+      "prog_es": "mandatory",
+      "prog_cc": "mandatory",
+      "prog_bd": "elective",
+      "prog_si": "mandatory"
+    },
+    "kb_slug": "redes_de_computadores",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_021",
+    "type": "Discipline",
+    "name": "Análise de Sistemas",
+    "code": "CC021",
+    "semester_suggested": 3,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "medium",
+    "programs": [
+      "prog_si"
+    ],
+    "requirements": {
+      "prog_si": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_022",
+    "type": "Discipline",
+    "name": "Análise de Dados",
+    "code": "DAT022",
+    "semester_suggested": 3,
+    "credits": 4,
+    "area": "Dados",
+    "difficulty": "medium",
+    "programs": [
+      "prog_cc",
+      "prog_bd",
+      "prog_si"
+    ],
+    "requirements": {
+      "prog_cc": "elective",
+      "prog_bd": "mandatory",
+      "prog_si": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_023",
+    "type": "Discipline",
+    "name": "Arquitetura de Computadores",
+    "code": "CC023",
+    "semester_suggested": 3,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "medium",
+    "programs": [
+      "prog_cc"
+    ],
+    "requirements": {
+      "prog_cc": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_024",
+    "type": "Discipline",
+    "name": "Banco de Dados II",
+    "code": "CC024",
+    "semester_suggested": 3,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "hard",
+    "programs": [
+      "prog_es",
+      "prog_bd",
+      "prog_si"
+    ],
+    "requirements": {
+      "prog_es": "mandatory",
+      "prog_bd": "mandatory",
+      "prog_si": "elective"
+    },
+    "kb_slug": "banco_de_dados_ii",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_025",
+    "type": "Discipline",
+    "name": "Cálculo III",
+    "code": "MAT025",
+    "semester_suggested": 3,
+    "credits": 4,
+    "area": "Matemática",
+    "difficulty": "hard",
+    "programs": [
+      "prog_mec"
+    ],
+    "requirements": {
+      "prog_mec": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_026",
+    "type": "Discipline",
+    "name": "Ciência dos Materiais",
+    "code": "ENG026",
+    "semester_suggested": 3,
+    "credits": 4,
+    "area": "Engenharia",
+    "difficulty": "medium",
+    "programs": [
+      "prog_mec",
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_mec": "mandatory",
+      "prog_prod": "elective"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_027",
+    "type": "Discipline",
+    "name": "Engenharia de Software I",
+    "code": "CC027",
+    "semester_suggested": 3,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "medium",
+    "programs": [
+      "prog_es",
+      "prog_cc",
+      "prog_si"
+    ],
+    "requirements": {
+      "prog_es": "mandatory",
+      "prog_cc": "elective",
+      "prog_si": "mandatory"
+    },
+    "kb_slug": "engenharia_de_software_i",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_028",
+    "type": "Discipline",
+    "name": "Estática",
+    "code": "ENG028",
+    "semester_suggested": 3,
+    "credits": 4,
+    "area": "Engenharia",
+    "difficulty": "medium",
+    "programs": [
+      "prog_mec",
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_mec": "mandatory",
+      "prog_prod": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_029",
+    "type": "Discipline",
+    "name": "Física II (Termodinâmica)",
+    "code": "FIS029",
+    "semester_suggested": 3,
+    "credits": 4,
+    "area": "Física",
+    "difficulty": "medium",
+    "programs": [
+      "prog_mec"
+    ],
+    "requirements": {
+      "prog_mec": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_030",
+    "type": "Discipline",
+    "name": "Gestão de Processos",
+    "code": "GES030",
+    "semester_suggested": 3,
+    "credits": 4,
+    "area": "Gestão",
+    "difficulty": "medium",
+    "programs": [
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_prod": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_031",
+    "type": "Discipline",
+    "name": "Governança de Dados",
+    "code": "DAT031",
+    "semester_suggested": 3,
+    "credits": 4,
+    "area": "Dados",
+    "difficulty": "medium",
+    "programs": [
+      "prog_bd",
+      "prog_si"
+    ],
+    "requirements": {
+      "prog_bd": "mandatory",
+      "prog_si": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_032",
+    "type": "Discipline",
+    "name": "Teoria dos Grafos",
+    "code": "CC032",
+    "semester_suggested": 3,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "medium",
+    "programs": [
+      "prog_cc"
+    ],
+    "requirements": {
+      "prog_cc": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_033",
+    "type": "Discipline",
+    "name": "Gestão da Qualidade",
+    "code": "GES033",
+    "semester_suggested": 3,
+    "credits": 4,
+    "area": "Gestão",
+    "difficulty": "medium",
+    "programs": [
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_prod": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_034",
+    "type": "Discipline",
+    "name": "Segurança da Informação",
+    "code": "CC034",
+    "semester_suggested": 3,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "medium",
+    "programs": [
+      "prog_es",
+      "prog_cc",
+      "prog_bd",
+      "prog_si"
+    ],
+    "requirements": {
+      "prog_es": "elective",
+      "prog_cc": "elective",
+      "prog_bd": "elective",
+      "prog_si": "elective"
+    },
+    "kb_slug": "seguranca_da_informacao",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_035",
+    "type": "Discipline",
+    "name": "Sistemas de Informação Gerenciais",
+    "code": "GES035",
+    "semester_suggested": 3,
+    "credits": 4,
+    "area": "Gestão",
+    "difficulty": "medium",
+    "programs": [
+      "prog_si"
+    ],
+    "requirements": {
+      "prog_si": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_036",
+    "type": "Discipline",
+    "name": "Sistemas Operacionais",
+    "code": "CC036",
+    "semester_suggested": 3,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "hard",
+    "programs": [
+      "prog_es",
+      "prog_cc"
+    ],
+    "requirements": {
+      "prog_es": "elective",
+      "prog_cc": "mandatory"
+    },
+    "kb_slug": "sistemas_operacionais",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_037",
+    "type": "Discipline",
+    "name": "Desenvolvimento Web",
+    "code": "CC037",
+    "semester_suggested": 3,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "medium",
+    "programs": [
+      "prog_es",
+      "prog_si"
+    ],
+    "requirements": {
+      "prog_es": "mandatory",
+      "prog_si": "mandatory"
+    },
+    "kb_slug": "desenvolvimento_web",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_038",
+    "type": "Discipline",
+    "name": "Análise de Algoritmos",
+    "code": "CC038",
+    "semester_suggested": 4,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "hard",
+    "programs": [
+      "prog_cc"
+    ],
+    "requirements": {
+      "prog_cc": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_039",
+    "type": "Discipline",
+    "name": "Arquitetura de Software",
+    "code": "CC039",
+    "semester_suggested": 4,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "medium",
+    "programs": [
+      "prog_es"
+    ],
+    "requirements": {
+      "prog_es": "mandatory"
+    },
+    "kb_slug": "arquitetura_de_software",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_040",
+    "type": "Discipline",
+    "name": "Data Warehouse e BI",
+    "code": "DAT040",
+    "semester_suggested": 4,
+    "credits": 4,
+    "area": "Dados",
+    "difficulty": "medium",
+    "programs": [
+      "prog_bd",
+      "prog_si"
+    ],
+    "requirements": {
+      "prog_bd": "mandatory",
+      "prog_si": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_041",
+    "type": "Discipline",
+    "name": "Administração de Banco de Dados",
+    "code": "DAT041",
+    "semester_suggested": 4,
+    "credits": 4,
+    "area": "Dados",
+    "difficulty": "hard",
+    "programs": [
+      "prog_bd"
+    ],
+    "requirements": {
+      "prog_bd": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_042",
+    "type": "Discipline",
+    "name": "DevOps e Cloud Computing",
+    "code": "CC042",
+    "semester_suggested": 4,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "medium",
+    "programs": [
+      "prog_es",
+      "prog_cc",
+      "prog_bd"
+    ],
+    "requirements": {
+      "prog_es": "mandatory",
+      "prog_cc": "elective",
+      "prog_bd": "elective"
+    },
+    "kb_slug": "devops_e_cloud_computing",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_043",
+    "type": "Discipline",
+    "name": "Dinâmica",
+    "code": "ENG043",
+    "semester_suggested": 4,
+    "credits": 4,
+    "area": "Engenharia",
+    "difficulty": "hard",
+    "programs": [
+      "prog_mec"
+    ],
+    "requirements": {
+      "prog_mec": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_044",
+    "type": "Discipline",
+    "name": "Engenharia Econômica",
+    "code": "GES044",
+    "semester_suggested": 4,
+    "credits": 4,
+    "area": "Gestão",
+    "difficulty": "medium",
+    "programs": [
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_prod": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_045",
+    "type": "Discipline",
+    "name": "Física III (Eletromagnetismo)",
+    "code": "FIS045",
+    "semester_suggested": 4,
+    "credits": 4,
+    "area": "Física",
+    "difficulty": "hard",
+    "programs": [
+      "prog_mec"
+    ],
+    "requirements": {
+      "prog_mec": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_046",
+    "type": "Discipline",
+    "name": "Gestão de Projetos",
+    "code": "GES046",
+    "semester_suggested": 4,
+    "credits": 4,
+    "area": "Gestão",
+    "difficulty": "easy",
+    "programs": [
+      "prog_es",
+      "prog_bd",
+      "prog_si",
+      "prog_mec",
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_es": "mandatory",
+      "prog_bd": "mandatory",
+      "prog_si": "mandatory",
+      "prog_mec": "elective",
+      "prog_prod": "mandatory"
+    },
+    "kb_slug": "gestao_de_projetos",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_047",
+    "type": "Discipline",
+    "name": "Governança de TI",
+    "code": "GES047",
+    "semester_suggested": 4,
+    "credits": 4,
+    "area": "Gestão",
+    "difficulty": "medium",
+    "programs": [
+      "prog_si"
+    ],
+    "requirements": {
+      "prog_si": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_048",
+    "type": "Discipline",
+    "name": "Desenvolvimento Mobile",
+    "code": "CC048",
+    "semester_suggested": 4,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "medium",
+    "programs": [
+      "prog_es"
+    ],
+    "requirements": {
+      "prog_es": "elective"
+    },
+    "kb_slug": "desenvolvimento_mobile",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_049",
+    "type": "Discipline",
+    "name": "NoSQL e Dados Distribuídos",
+    "code": "DAT049",
+    "semester_suggested": 4,
+    "credits": 4,
+    "area": "Dados",
+    "difficulty": "hard",
+    "programs": [
+      "prog_bd"
+    ],
+    "requirements": {
+      "prog_bd": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_050",
+    "type": "Discipline",
+    "name": "Pesquisa Operacional",
+    "code": "MAT050",
+    "semester_suggested": 4,
+    "credits": 4,
+    "area": "Matemática",
+    "difficulty": "hard",
+    "programs": [
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_prod": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_051",
+    "type": "Discipline",
+    "name": "Processos de Fabricação",
+    "code": "ENG051",
+    "semester_suggested": 4,
+    "credits": 4,
+    "area": "Engenharia",
+    "difficulty": "medium",
+    "programs": [
+      "prog_mec",
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_mec": "mandatory",
+      "prog_prod": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_052",
+    "type": "Discipline",
+    "name": "Resistência dos Materiais",
+    "code": "ENG052",
+    "semester_suggested": 4,
+    "credits": 4,
+    "area": "Engenharia",
+    "difficulty": "hard",
+    "programs": [
+      "prog_mec",
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_mec": "mandatory",
+      "prog_prod": "elective"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_053",
+    "type": "Discipline",
+    "name": "Teoria da Computação",
+    "code": "CC053",
+    "semester_suggested": 4,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "hard",
+    "programs": [
+      "prog_cc"
+    ],
+    "requirements": {
+      "prog_cc": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_054",
+    "type": "Discipline",
+    "name": "Termodinâmica",
+    "code": "ENG054",
+    "semester_suggested": 4,
+    "credits": 4,
+    "area": "Engenharia",
+    "difficulty": "hard",
+    "programs": [
+      "prog_mec"
+    ],
+    "requirements": {
+      "prog_mec": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_055",
+    "type": "Discipline",
+    "name": "Testes de Software",
+    "code": "CC055",
+    "semester_suggested": 4,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "medium",
+    "programs": [
+      "prog_es"
+    ],
+    "requirements": {
+      "prog_es": "mandatory"
+    },
+    "kb_slug": "testes_de_software",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_056",
+    "type": "Discipline",
+    "name": "Big Data",
+    "code": "IA056",
+    "semester_suggested": 5,
+    "credits": 4,
+    "area": "IA",
+    "difficulty": "hard",
+    "programs": [
+      "prog_bd",
+      "prog_si"
+    ],
+    "requirements": {
+      "prog_bd": "elective",
+      "prog_si": "elective"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_057",
+    "type": "Discipline",
+    "name": "Cálculo Numérico",
+    "code": "MAT057",
+    "semester_suggested": 5,
+    "credits": 4,
+    "area": "Matemática",
+    "difficulty": "medium",
+    "programs": [
+      "prog_cc",
+      "prog_mec"
+    ],
+    "requirements": {
+      "prog_cc": "mandatory",
+      "prog_mec": "elective"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_058",
+    "type": "Discipline",
+    "name": "Compiladores",
+    "code": "CC058",
+    "semester_suggested": 5,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "hard",
+    "programs": [
+      "prog_cc"
+    ],
+    "requirements": {
+      "prog_cc": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_059",
+    "type": "Discipline",
+    "name": "Elementos de Máquinas",
+    "code": "ENG059",
+    "semester_suggested": 5,
+    "credits": 4,
+    "area": "Engenharia",
+    "difficulty": "hard",
+    "programs": [
+      "prog_mec"
+    ],
+    "requirements": {
+      "prog_mec": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_060",
+    "type": "Discipline",
+    "name": "Engenharia de Software II",
+    "code": "CC060",
+    "semester_suggested": 5,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "hard",
+    "programs": [
+      "prog_es"
+    ],
+    "requirements": {
+      "prog_es": "mandatory"
+    },
+    "kb_slug": "engenharia_de_software_ii",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_061",
+    "type": "Discipline",
+    "name": "Ergonomia e Segurança do Trabalho",
+    "code": "PRD061",
+    "semester_suggested": 5,
+    "credits": 4,
+    "area": "Produção",
+    "difficulty": "easy",
+    "programs": [
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_prod": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_062",
+    "type": "Discipline",
+    "name": "Estágio Supervisionado",
+    "code": "PRA062",
+    "semester_suggested": 5,
+    "credits": 2,
+    "area": "Prática",
+    "difficulty": "easy",
+    "programs": [
+      "prog_es",
+      "prog_bd",
+      "prog_si",
+      "prog_mec",
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_es": "mandatory",
+      "prog_bd": "mandatory",
+      "prog_si": "mandatory",
+      "prog_mec": "mandatory",
+      "prog_prod": "mandatory"
+    },
+    "kb_slug": "estagio_supervisionado_i",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_063",
+    "type": "Discipline",
+    "name": "Ética e Cidadania",
+    "code": "HUM063",
+    "semester_suggested": 5,
+    "credits": 2,
+    "area": "Humanas",
+    "difficulty": "easy",
+    "programs": [
+      "prog_es",
+      "prog_cc",
+      "prog_bd",
+      "prog_si",
+      "prog_mec",
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_es": "mandatory",
+      "prog_cc": "mandatory",
+      "prog_bd": "mandatory",
+      "prog_si": "mandatory",
+      "prog_mec": "elective",
+      "prog_prod": "mandatory"
+    },
+    "kb_slug": "etica_em_ti",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_064",
+    "type": "Discipline",
+    "name": "Fenômenos de Transporte",
+    "code": "ENG064",
+    "semester_suggested": 5,
+    "credits": 4,
+    "area": "Engenharia",
+    "difficulty": "hard",
+    "programs": [
+      "prog_mec"
+    ],
+    "requirements": {
+      "prog_mec": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_065",
+    "type": "Discipline",
+    "name": "Inteligência Artificial",
+    "code": "IA065",
+    "semester_suggested": 5,
+    "credits": 4,
+    "area": "IA",
+    "difficulty": "hard",
+    "programs": [
+      "prog_es",
+      "prog_cc"
+    ],
+    "requirements": {
+      "prog_es": "mandatory",
+      "prog_cc": "mandatory"
+    },
+    "kb_slug": "inteligencia_artificial",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_066",
+    "type": "Discipline",
+    "name": "Logística e Cadeia de Suprimentos",
+    "code": "PRD066",
+    "semester_suggested": 5,
+    "credits": 4,
+    "area": "Produção",
+    "difficulty": "medium",
+    "programs": [
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_prod": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_067",
+    "type": "Discipline",
+    "name": "Mecânica dos Fluidos",
+    "code": "ENG067",
+    "semester_suggested": 5,
+    "credits": 4,
+    "area": "Engenharia",
+    "difficulty": "hard",
+    "programs": [
+      "prog_mec"
+    ],
+    "requirements": {
+      "prog_mec": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_068",
+    "type": "Discipline",
+    "name": "Microsserviços e APIs",
+    "code": "CC068",
+    "semester_suggested": 5,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "hard",
+    "programs": [
+      "prog_es"
+    ],
+    "requirements": {
+      "prog_es": "mandatory"
+    },
+    "kb_slug": "microsservicos_e_apis",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_069",
+    "type": "Discipline",
+    "name": "Planejamento e Controle da Produção",
+    "code": "PRD069",
+    "semester_suggested": 5,
+    "credits": 4,
+    "area": "Produção",
+    "difficulty": "hard",
+    "programs": [
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_prod": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_070",
+    "type": "Discipline",
+    "name": "Simulação de Sistemas",
+    "code": "PRD070",
+    "semester_suggested": 5,
+    "credits": 4,
+    "area": "Produção",
+    "difficulty": "hard",
+    "programs": [
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_prod": "elective"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_071",
+    "type": "Discipline",
+    "name": "Sistemas Distribuídos",
+    "code": "CC071",
+    "semester_suggested": 5,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "hard",
+    "programs": [
+      "prog_cc"
+    ],
+    "requirements": {
+      "prog_cc": "elective"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_072",
+    "type": "Discipline",
+    "name": "UX/UI Design",
+    "code": "DES072",
+    "semester_suggested": 5,
+    "credits": 4,
+    "area": "Design",
+    "difficulty": "easy",
+    "programs": [
+      "prog_es",
+      "prog_si"
+    ],
+    "requirements": {
+      "prog_es": "elective",
+      "prog_si": "elective"
+    },
+    "kb_slug": "ux_ui_design",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_073",
+    "type": "Discipline",
+    "name": "Automação Industrial",
+    "code": "ENG073",
+    "semester_suggested": 6,
+    "credits": 4,
+    "area": "Engenharia",
+    "difficulty": "hard",
+    "programs": [
+      "prog_mec",
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_mec": "mandatory",
+      "prog_prod": "elective"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_074",
+    "type": "Discipline",
+    "name": "Computação em Nuvem Avançada",
+    "code": "CC074",
+    "semester_suggested": 6,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "hard",
+    "programs": [
+      "prog_es"
+    ],
+    "requirements": {
+      "prog_es": "elective"
+    },
+    "kb_slug": "computacao_em_nuvem_avancada",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_075",
+    "type": "Discipline",
+    "name": "Computação Gráfica",
+    "code": "CC075",
+    "semester_suggested": 6,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "medium",
+    "programs": [
+      "prog_cc"
+    ],
+    "requirements": {
+      "prog_cc": "elective"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_076",
+    "type": "Discipline",
+    "name": "Sistemas de Energia",
+    "code": "ENG076",
+    "semester_suggested": 6,
+    "credits": 4,
+    "area": "Engenharia",
+    "difficulty": "medium",
+    "programs": [
+      "prog_mec"
+    ],
+    "requirements": {
+      "prog_mec": "elective"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_077",
+    "type": "Discipline",
+    "name": "Front-end Avançado",
+    "code": "CC077",
+    "semester_suggested": 6,
+    "credits": 4,
+    "area": "Computação",
+    "difficulty": "medium",
+    "programs": [
+      "prog_es"
+    ],
+    "requirements": {
+      "prog_es": "elective"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_078",
+    "type": "Discipline",
+    "name": "Gestão Industrial",
+    "code": "PRD078",
+    "semester_suggested": 6,
+    "credits": 4,
+    "area": "Produção",
+    "difficulty": "medium",
+    "programs": [
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_prod": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_079",
+    "type": "Discipline",
+    "name": "Manutenção Industrial",
+    "code": "ENG079",
+    "semester_suggested": 6,
+    "credits": 4,
+    "area": "Engenharia",
+    "difficulty": "medium",
+    "programs": [
+      "prog_mec",
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_mec": "elective",
+      "prog_prod": "elective"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_080",
+    "type": "Discipline",
+    "name": "Metodologia Científica",
+    "code": "HUM080",
+    "semester_suggested": 6,
+    "credits": 2,
+    "area": "Humanas",
+    "difficulty": "easy",
+    "programs": [
+      "prog_es",
+      "prog_cc",
+      "prog_si",
+      "prog_mec",
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_es": "mandatory",
+      "prog_cc": "mandatory",
+      "prog_si": "mandatory",
+      "prog_mec": "mandatory",
+      "prog_prod": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_081",
+    "type": "Discipline",
+    "name": "Machine Learning",
+    "code": "IA081",
+    "semester_suggested": 6,
+    "credits": 4,
+    "area": "IA",
+    "difficulty": "hard",
+    "programs": [
+      "prog_es",
+      "prog_cc"
+    ],
+    "requirements": {
+      "prog_es": "elective",
+      "prog_cc": "mandatory"
+    },
+    "kb_slug": "machine_learning",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_082",
+    "type": "Discipline",
+    "name": "Otimização",
+    "code": "MAT082",
+    "semester_suggested": 6,
+    "credits": 4,
+    "area": "Matemática",
+    "difficulty": "hard",
+    "programs": [
+      "prog_cc"
+    ],
+    "requirements": {
+      "prog_cc": "elective"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_083",
+    "type": "Discipline",
+    "name": "Projeto Integrador",
+    "code": "PRA083",
+    "semester_suggested": 6,
+    "credits": 4,
+    "area": "Prática",
+    "difficulty": "medium",
+    "programs": [
+      "prog_es"
+    ],
+    "requirements": {
+      "prog_es": "mandatory"
+    },
+    "kb_slug": "projeto_integrador_i",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_084",
+    "type": "Discipline",
+    "name": "Vibrações Mecânicas",
+    "code": "ENG084",
+    "semester_suggested": 6,
+    "credits": 4,
+    "area": "Engenharia",
+    "difficulty": "hard",
+    "programs": [
+      "prog_mec"
+    ],
+    "requirements": {
+      "prog_mec": "mandatory"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_085",
+    "type": "Discipline",
+    "name": "Deep Learning",
+    "code": "IA085",
+    "semester_suggested": 7,
+    "credits": 4,
+    "area": "IA",
+    "difficulty": "hard",
+    "programs": [
+      "prog_cc"
+    ],
+    "requirements": {
+      "prog_cc": "elective"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_086",
+    "type": "Discipline",
+    "name": "Empreendedorismo",
+    "code": "GES086",
+    "semester_suggested": 7,
+    "credits": 2,
+    "area": "Gestão",
+    "difficulty": "easy",
+    "programs": [
+      "prog_es",
+      "prog_si",
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_es": "elective",
+      "prog_si": "elective",
+      "prog_prod": "elective"
+    },
+    "kb_slug": "empreendedorismo_digital",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_087",
+    "type": "Discipline",
+    "name": "Processamento de Linguagem Natural",
+    "code": "IA087",
+    "semester_suggested": 7,
+    "credits": 4,
+    "area": "IA",
+    "difficulty": "hard",
+    "programs": [
+      "prog_cc"
+    ],
+    "requirements": {
+      "prog_cc": "elective"
+    },
+    "kb_slug": null,
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_088",
+    "type": "Discipline",
+    "name": "TCC I",
+    "code": "PRA088",
+    "semester_suggested": 7,
+    "credits": 2,
+    "area": "Prática",
+    "difficulty": "medium",
+    "programs": [
+      "prog_es",
+      "prog_cc",
+      "prog_si",
+      "prog_mec",
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_es": "mandatory",
+      "prog_cc": "mandatory",
+      "prog_si": "mandatory",
+      "prog_mec": "mandatory",
+      "prog_prod": "mandatory"
+    },
+    "kb_slug": "tcc_i",
+    "kb_disciplina": null
+  },
+  {
+    "id": "disc_089",
+    "type": "Discipline",
+    "name": "TCC II",
+    "code": "PRA089",
+    "semester_suggested": 8,
+    "credits": 2,
+    "area": "Prática",
+    "difficulty": "medium",
+    "programs": [
+      "prog_es",
+      "prog_cc",
+      "prog_si",
+      "prog_mec",
+      "prog_prod"
+    ],
+    "requirements": {
+      "prog_es": "mandatory",
+      "prog_cc": "mandatory",
+      "prog_si": "mandatory",
+      "prog_mec": "mandatory",
+      "prog_prod": "mandatory"
+    },
+    "kb_slug": "tcc_ii",
+    "kb_disciplina": null
+  }
+]
