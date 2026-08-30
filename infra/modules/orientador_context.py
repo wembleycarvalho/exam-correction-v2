@@ -56,15 +56,15 @@ class OrientadorContextModule(Construct):
                 f"arn:aws:glue:{region}:{account}:catalog",
                 f"arn:aws:glue:{region}:{account}:database/{glue_db}",
                 f"arn:aws:glue:{region}:{account}:table/{glue_db}/*"]))
-        # S3 (lê os dados do lake; lê/escreve os resultados do Athena no mesmo bucket)
+        # S3 (lê os dados do lake; lê/escreve os resultados do Athena no mesmo bucket).
+        # GetBucketLocation é exigido pelo Athena ao verificar o bucket de resultados.
         if lake_bucket:
             agent_fn.add_to_role_policy(iam.PolicyStatement(
-                actions=["s3:GetObject", "s3:ListBucket"],
-                resources=[f"arn:aws:s3:::{lake_bucket}",
-                           f"arn:aws:s3:::{lake_bucket}/*"]))
+                actions=["s3:GetBucketLocation", "s3:ListBucket"],
+                resources=[f"arn:aws:s3:::{lake_bucket}"]))
             agent_fn.add_to_role_policy(iam.PolicyStatement(
-                actions=["s3:PutObject"],
-                resources=[f"arn:aws:s3:::{lake_bucket}/athena-results/*"]))
+                actions=["s3:GetObject", "s3:PutObject"],
+                resources=[f"arn:aws:s3:::{lake_bucket}/*"]))
         # Bedrock Converse (modelos Nova/Claude + perfis de inferência)
         agent_fn.add_to_role_policy(iam.PolicyStatement(
             actions=["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
