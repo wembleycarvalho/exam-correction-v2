@@ -90,23 +90,22 @@ nas rotas de coordenação (RBAC); rota autenticada sem token → 401. Os módul
 (`/api/*`, `/entrevistador/*`, `/orientador/*`, `/lms/*`) seguem **intactos**.
 
 **Como foi deployado (e por que não pelo `deploy.sh`):** o `deploy.sh` faz `cdk deploy` do
-portal inteiro, que aqui é inviável — o módulo Entrevistador usa **imagem Docker**
-(`ContainerImage.from_asset`) e não há Docker no ambiente; além disso o fingerprint de assets
-do CDK falha lendo o repositório no OneDrive. Para não redeployar (nem arriscar) o portal, o
-deploy foi **cirúrgico e de baixo risco**:
-1. **Stack CDK standalone** `orientador-context` (CloudFormation) só com o backend do módulo
-   (Lambda + HTTP API + authorizer Cognito importado do portal + IAM least-privilege),
-   deployada de disco local.
-2. **Behavior `/orientador-context/*` adicionado à distribution existente via CLI**, clonando a
-   config de um behavior de módulo já presente (preserva todos os behaviors atuais).
-3. **`frontend/app.js` publicado** no bucket do frontend + invalidação do CloudFront.
+portal inteiro, inviável neste ambiente — o módulo Entrevistador usa **imagem Docker**
+(`ContainerImage.from_asset`) e o fingerprint de assets do CDK falha lendo o repositório no
+OneDrive. Para não redeployar (nem arriscar) o portal, o deploy é **cirúrgico e reproduzível**,
+versionado em **`orientador-context/deploy/`**: stack CDK standalone (Lambda + HTTP API +
+Cognito importado + IAM least-privilege) + behavior `/orientador-context/*` ligado à
+distribution existente de forma aditiva/idempotente + publicação do `app.js`. Um comando:
 
-> **Reconciliar para CDK-gerenciado (quando houver Docker):** rode o deploy do portal com
+```bash
+cd orientador-context/deploy && ./deploy.sh     # resolve IDs/bucket sozinho; NÃO requer Docker
+```
+
+> **Reconciliar para o CDK do portal (quando houver Docker):**
+> `cd orientador-context/deploy && ./teardown.sh` (remove behavior + stack standalone) e depois
 > `MODULES="correcao,entrevistador,orientador,lms,orientador-context" ./scripts/deploy.sh`
-> (o `deploy.sh` já resolve o `DataLakeBucket`). **Antes**, remova o deploy cirúrgico para
-> evitar duplicação: `aws cloudformation delete-stack --stack-name orientador-context` e retire
-> o behavior/origin `octx-api` da distribution (o próximo `deploy.sh` recria tudo de forma
-> gerenciada). Enquanto o portal não é redeployado com a flag, o módulo vive por este caminho.
+> (o `deploy.sh` já resolve o `DataLakeBucket`). Enquanto o portal não é redeployado com a flag,
+> o módulo vive pelo caminho cirúrgico acima.
 
 ## Próximo (spec Fase 4/5)
 
