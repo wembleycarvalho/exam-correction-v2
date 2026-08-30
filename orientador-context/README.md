@@ -42,6 +42,27 @@ O Orientador atual não tem RBAC (qualquer logado "vira coordenador"). Aqui o pa
   e as tools de coordenação retornam "acesso negado". (Com o AWS Context, a permissão passa a
   ser imposta no próprio dado.)
 
+## Features (paridade com o Orientador Acadêmico, adaptada ao data lake)
+
+Telas/menu (todas sob "Orientador Context"): **Alunos** (perfil + notas), **Cursos** (disciplinas
+por faculdade com matriculados/média), **Chat** (agente Converse + tools, RBAC), **Trilha**
+(a refazer/pendentes/concluídas + % conclusão), **Grafo** (SVG força-dirigido reaproveitado:
+`Tudo` = faculdades×disciplinas, `Aluno` = aluno→disciplinas→competências), **Insights**
+(risco de evasão, pontos fortes/fracos, recomendações), **Currículo** (faculdades +
+disciplinas-ponte), **Competências** (matriz competência×faculdade), **Coordenação**
+(alunos por faculdade + **grade noturna conflito-consciente**), **Risco de evasão**,
+**Desempenho por faculdade**.
+
+Ações do agente (rotas `/orientador-context/api/*`): `bootstrap, ask, perfil, progresso,
+trilha, matricula, competencias-aluno, insights, grafo, programa, faculdades, curriculo,
+curriculo-faculdade, competencias-matriz, risco, desempenho, visao-geral, alunos-curso,
+matriculas-disciplina, alunos-disciplina, alunos-competencia, grade-noturna, grade-aluno`.
+
+**Fora de escopo (sem dado no Moodle):** Carreiras / Direcionador de carreira, trilha por
+pré-requisito / what-if e Insights de caminho-crítico (não há grafo de pré-requisito), e o
+fluxo de transferência de curso (exigiria escrita/DynamoDB). Documentado como enriquecimento
+futuro (a lógica de grade noturna, essa sim, foi portada por só depender da matrícula).
+
 ## Componentes
 
 - `agent/handler.py` — Lambda: rotas HTTP (`bootstrap`, `ask`, `perfil`, `risco`,

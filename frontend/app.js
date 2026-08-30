@@ -85,7 +85,7 @@ const MENU = [
   ["LMS de Vídeo", [["lms-busca","Busca em Vídeo"],["lms-catalogo","Catálogo"],["lms-qualidade","Qualidade"]]],
   ["Entrevistador Virtual", [["ent-entrevista","Entrevista"],["ent-vagas","Vagas"],["ent-avatar","Avatar"],["ent-relatorio","Histórico"]]],
   ["Orientador Acadêmico", [["ori-alunos","Alunos"],["ori-cursos","Cursos"],["ori-carreiras","Carreiras"],["ori-chat","Chat"],["ori-trilha","Trilha"],["ori-grafo","Grafo"],["ori-insights","Insights"],["ori-curriculo","Currículo"],["ori-competencias","Competências"],["ori-coord","Coordenação"]]],
-  ["Orientador Context (serverless)", [["octx-chat","Chat"],["octx-risco","Risco de evasão"],["octx-desempenho","Desempenho"]]],
+  ["Orientador Context", [["octx-alunos","Alunos"],["octx-cursos","Cursos"],["octx-chat","Chat"],["octx-trilha","Trilha"],["octx-grafo","Grafo"],["octx-insights","Insights"],["octx-curriculo","Currículo"],["octx-competencias","Competências"],["octx-coord","Coordenação"],["octx-risco","Risco de evasão"],["octx-desempenho","Desempenho"]]],
   ["Atendimento", [["atend-chat","Chat"]]],
   ["Analytics", [["analytics","Dados Analíticos"]]],
 ];
@@ -2862,6 +2862,194 @@ async function viewOrientadorContextDesempenho() {
   } catch (e) { h(`<div class="card danger">${esc(e.message)}</div>`); }
 }
 
+// ---- Orientador Context: telas com paridade ao Acadêmico (adaptadas ao data lake) ----
+function _octxStudents(boot) {
+  return (boot.students || []).map(s =>
+    `<option value="${esc(s.username)}">${esc((s.nome||"")+" "+(s.sobrenome||"")+" ("+s.username+")")}</option>`).join("");
+}
+function _octxNota(n) {
+  const cls = n.situacao === "reprovado" ? "danger" : "";
+  return `<span class="${cls}">${esc(n.nota)} · ${esc(n.situacao||"")}</span>`;
+}
+async function _octxBootOrErr() {
+  try { return await octxBoot(); } catch (e) { h(`<div class="card danger">${esc(e.message)}</div>`); return null; }
+}
+
+async function viewOrientadorContextAlunos() {
+  h(`<div class="hdr"><h2>Orientador Context — Alunos</h2></div><div class="card muted">Carregando…</div>`);
+  const boot = await _octxBootOrErr(); if (!boot) return;
+  h(`<div class="hdr"><h2>Orientador Context — Alunos</h2></div>
+     <div class="card"><div class="row"><label>Aluno:</label> <select id="octx-al">${_octxStudents(boot)}</select></div></div>
+     <div id="octx-al-body"></div>`);
+  async function load() {
+    const sid = el("octx-al").value; const host = el("octx-al-body");
+    host.innerHTML = `<div class="card muted">Carregando perfil…</div>`;
+    try {
+      const p = (await octxApi("/perfil", { method:"POST", body: JSON.stringify({ student_id: sid }) })).result;
+      const a = p.aluno || {};
+      const rows = (p.notas||[]).map(n => `<tr><td>${esc(n.faculdade)}</td><td>${esc(n.disciplina)}</td><td>${_octxNota(n)}</td></tr>`).join("");
+      host.innerHTML = `<div class="card">
+        <h3>${esc((a.nome||"")+" "+(a.sobrenome||""))} <span class="muted">· ${esc(p.faculdade||"")}</span></h3>
+        <p class="muted">${esc(a.email||"")} — aprovadas: ${p.aprovadas} · reprovações: ${p.reprovacoes}</p>
+        <table class="tbl"><thead><tr><th>Faculdade</th><th>Disciplina</th><th>Nota</th></tr></thead><tbody>${rows||`<tr><td colspan=3 class=muted>Sem notas.</td></tr>`}</tbody></table></div>`;
+    } catch (e) { host.innerHTML = `<div class="card danger">${esc(e.message)}</div>`; }
+  }
+  el("octx-al").addEventListener("change", load); load();
+}
+
+async function viewOrientadorContextTrilha() {
+  h(`<div class="hdr"><h2>Orientador Context — Trilha</h2></div><div class="card muted">Carregando…</div>`);
+  const boot = await _octxBootOrErr(); if (!boot) return;
+  h(`<div class="hdr"><h2>Orientador Context — Trilha</h2><span class="muted">disciplinas a refazer, pendentes e concluídas</span></div>
+     <div class="card"><div class="row"><label>Aluno:</label> <select id="octx-tr">${_octxStudents(boot)}</select></div></div>
+     <div id="octx-tr-body"></div>`);
+  async function load() {
+    const sid = el("octx-tr").value; const host = el("octx-tr-body");
+    host.innerHTML = `<div class="card muted">Carregando…</div>`;
+    try {
+      const t = (await octxApi("/trilha", { method:"POST", body: JSON.stringify({ student_id: sid }) })).result;
+      const lst = (arr,f) => arr.length ? arr.map(f).join("") : `<li class="muted">—</li>`;
+      host.innerHTML = `<div class="card">
+        <div class="row"><b>Conclusão do curso:</b> ${t.pct_conclusao}% (${t.aprovadas.length}/${t.total_curso})</div>
+        <h3 class="danger">A refazer (reprovadas)</h3><ul>${lst(t.a_refazer, d=>`<li>${esc(d.disciplina)} — nota ${esc(d.nota)}</li>`)}</ul>
+        <h3>Ainda não cursadas</h3><ul>${lst(t.nao_cursadas, d=>`<li>${esc(d.disciplina)}</li>`)}</ul>
+        <h3>Concluídas</h3><ul>${lst(t.aprovadas, d=>`<li>${esc(d.disciplina)} — nota ${esc(d.nota)}</li>`)}</ul></div>`;
+    } catch (e) { host.innerHTML = `<div class="card danger">${esc(e.message)}</div>`; }
+  }
+  el("octx-tr").addEventListener("change", load); load();
+}
+
+async function viewOrientadorContextInsights() {
+  h(`<div class="hdr"><h2>Orientador Context — Insights</h2></div><div class="card muted">Carregando…</div>`);
+  const boot = await _octxBootOrErr(); if (!boot) return;
+  h(`<div class="hdr"><h2>Orientador Context — Insights</h2></div>
+     <div class="card"><div class="row"><label>Aluno:</label> <select id="octx-in">${_octxStudents(boot)}</select></div></div>
+     <div id="octx-in-body"></div>`);
+  async function load() {
+    const sid = el("octx-in").value; const host = el("octx-in-body");
+    host.innerHTML = `<div class="card muted">Analisando…</div>`;
+    try {
+      const i = (await octxApi("/insights", { method:"POST", body: JSON.stringify({ student_id: sid }) })).result;
+      const cor = { alto:"danger", medio:"", baixo:"" }[i.risco_evasao] || "";
+      host.innerHTML = `<div class="card">
+        <p><b>Risco de evasão:</b> <span class="${cor}">${esc(i.risco_evasao)}</span> · <b>Conclusão:</b> ${i.pct_conclusao}% · <b>Competências:</b> ${i.competencias_desenvolvidas}</p>
+        <h3>Pontos fortes</h3><ul>${(i.pontos_fortes||[]).map(n=>`<li>${esc(n.disciplina)} — ${esc(n.nota)}</li>`).join("")||"<li class=muted>—</li>"}</ul>
+        <h3 class="danger">Pontos fracos</h3><ul>${(i.pontos_fracos||[]).map(n=>`<li>${esc(n.disciplina)} — ${esc(n.nota)} (${esc(n.situacao||"")})</li>`).join("")||"<li class=muted>—</li>"}</ul>
+        <h3>Recomendações</h3><ul>${(i.recomendacoes||[]).map(r=>`<li>${esc(r)}</li>`).join("")}</ul></div>`;
+    } catch (e) { host.innerHTML = `<div class="card danger">${esc(e.message)}</div>`; }
+  }
+  el("octx-in").addEventListener("change", load); load();
+}
+
+async function viewOrientadorContextCursos() {
+  h(`<div class="hdr"><h2>Orientador Context — Cursos</h2></div><div class="card muted">Carregando…</div>`);
+  const boot = await _octxBootOrErr(); if (!boot) return;
+  const facs = (boot.faculdades||[]).map(f=>`<option value="${esc(f)}">${esc(f)}</option>`).join("");
+  h(`<div class="hdr"><h2>Orientador Context — Cursos</h2></div>
+     <div class="card"><div class="row"><label>Faculdade:</label> <select id="octx-cs">${facs}</select></div></div>
+     <div id="octx-cs-body"></div>`);
+  async function load() {
+    const f = el("octx-cs").value; const host = el("octx-cs-body");
+    host.innerHTML = `<div class="card muted">Carregando…</div>`;
+    try {
+      const p = (await octxApi("/programa", { method:"POST", body: JSON.stringify({ faculdade: f }) })).result;
+      const rows = (p.disciplinas||[]).map(d=>`<tr><td>${esc(d.disciplina)}</td><td>${esc(d.matriculados||0)}</td><td>${esc(d.media||"—")}</td></tr>`).join("");
+      host.innerHTML = `<div class="card"><p class="muted">${esc(p.faculdade)} — ${p.total_disciplinas} disciplinas · ${p.total_alunos} alunos</p>
+        <table class="tbl"><thead><tr><th>Disciplina</th><th>Matriculados</th><th>Média</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    } catch (e) { host.innerHTML = `<div class="card danger">${esc(e.message)}</div>`; }
+  }
+  el("octx-cs").addEventListener("change", load); load();
+}
+
+async function viewOrientadorContextCurriculo() {
+  h(`<div class="hdr"><h2>Orientador Context — Currículo</h2></div><div class="card muted">Carregando…</div>`);
+  try {
+    const c = (await octxApi("/curriculo", { method:"POST", body:"{}" })).result;
+    const facs = (c.faculdades||[]).map(f=>`<tr><td>${esc(f.faculdade)}</td><td>${esc(f.disciplinas)}</td><td>${esc(f.competencias)}</td></tr>`).join("");
+    const ponte = (c.disciplinas_ponte||[]).map(d=>`<li>${esc(d.disciplina)} (${esc(d.n_faculdades)} faculdades)</li>`).join("") || `<li class="muted">Nenhuma disciplina compartilhada entre faculdades.</li>`;
+    h(`<div class="hdr"><h2>Orientador Context — Currículo</h2></div>
+       <div class="card"><h3>Faculdades</h3>
+         <table class="tbl"><thead><tr><th>Faculdade</th><th>Disciplinas</th><th>Competências</th></tr></thead><tbody>${facs}</tbody></table></div>
+       <div class="card"><h3>Disciplinas-ponte</h3><ul>${ponte}</ul></div>`);
+  } catch (e) { h(`<div class="card danger">${esc(e.message)}</div>`); }
+}
+
+async function viewOrientadorContextCompetencias() {
+  h(`<div class="hdr"><h2>Orientador Context — Competências</h2></div><div class="card muted">Carregando…</div>`);
+  try {
+    const m = (await octxApi("/competencias-matriz", { method:"POST", body:"{}" })).result;
+    const cells = m.celulas || [];
+    const comps = [...new Set(cells.map(c=>c.competencia))].sort();
+    const facs = [...new Set(cells.map(c=>c.faculdade))].sort();
+    const val = {}; cells.forEach(c => { val[c.competencia+"|"+c.faculdade] = c.disciplinas; });
+    const head = `<tr><th>Competência ⧵ Faculdade</th>${facs.map(f=>`<th>${esc(f)}</th>`).join("")}</tr>`;
+    const body = comps.map(cp => `<tr><td>${esc(cp)}</td>${facs.map(f=>{
+      const v = val[cp+"|"+f]; return v ? `<td style="background:#e6f4ea;text-align:center">${esc(v)}</td>` : `<td style="text-align:center" class="muted">—</td>`;
+    }).join("")}</tr>`).join("");
+    h(`<div class="hdr"><h2>Orientador Context — Competências × Faculdade</h2><span class="muted">nº de disciplinas que desenvolvem cada competência</span></div>
+       <div class="card"><table class="tbl">${head}${body}</table></div>`);
+  } catch (e) { h(`<div class="card danger">${esc(e.message)}</div>`); }
+}
+
+async function viewOrientadorContextGrafo() {
+  h(`<div class="hdr"><h2>Orientador Context — Grafo</h2></div><div class="card muted">Carregando…</div>`);
+  const boot = await _octxBootOrErr(); if (!boot) return;
+  const typeLegend = Object.keys(ORI_COLORS).map(t => `<span class="ori-leg"><i style="background:${ORI_COLORS[t]}"></i>${ORI_TYPE_PT[t]}</span>`).join("");
+  const studentLegend = `<span class="ori-leg"><i style="background:${ORI_STATUS_COLORS.done}"></i>Concluída</span><span class="ori-leg"><i style="background:${ORI_STATUS_COLORS.todo}"></i>Reprovada/pendente</span><span class="ori-leg">● disciplina</span><span class="ori-leg">★ competência</span>`;
+  h(`<div class="hdr"><h2>Orientador Context — Grafo</h2></div>
+     <div class="card">
+       <div class="row"><label>Ver:</label>
+         <select id="octx-scope"><option value="student">Aluno</option><option value="full">Tudo (faculdades × disciplinas)</option></select>
+         <select id="octx-ent">${_octxStudents(boot)}</select>
+         <button class="btn" id="octx-gg">Montar grafo</button><span id="octx-gc" class="muted"></span></div>
+       <div class="ori-legend" id="octx-leg">${studentLegend}</div>
+       <div id="octx-canvas" class="ori-canvas"></div>
+       <p class="muted">Arraste os nós, use a roda para zoom. No modo Aluno, clique num nó Aluno para recentralizar.</p>
+     </div>`);
+  const scopeSel = el("octx-scope"), entSel = el("octx-ent");
+  function sync(){ entSel.style.display = scopeSel.value === "full" ? "none" : ""; el("octx-leg").innerHTML = scopeSel.value==="student"?studentLegend:typeLegend; }
+  async function load() {
+    const scope = scopeSel.value, id = scope==="full"?null:entSel.value;
+    const cv = el("octx-canvas"); cv.innerHTML = `<div class="muted" style="padding:1rem">Montando…</div>`; el("octx-gc").textContent="";
+    try {
+      const d = (await octxApi("/grafo", { method:"POST", body: JSON.stringify({ scope, id, mode:"coord" }) })).result || {};
+      el("octx-gc").textContent = `${d.counts?.nodes||0} nós · ${d.counts?.edges||0} ligações`;
+      _oriForceGraph(cv, d, (n)=>{ if(n.type==="Student"){ scopeSel.value="student"; sync(); load(); } });
+    } catch (e) { cv.innerHTML = `<div class="danger" style="padding:1rem">${esc(e.message)}</div>`; }
+  }
+  scopeSel.addEventListener("change", ()=>{ sync(); load(); });
+  el("octx-gg").addEventListener("click", load);
+  sync(); load();
+}
+
+async function viewOrientadorContextCoord() {
+  h(`<div class="hdr"><h2>Orientador Context — Coordenação</h2></div><div class="card muted">Carregando…</div>`);
+  const boot = await _octxBootOrErr(); if (!boot) return;
+  if (!boot.is_coord_capable) return h(`<div class="hdr"><h2>Orientador Context — Coordenação</h2></div><div class="card muted">Restrito à coordenação (perfil admin/professor).</div>`);
+  const facs = (boot.faculdades||[]).map(f=>`<option value="${esc(f)}">${esc(f)}</option>`).join("");
+  h(`<div class="hdr"><h2>Orientador Context — Coordenação</h2></div>
+     <div class="card"><h3>Alunos por faculdade</h3><div id="octx-vg" class="muted">Carregando…</div></div>
+     <div class="card"><h3>Grade noturna (conflito-consciente)</h3>
+       <div class="row"><label>Faculdade:</label> <select id="octx-gf">${facs}</select>
+         <button class="btn" id="octx-gb">Montar grade</button></div>
+       <div id="octx-grade"></div></div>`);
+  try {
+    const vg = (await octxApi("/visao-geral", { method:"POST", body: JSON.stringify({ mode:"coord" }) })).result;
+    el("octx-vg").innerHTML = `<table class="tbl"><thead><tr><th>Faculdade</th><th>Alunos</th></tr></thead><tbody>${(vg.cursos||[]).map(c=>`<tr><td>${esc(c.faculdade)}</td><td>${esc(c.alunos)}</td></tr>`).join("")}</tbody></table>`;
+  } catch (e) { el("octx-vg").innerHTML = `<span class="danger">${esc(e.message)}</span>`; }
+  async function grade() {
+    const f = el("octx-gf").value; const host = el("octx-grade");
+    host.innerHTML = `<div class="muted">Montando grade…</div>`;
+    try {
+      const g = (await octxApi("/grade-noturna", { method:"POST", body: JSON.stringify({ mode:"coord", faculdade: f }) })).result;
+      const byNoite = {}; (g.grade||[]).forEach(s => { (byNoite[s.noite]=byNoite[s.noite]||[]).push(s); });
+      const blocks = Object.keys(byNoite).sort().map(nt => `<div class="card" style="margin:.4rem 0"><b>Noite ${nt}</b>${byNoite[nt].map(s=>`<div>Horário ${s.horario}: ${s.disciplinas.map(d=>esc(d.disciplina)+" ("+d.matriculados+")").join(", ")||"<span class=muted>—</span>"}</div>`).join("")}</div>`).join("");
+      host.innerHTML = `<p class="muted">${esc(g.faculdade)} — ${g.total_disciplinas} disciplinas · salas no pico: ${g.salas_no_pico}${(g.nao_alocadas||[]).length?` · não alocadas: ${g.nao_alocadas.length}`:""}</p>${blocks}`;
+    } catch (e) { host.innerHTML = `<div class="danger">${esc(e.message)}</div>`; }
+  }
+  el("octx-gb").addEventListener("click", grade); grade();
+}
+
 const ROUTES = {
   "ex-corrige":()=>viewCorrecao("exam"), "ex-criar":viewCriar, "ex-hist":()=>viewHistorico("exam"),
   "red-rubrica":viewRubricas, "red-corrige":()=>viewCorrecao("essay"), "red-hist":()=>viewHistorico("essay"),
@@ -2880,6 +3068,10 @@ const ROUTES = {
   "lms-busca":viewLmsBusca, "lms-catalogo":viewLmsCatalogo, "lms-qualidade":viewLmsQualidade,
   "octx-chat":viewOrientadorContextChat, "octx-risco":viewOrientadorContextRisco,
   "octx-desempenho":viewOrientadorContextDesempenho,
+  "octx-alunos":viewOrientadorContextAlunos, "octx-cursos":viewOrientadorContextCursos,
+  "octx-trilha":viewOrientadorContextTrilha, "octx-grafo":viewOrientadorContextGrafo,
+  "octx-insights":viewOrientadorContextInsights, "octx-curriculo":viewOrientadorContextCurriculo,
+  "octx-competencias":viewOrientadorContextCompetencias, "octx-coord":viewOrientadorContextCoord,
 };
 function route(){ const k=location.hash.slice(1)||"ex-corrige"; renderNav(ROUTES[k]?k:"ex-corrige"); (ROUTES[k]||ROUTES["ex-corrige"])(); toggleSide(false); }
 window.addEventListener("hashchange", route);

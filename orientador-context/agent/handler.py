@@ -1,11 +1,11 @@
-"""Orientador Context — agente serverless (Lambda) do portal "A Arte do Possível".
+"""Orientador Context — agente serverless (Lambda) do portal "A Arte do Possivel".
 
-Padrão da opção B1 da spec: o agente (aqui em Lambda, não AgentCore Runtime) consome o
-data lake (Athena sobre `moodle_datalake`) via Bedrock Converse + tool-use. Front door é o
-portal, sob /orientador-context/*. Coexiste com o Orientador atual (Neptune), sem tocá-lo.
+Front door = portal, sob /orientador-context/*. Consome o data lake do Moodle (Athena sobre
+`moodle_datalake`) via Bedrock Converse + tool-use (chat) e via consultas diretas (telas).
+Coexiste com o Orientador Academico (Neptune), sem toca-lo.
 
-RBAC (ganho central): o papel vem dos grupos do Cognito (claims do JWT). Coordenador
-(admin/professor) acessa visões agregadas e alunos em risco; aluno é escopado ao próprio.
+RBAC: papel pelos grupos do Cognito (JWT). Coordenador (admin/professor) acessa visoes
+agregadas/coordenacao; aluno e escopado ao proprio.
 """
 import json
 import os
@@ -20,9 +20,12 @@ MODEL_ID = os.environ.get("MODEL_ID", "amazon.nova-pro-v1:0")
 
 
 def _resp(status, body):
-    return {"statusCode": status,
-            "headers": {"Content-Type": "application/json"},
+    return {"statusCode": status, "headers": {"Content-Type": "application/json"},
             "body": json.dumps(body, ensure_ascii=False)}
+
+
+def _ok(result):
+    return _resp(200, {"result": result})
 
 
 def _subpath(event):
@@ -48,6 +51,7 @@ def _has_priv(event):
     return bool(_groups(event) & {"admin", "professor"})
 
 
+# ------------------------------------------------------------------ chat (Converse)
 def _messages(history, question):
     msgs = []
     for h in (history or [])[-8:]:
@@ -63,15 +67,11 @@ def _ask(question, *, is_coord, student_id, history):
     system = prompts.COORD if is_coord else prompts.ALUNO
     toolset = tools.COORD_TOOLS if is_coord else tools.ALUNO_TOOLS
     messages = _messages(history, question)
-
     for _ in range(6):
         resp = _bedrock.converse(
-            modelId=MODEL_ID,
-            system=[{"text": system}],
-            messages=messages,
+            modelId=MODEL_ID, system=[{"text": system}], messages=messages,
             toolConfig={"tools": toolset},
-            inferenceConfig={"maxTokens": 1200, "temperature": 0.2},
-        )
+            inferenceConfig={"maxTokens": 1200, "temperature": 0.2})
         out = resp["output"]["message"]
         messages.append(out)
         if resp.get("stopReason") == "tool_use":
@@ -80,17 +80,96 @@ def _ask(question, *, is_coord, student_id, history):
                 tu = block.get("toolUse")
                 if not tu:
                     continue
-                result = tools.execute(tu["name"], tu.get("input", {}),
-                                       is_coord=is_coord, student_id=student_id)
-                results.append({"toolResult": {
-                    "toolUseId": tu["toolUseId"], "content": [{"json": result}]}})
+                r = tools.execute(tu["name"], tu.get("input", {}),
+                                  is_coord=is_coord, student_id=student_id)
+                results.append({"toolResult": {"toolUseId": tu["toolUseId"],
+                                                "content": [{"json": r}]}})
             messages.append({"role": "user", "content": results})
             continue
-        text = "".join(b.get("text", "") for b in out.get("content", []))
-        return text.strip() or "Não consegui elaborar uma resposta."
-    return "Não consegui concluir a análise com os dados disponíveis."
+        return "".join(b.get("text", "") for b in out.get("content", [])).strip() \
+            or "Nao consegui elaborar uma resposta."
+    return "Nao consegui concluir a analise com os dados disponiveis."
 
 
+# ------------------------------------------------------------------ grafo (SVG force graph)
+def _grafo(scope, entity_id, is_coord, student_id):
+    nodes, edges, seen = [], [], set()
+
+    def add_node(nid, label, ntype, **extra):
+        if nid not in seen:
+            seen.add(nid)
+            nodes.append({"id": nid, "label": label, "type": ntype, **extra})
+
+    if scope == "student":
+        u = student_id if not is_coord else (entity_id or student_id)
+        u = tools._san_username(u)
+        perfil = tools.perfil_aluno(u)
+        aluno = perfil.get("aluno") or {"nome": u}
+        add_node("stu:" + u, (aluno.get("nome", "") + " " + aluno.get("sobrenome", "")).strip() or u,
+                 "Student", status="student")
+        for n in perfil.get("notas", []):
+            d = n["disciplina"]
+            did = "disc:" + d
+            status = "done" if n.get("situacao") == "aprovado" else "todo"
+            add_node(did, d, "Discipline", status=status, code=str(n.get("nota", "")))
+            edges.append({"source": "stu:" + u, "target": did,
+                          "relation": "COMPLETED", "label": str(n.get("nota", ""))})
+        for c in tools.competencias_aluno(u).get("competencias", []):
+            cid = "comp:" + c["competencia"]
+            add_node(cid, c["competencia"], "Competency")
+        focus = "stu:" + u
+    else:  # full
+        for c in tools.faculdades().get("faculdades", []):
+            add_node("prog:" + c["faculdade"], c["faculdade"], "Program")
+        # disciplinas + oferta
+        rows = tools.query("SELECT faculdade, disciplina, codigo FROM cursos")
+        for r in rows:
+            did = "disc:" + r["disciplina"]
+            add_node(did, r["disciplina"], "Discipline", code=r.get("codigo", ""))
+            edges.append({"source": "prog:" + r["faculdade"], "target": did,
+                          "relation": "OFFERED_IN", "label": ""})
+        focus = "full"
+
+    deg = {}
+    for e in edges:
+        deg[e["source"]] = deg.get(e["source"], 0) + 1
+        deg[e["target"]] = deg.get(e["target"], 0) + 1
+    for n in nodes:
+        n["degree"] = deg.get(n["id"], 0)
+    return {"scope": scope, "focus": focus, "nodes": nodes, "edges": edges,
+            "counts": {"nodes": len(nodes), "edges": len(edges)}}
+
+
+# ------------------------------------------------------------------ insights (computado)
+def _insights(username):
+    u = tools._san_username(username)
+    perfil = tools.perfil_aluno(u)
+    prog = tools.progresso_aluno(u)
+    comps = tools.competencias_aluno(u).get("competencias", [])
+    notas = sorted(perfil.get("notas", []), key=lambda n: tools._num(n.get("nota")))
+    fracos = [n for n in notas if n.get("situacao") == "reprovado"] or notas[:3]
+    fortes = sorted(perfil.get("notas", []), key=lambda n: tools._num(n.get("nota")),
+                    reverse=True)[:3]
+    reprov = perfil.get("reprovacoes", 0)
+    risco = "alto" if reprov >= 3 else ("medio" if reprov >= 1 else "baixo")
+    recs = []
+    if fracos:
+        recs.append("Priorizar refazer/reforcar: " + ", ".join(
+            n["disciplina"] for n in fracos[:4]) + ".")
+    if prog.get("pct_conclusao", 0) < 50:
+        recs.append("Conclusao do curso em %.0f%%; planejar as pendentes." % prog.get("pct_conclusao", 0))
+    if risco == "alto":
+        recs.append("Risco de evasao alto: buscar tutoria/monitoria e acompanhamento.")
+    if not recs:
+        recs.append("Desempenho consistente; manter o ritmo e explorar disciplinas eletivas.")
+    return {"aluno": perfil.get("aluno"), "faculdade": perfil.get("faculdade"),
+            "risco_evasao": risco, "reprovacoes": reprov,
+            "pct_conclusao": prog.get("pct_conclusao", 0),
+            "pontos_fortes": fortes, "pontos_fracos": fracos[:5],
+            "competencias_desenvolvidas": len(comps), "recomendacoes": recs}
+
+
+# ------------------------------------------------------------------ dispatch
 def handler(event, context):
     path = _subpath(event)
     if path == "health":
@@ -108,14 +187,22 @@ def handler(event, context):
     student_id = body.get("student_id")
     is_coord = has_priv and mode == "coord"
 
+    def need_student():
+        if not student_id:
+            return _resp(400, {"error": "selecione um aluno"})
+        return None
+
+    def need_coord():
+        if not has_priv:
+            return _resp(403, {"error": "restrito a coordenacao"})
+        return None
+
     try:
+        # ---- comum ----
         if path == "bootstrap":
-            faculdades = tools.desempenho_faculdade()["faculdades"] if has_priv else []
-            alunos = tools.query_alunos_min() if has_priv else []
-            return _resp(200, {"result": {
-                "is_coord_capable": has_priv,
-                "faculdades": [f["faculdade"] for f in faculdades],
-                "students": alunos}})
+            return _ok({"is_coord_capable": has_priv,
+                        "faculdades": [f["faculdade"] for f in tools.faculdades()["faculdades"]],
+                        "students": tools.query_alunos_min() if has_priv else []})
 
         if path == "ask":
             q = (body.get("question") or "").strip()
@@ -123,26 +210,84 @@ def handler(event, context):
                 return _resp(400, {"error": "pergunta vazia"})
             if not is_coord and not student_id:
                 return _resp(400, {"error": "selecione um aluno (modo aluno)"})
-            answer = _ask(q, is_coord=is_coord, student_id=student_id,
-                          history=body.get("history"))
-            return _resp(200, {"result": {"answer": answer, "mode": "coord" if is_coord else "aluno"}})
+            return _ok({"answer": _ask(q, is_coord=is_coord, student_id=student_id,
+                                       history=body.get("history")),
+                        "mode": "coord" if is_coord else "aluno"})
 
-        if path == "perfil":
-            if not student_id:
-                return _resp(400, {"error": "student_id obrigatório"})
-            return _resp(200, {"result": tools.perfil_aluno(student_id)})
+        # ---- aluno (escopado) ----
+        if path in ("perfil", "progresso", "trilha", "matricula", "competencias-aluno", "insights"):
+            r = need_student()
+            if r:
+                return r
+            if path == "perfil":
+                return _ok(tools.perfil_aluno(student_id))
+            if path == "progresso":
+                return _ok(tools.progresso_aluno(student_id))
+            if path == "trilha":
+                return _ok(tools.trilha_aluno(student_id))
+            if path == "matricula":
+                return _ok(tools.minha_matricula(student_id))
+            if path == "competencias-aluno":
+                return _ok(tools.competencias_aluno(student_id))
+            if path == "insights":
+                return _ok(_insights(student_id))
 
-        if path == "risco":
-            if not has_priv:
-                return _resp(403, {"error": "restrito à coordenação"})
-            return _resp(200, {"result": tools.alunos_em_risco(
-                int(body.get("min_reprovacoes", 3) or 3), body.get("faculdade", ""))})
+        if path == "grafo":
+            scope = body.get("scope", "full")
+            if scope == "student" and not is_coord and not student_id:
+                return _resp(400, {"error": "selecione um aluno"})
+            return _ok(_grafo(scope, body.get("id"), is_coord, student_id))
 
-        if path == "desempenho":
-            if not has_priv:
-                return _resp(403, {"error": "restrito à coordenação"})
-            return _resp(200, {"result": tools.desempenho_faculdade()})
+        # ---- catalogo (publico p/ autenticado) ----
+        if path == "faculdades":
+            return _ok(tools.faculdades())
+        if path == "programa":
+            if not body.get("faculdade"):
+                return _resp(400, {"error": "faculdade obrigatoria"})
+            return _ok(tools.programa(body["faculdade"]))
+        if path == "curriculo":
+            return _ok(tools.curriculo_overview())
+        if path == "curriculo-faculdade":
+            if not body.get("faculdade"):
+                return _resp(400, {"error": "faculdade obrigatoria"})
+            return _ok(tools.curriculo_faculdade(body["faculdade"]))
+        if path == "competencias-matriz":
+            return _ok(tools.competencia_matriz())
 
-        return _resp(404, {"error": f"rota não encontrada: {path}"})
+        # ---- coordenacao (exige grupo) ----
+        if path in ("risco", "desempenho", "visao-geral", "alunos-curso", "matriculas-disciplina",
+                    "alunos-disciplina", "alunos-competencia", "grade-noturna", "grade-aluno"):
+            r = need_coord()
+            if r:
+                return r
+            if path == "risco":
+                return _ok(tools.alunos_em_risco(int(body.get("min_reprovacoes", 3) or 3),
+                                                 body.get("faculdade", "")))
+            if path == "desempenho":
+                return _ok(tools.desempenho_faculdade())
+            if path == "visao-geral":
+                return _ok(tools.visao_geral_cursos())
+            if path == "alunos-curso":
+                return _ok(tools.alunos_do_curso(body.get("faculdade", "")))
+            if path == "matriculas-disciplina":
+                return _ok(tools.matriculas_por_disciplina(body.get("faculdade", "")))
+            if path == "alunos-disciplina":
+                return _ok(tools.alunos_por_disciplina(body.get("disciplina", "")))
+            if path == "alunos-competencia":
+                return _ok(tools.alunos_por_competencia(body.get("competencia", "")))
+            if path == "grade-noturna":
+                return _ok(tools.grade_noturna(body.get("faculdade", ""),
+                                               body.get("noites", 5), body.get("aulas_por_noite", 2)))
+            if path == "grade-aluno":
+                grade = tools.grade_noturna(body.get("faculdade", ""))
+                u = body.get("student_id") or ""
+                minhas = set()
+                if u:
+                    minhas = {m["disciplina"] for m in tools.minha_matricula(u).get("matriculas", [])}
+                for slot in grade["grade"]:
+                    slot["disciplinas"] = [d for d in slot["disciplinas"] if d["disciplina"] in minhas]
+                return _ok(grade)
+
+        return _resp(404, {"error": f"rota nao encontrada: {path}"})
     except Exception as e:  # noqa: BLE001
         return _resp(502, {"error": str(e)})
