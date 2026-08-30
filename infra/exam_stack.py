@@ -27,6 +27,7 @@ from constructs import Construct
 from modules.entrevistador import EntrevistadorModule
 from modules.lms import LmsModule
 from modules.orientador import OrientadorModule
+from modules.orientador_context import OrientadorContextModule
 
 
 class ExamStack(Stack):
@@ -407,6 +408,32 @@ class ExamStack(Stack):
             distribution.add_behavior(
                 "/lms/*",
                 origins.HttpOrigin(lms.api_domain,
+                                   protocol_policy=cloudfront.OriginProtocolPolicy.HTTPS_ONLY),
+                viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                allowed_methods=cloudfront.AllowedMethods.ALLOW_ALL,
+                cache_policy=cloudfront.CachePolicy.CACHING_DISABLED,
+                origin_request_policy=cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+                response_headers_policy=security_headers,
+            )
+
+        # ---------------- Módulo: Orientador Context (serverless, data lake do Moodle) --------
+        # Novo módulo, ISOLADO e ADITIVO — coexiste com o Orientador Acadêmico (Neptune) sem
+        # tocá-lo. Agente em Lambda consome o data lake do Moodle (Athena/Glue) via Bedrock
+        # Converse. API sob /orientador-context/* (HTTP API + JWT). Inerte a menos que ativado
+        # em `-c modules=...,orientador-context`. O nome do bucket do data lake (projeto
+        # apartado) vem por contexto `orientadorContextLakeBucket`.
+        if "orientador-context" in modules:
+            orientador_context = OrientadorContextModule(
+                self, "OrientadorContext", stack_name=self.stack_name,
+                user_pool=user_pool, user_pool_client=client, boto3_layer=boto3_layer,
+                lake_bucket=self.node.try_get_context("orientadorContextLakeBucket") or "",
+                glue_db=self.node.try_get_context("orientadorContextGlueDb") or "moodle_datalake",
+                workgroup=self.node.try_get_context("orientadorContextWorkgroup") or "moodle-datalake",
+                model_id=self.node.try_get_context("orientadorContextModelId") or "amazon.nova-pro-v1:0",
+            )
+            distribution.add_behavior(
+                "/orientador-context/*",
+                origins.HttpOrigin(orientador_context.api_domain,
                                    protocol_policy=cloudfront.OriginProtocolPolicy.HTTPS_ONLY),
                 viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
                 allowed_methods=cloudfront.AllowedMethods.ALLOW_ALL,

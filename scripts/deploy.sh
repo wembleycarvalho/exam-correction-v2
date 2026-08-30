@@ -25,6 +25,12 @@ if [[ -f .env ]]; then set -a; source .env; set +a; fi
 # Entrevistador Virtual (serviço próprio, streaming/voz). URL embutida no capítulo do SPA.
 # Vazio = capítulo mostra placeholder "não configurado".
 : "${INTERVIEWER_URL:=}"
+# Seleção de módulos do portal (opt-in). Vazio = comportamento padrão da stack
+# (default correcao,entrevistador) — deploy inalterado. Para ativar o Orientador Context:
+#   MODULES="correcao,entrevistador,orientador-context" ./scripts/deploy.sh
+: "${MODULES:=}"
+: "${MOODLE_STACK:=moodle-backbone}"
+: "${ORIENTADOR_CONTEXT_LAKE_BUCKET:=}"
 export AWS_REGION
 
 echo ">> Conta/identidade:"; aws sts get-caller-identity --query Arn --output text
@@ -53,6 +59,19 @@ fi
 [[ -n "$KB_ID" ]] && echo ">> Provas Online habilitado (kbId=${KB_ID})." || \
   echo ">> Provas Online desabilitado (sem KB). Defina DEPLOY_KB=1 ou KB_ID/KB_BUCKET."
 
+# --- Módulo Orientador Context (opt-in): resolve o bucket do data lake do backbone Moodle ---
+if [[ ",$MODULES," == *",orientador-context,"* && -z "$ORIENTADOR_CONTEXT_LAKE_BUCKET" ]]; then
+  ORIENTADOR_CONTEXT_LAKE_BUCKET="$(aws cloudformation describe-stacks --stack-name "$MOODLE_STACK" \
+    --query "Stacks[0].Outputs[?OutputKey=='DataLakeBucket'].OutputValue" --output text 2>/dev/null || true)"
+  [[ -n "$ORIENTADOR_CONTEXT_LAKE_BUCKET" ]] \
+    && echo ">> Orientador Context: data lake = ${ORIENTADOR_CONTEXT_LAKE_BUCKET}" \
+    || echo "!! Orientador Context ativado mas sem DataLakeBucket (stack '$MOODLE_STACK'). O agente subirá sem acesso ao S3."
+fi
+# Contexto extra (aditivo; vazio por padrão -> deploy padrão inalterado).
+EXTRA_CTX=""
+[[ -n "$MODULES" ]] && EXTRA_CTX="$EXTRA_CTX -c modules=$MODULES"
+[[ -n "$ORIENTADOR_CONTEXT_LAKE_BUCKET" ]] && EXTRA_CTX="$EXTRA_CTX -c orientadorContextLakeBucket=$ORIENTADOR_CONTEXT_LAKE_BUCKET"
+
 # --- Segredo de origem (CloudFront -> API) ---
 ORIGIN_SECRET="$(python3 -c 'import secrets;print(secrets.token_urlsafe(24))')"
 
@@ -71,6 +90,7 @@ npx --yes aws-cdk@latest deploy "$STACK_NAME" --app "$CDK_APP" --require-approva
   -c stackName="$STACK_NAME" -c workerConcurrency="$WORKER_CONCURRENCY" \
   -c defaultModelId="$DEFAULT_MODEL_ID" -c modelPricing="$MODEL_PRICING" \
   -c kbId="$KB_ID" -c kbBucket="$KB_BUCKET" -c omrLayerArn="$OMR_LAYER_ARN" \
+  $EXTRA_CTX \
   --parameters "OriginSecret=${ORIGIN_SECRET}" \
   --outputs-file cdk-outputs.json
 popd >/dev/null

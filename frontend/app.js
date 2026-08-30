@@ -85,6 +85,7 @@ const MENU = [
   ["LMS de Vídeo", [["lms-busca","Busca em Vídeo"],["lms-catalogo","Catálogo"],["lms-qualidade","Qualidade"]]],
   ["Entrevistador Virtual", [["ent-entrevista","Entrevista"],["ent-vagas","Vagas"],["ent-avatar","Avatar"],["ent-relatorio","Histórico"]]],
   ["Orientador Acadêmico", [["ori-alunos","Alunos"],["ori-cursos","Cursos"],["ori-carreiras","Carreiras"],["ori-chat","Chat"],["ori-trilha","Trilha"],["ori-grafo","Grafo"],["ori-insights","Insights"],["ori-curriculo","Currículo"],["ori-competencias","Competências"],["ori-coord","Coordenação"]]],
+  ["Orientador Context (serverless)", [["octx-chat","Chat"],["octx-risco","Risco de evasão"],["octx-desempenho","Desempenho"]]],
   ["Atendimento", [["atend-chat","Chat"]]],
   ["Analytics", [["analytics","Dados Analíticos"]]],
 ];
@@ -2765,6 +2766,102 @@ async function viewLmsCatalogo() {
 }
 
 /* ---------------- Roteamento ---------------- */
+/* ---------------- Orientador Context (serverless, data lake do Moodle) ----------------
+   Módulo NOVO e isolado — coexiste com o Orientador Acadêmico (Neptune) sem alterá-lo.
+   Consome o data lake (Athena) via agente serverless; RBAC por perfil Cognito. */
+const OCTX = "/orientador-context/api";
+let _octxBoot = null;
+
+async function octxApi(path, opts = {}, _retried) {
+  const r = await fetch(OCTX + path, { ...opts, headers: {
+    "Content-Type": "application/json", "Authorization": "Bearer " + ID_TOKEN, ...(opts.headers || {}) } });
+  if (r.status === 401 && !_retried) {
+    if (await refreshToken()) return octxApi(path, opts, true);
+    login(); throw new Error("Sessão expirada. Redirecionando para o login…");
+  }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+  return data;
+}
+async function octxBoot() {
+  if (!_octxBoot) _octxBoot = (await octxApi("/bootstrap", { method: "POST", body: "{}" })).result;
+  return _octxBoot;
+}
+
+async function viewOrientadorContextChat() {
+  h(`<div class="hdr"><h2>Orientador Context — Chat</h2></div><div class="card muted">Carregando…</div>`);
+  let boot;
+  try { boot = await octxBoot(); } catch (e) { return h(`<div class="card danger">${esc(e.message)}</div>`); }
+  const students = (boot.students || []).map(s =>
+    `<option value="${esc(s.username)}">${esc((s.nome || "") + " " + (s.sobrenome || "") + " (" + s.username + ")")}</option>`).join("");
+  const coordOpt = boot.is_coord_capable
+    ? `<option value="__coord__">👤 Coordenação (visão do curso)</option>` : "";
+  h(`<div class="hdr"><h2>Orientador Context — Chat</h2>
+       <span class="muted">dados do Moodle via data lake (Athena) · RBAC por perfil</span></div>
+     <div class="card">
+       <div class="row"><label>Atuar como:</label> <select id="octx-who">${coordOpt}${students}</select></div>
+       <div id="octx-chat" class="ori-chat"></div>
+       <div class="ori-ask">
+         <input id="octx-q" placeholder="Pergunte sobre desempenho, disciplinas, risco de evasão…"
+                onkeydown="if(event.key==='Enter')octxSend()">
+         <button class="btn" onclick="octxSend()">Enviar</button>
+       </div>
+     </div>`);
+  window._octxHist = [];
+}
+async function octxSend() {
+  const who = el("octx-who").value, q = (el("octx-q").value || "").trim();
+  if (!q) return;
+  const mode = who === "__coord__" ? "coord" : "aluno";
+  const student_id = who === "__coord__" ? null : who;
+  const box = el("octx-chat");
+  box.innerHTML += `<div class="msg user">${esc(q)}</div>`;
+  el("octx-q").value = "";
+  box.innerHTML += `<div class="msg bot" id="octx-wait">…</div>`;
+  box.scrollTop = box.scrollHeight;
+  try {
+    const d = await octxApi("/ask", { method: "POST", body: JSON.stringify(
+      { question: q, mode, student_id, history: window._octxHist }) });
+    const a = (d.result && d.result.answer) || "(sem resposta)";
+    el("octx-wait").outerHTML = `<div class="msg bot">${_oriMd(a)}</div>`;
+    window._octxHist.push({ role: "user", text: q }, { role: "assistant", text: a });
+    if (window._octxHist.length > 16) window._octxHist = window._octxHist.slice(-16);
+  } catch (e) {
+    el("octx-wait").outerHTML = `<div class="msg bot danger">${esc(e.message)}</div>`;
+  }
+  box.scrollTop = box.scrollHeight;
+}
+
+async function viewOrientadorContextRisco() {
+  h(`<div class="hdr"><h2>Orientador Context — Risco de evasão</h2></div><div class="card muted">Carregando…</div>`);
+  try {
+    const d = await octxApi("/risco", { method: "POST", body: JSON.stringify({ min_reprovacoes: 3 }) });
+    const rows = (d.result && d.result.alunos) || [];
+    const trs = rows.map(a => `<tr><td>${esc(a.username)}</td><td>${esc((a.nome || "") + " " + (a.sobrenome || ""))}</td>`
+      + `<td>${esc(a.faculdade || "")}</td><td>${esc(a.reprovacoes || "")}</td></tr>`).join("");
+    h(`<div class="hdr"><h2>Orientador Context — Risco de evasão</h2>
+         <span class="muted">≥ 3 reprovações · restrito à coordenação (RBAC)</span></div>
+       <div class="card"><table class="tbl"><thead><tr><th>Usuário</th><th>Nome</th><th>Faculdade</th>
+         <th>Reprovações</th></tr></thead><tbody>${trs
+         || `<tr><td colspan="4" class="muted">Sem alunos nesse critério (ou perfil sem permissão).</td></tr>`}
+       </tbody></table></div>`);
+  } catch (e) { h(`<div class="card danger">${esc(e.message)}</div>`); }
+}
+
+async function viewOrientadorContextDesempenho() {
+  h(`<div class="hdr"><h2>Orientador Context — Desempenho</h2></div><div class="card muted">Carregando…</div>`);
+  try {
+    const d = await octxApi("/desempenho", { method: "POST", body: "{}" });
+    const rows = (d.result && d.result.faculdades) || [];
+    const trs = rows.map(f => `<tr><td>${esc(f.faculdade)}</td><td>${esc(f.notas)}</td>`
+      + `<td>${esc(f.media)}</td><td>${esc(f.pct_reprovacao)}%</td></tr>`).join("");
+    h(`<div class="hdr"><h2>Orientador Context — Desempenho por faculdade</h2></div>
+       <div class="card"><table class="tbl"><thead><tr><th>Faculdade</th><th>Notas</th><th>Média</th>
+         <th>% Reprovação</th></tr></thead><tbody>${trs
+         || `<tr><td colspan="4" class="muted">Sem dados (perfil sem permissão).</td></tr>`}</tbody></table></div>`);
+  } catch (e) { h(`<div class="card danger">${esc(e.message)}</div>`); }
+}
+
 const ROUTES = {
   "ex-corrige":()=>viewCorrecao("exam"), "ex-criar":viewCriar, "ex-hist":()=>viewHistorico("exam"),
   "red-rubrica":viewRubricas, "red-corrige":()=>viewCorrecao("essay"), "red-hist":()=>viewHistorico("essay"),
@@ -2781,6 +2878,8 @@ const ROUTES = {
   "ori-chat":viewOrientadorChat, "ori-trilha":viewOrientadorTrilha,
   "ori-insights":viewOrientadorInsights, "ori-curriculo":viewOrientadorCurriculo, "ori-competencias":viewOrientadorCompetencias,
   "lms-busca":viewLmsBusca, "lms-catalogo":viewLmsCatalogo, "lms-qualidade":viewLmsQualidade,
+  "octx-chat":viewOrientadorContextChat, "octx-risco":viewOrientadorContextRisco,
+  "octx-desempenho":viewOrientadorContextDesempenho,
 };
 function route(){ const k=location.hash.slice(1)||"ex-corrige"; renderNav(ROUTES[k]?k:"ex-corrige"); (ROUTES[k]||ROUTES["ex-corrige"])(); toggleSide(false); }
 window.addEventListener("hashchange", route);
