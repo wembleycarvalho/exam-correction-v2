@@ -34,6 +34,10 @@ spec:
             - { name: OTEL_PYTHON_DISTRO, value: "aws_distro" }
             - { name: OTEL_PYTHON_CONFIGURATOR, value: "aws_configurator" }
             - { name: OTEL_EXPORTER_OTLP_PROTOCOL, value: "http/protobuf" }
+            # Endpoints AWS por sinal (o ADOT SDK assina com SigV4 direto — sem collector,
+            # que NAO e suportado para observability de agente fora do Runtime).
+            - { name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT, value: "https://xray.us-east-1.amazonaws.com/v1/traces" }
+            - { name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT, value: "https://logs.us-east-1.amazonaws.com/v1/logs" }
             # Entrega logs+metricas e traces (spans) para o CloudWatch (GenAI Observability).
             - { name: OTEL_EXPORTER_OTLP_LOGS_HEADERS, value: "x-aws-log-group=/aws/eks-strands-observability/agent,x-aws-log-stream=default,x-aws-metric-namespace=bedrock-agentcore" }
             - { name: OTEL_EXPORTER_OTLP_TRACES_HEADERS, value: "x-aws-log-group=/aws/eks-strands-observability/agent,x-aws-log-stream=default" }

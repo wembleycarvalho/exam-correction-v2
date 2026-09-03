@@ -19,6 +19,10 @@ IMAGE_TAG="${IMAGE_TAG:-v1}"
 echo ">> kubeconfig"
 eksctl utils write-kubeconfig --cluster "$CLUSTER" --region "$AWS_REGION" >/dev/null
 
+echo ">> log group + stream de observability (o exportador OTLP nao cria o stream sozinho)"
+aws logs create-log-group  --log-group-name /aws/eks-strands-observability/agent --region "$AWS_REGION" 2>/dev/null || true
+aws logs create-log-stream --log-group-name /aws/eks-strands-observability/agent --log-stream-name default --region "$AWS_REGION" 2>/dev/null || true
+
 echo ">> IAM policy (IRSA) — resolve placeholders (ACCOUNT_ID/REGION) do template"
 sed -e "s/ACCOUNT_ID/${ACCOUNT}/g" -e "s/REGION/${AWS_REGION}/g" iam/agent-irsa-policy.json > /tmp/eks-strands-irsa.json
 POLICY_ARN="$(aws iam create-policy --policy-name eks-strands-agent-policy \

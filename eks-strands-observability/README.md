@@ -30,12 +30,39 @@ kubectl/port-forward ─► Service ─► Pod (EKS Fargate, namespace `strands`
 - **IRSA:** a service account `strands-agent` assume uma role IAM com `bedrock:InvokeModel`
   + entrega de telemetria (`logs:PutLogEvents`, `xray:PutTraceSegments`, `cloudwatch:PutMetricData`).
 - **Observability (non-runtime):** o pod roda sob `opentelemetry-instrument` com
-  `aws-opentelemetry-distro` e as env vars do modo non-runtime
-  (`AGENT_OBSERVABILITY_ENABLED`, `OTEL_PYTHON_DISTRO=aws_distro`,
-  `OTEL_PYTHON_CONFIGURATOR=aws_configurator`, headers de log group). Os spans do agente vão
-  para o log group `/aws/eks-strands-observability/agent` e ao Transaction Search (o
-  `TransactionSearchXRayAccess` foi estendido para incluir esse log group). `session.id` é
-  setado via OpenTelemetry **baggage** (no Runtime isso é automático).
+  `aws-opentelemetry-distro` e as env vars do modo non-runtime (`AGENT_OBSERVABILITY_ENABLED`,
+  `OTEL_PYTHON_DISTRO=aws_distro`, `OTEL_PYTHON_CONFIGURATOR=aws_configurator`). `session.id`
+  é setado via OpenTelemetry **baggage** (no Runtime isso é automático). Dois detalhes que
+  fazem os traces chegarem (fora do Runtime **não há collector** — o SDK envia direto, assinando
+  com SigV4):
+  - **Endpoints AWS por sinal** (senão o exportador de spans cai no OTLP genérico e recebe 400):
+    `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://xray.us-east-1.amazonaws.com/v1/traces` e
+    `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=https://logs.us-east-1.amazonaws.com/v1/logs`.
+  - **Log group + stream** (`/aws/eks-strands-observability/agent` / `default`) precisam
+    existir — o exportador não cria o stream sozinho (o `deploy-eks.sh` cria).
+
+  Os traces vão para o **X-Ray/Transaction Search**; os logs/métricas para o CloudWatch. Tudo
+  aparece no **GenAI Observability**.
+
+### Verificação (o que comprova o conceito)
+
+Depois de invocar, os traces do agente aparecem no **X-Ray / Transaction Search** com a
+telemetria nativa do Strands — por exemplo (via `aws xray batch-get-traces`):
+
+```
+segment: eks-strands-agent  ->  segment: BedrockRuntime
+gen_ai.operation.name = invoke_agent
+gen_ai.agent.name     = Strands Agents
+gen_ai.agent.tools    = ["horario_utc","somar"]
+gen_ai.request.model  = amazon.nova-pro-v1:0
+gen_ai.usage.input_tokens=1144  output_tokens=71  total_tokens=1215
+```
+
+Ou seja: um agente Strands **fora do AgentCore Runtime** produzindo os MESMOS spans
+`gen_ai.*` (tokens, tool-use, modelo) no CloudWatch — visível no GenAI Observability.
+
+> Dica: o Transaction Search indexa por amostragem (`aws xray get-indexing-rule`); para uma
+> demo com pouco tráfego, suba temporariamente para 100% e reverta depois (é config de conta).
 
 ## Estrutura
 
