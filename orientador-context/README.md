@@ -178,29 +178,35 @@ curl -s https://<cloudfront>/orientador-context/health          # {"ok":true,...
 # Coordenação:   POST /orientador-context/api/desempenho   (exige grupo admin/professor)
 ```
 
-## Observabilidade (ligada em tudo)
+## Observabilidade (nativa do AgentCore)
 
-- **Traces / sessions:** **AgentCore Observability** (OpenTelemetry) habilitada no runtime —
-  aparece no painel **CloudWatch → GenAI Observability** (sessões, spans, ferramentas, erros).
-- **Métricas de negócio (custo/consumo):** o agente emite **CloudWatch EMF** a cada invocação,
-  no namespace **`OrientadorContext/Agent`** com dimensões `Module` / `Mode` / `ModelId`:
-  - `InputTokens`, `OutputTokens`, `TotalTokens` — consumo de tokens;
-  - `EstimatedCostUSD` — custo estimado (tabela de preços por modelo, override via env
-    `MODEL_PRICES`; rótulo "estimado", nunca preço fixo escondido);
-  - `LatencyMs` — latência do laço do agente;
-  - `ToolCalls`, `ToolErrors`, `WebSearchCalls` (uso do Gateway), `AthenaToolCalls`, `Invocations`.
-- **Como emite:** uma **linha JSON EMF isolada** no stdout do runtime → CloudWatch extrai a
-  métrica (o streaming da resposta é desligado no agente para não "colar" no JSON).
-- **Ver rápido:**
-  ```bash
-  aws cloudwatch list-metrics --namespace OrientadorContext/Agent
-  aws cloudwatch get-metric-statistics --namespace OrientadorContext/Agent \
-    --metric-name TotalTokens --dimensions Name=Module,Value=orientador-context \
-    --start-time $(date -u -v-1H +%FT%TZ) --end-time $(date -u +%FT%TZ) \
-    --period 3600 --statistics Sum
-  ```
-- **Gateway/Memory:** métricas gerenciadas do AgentCore (invocações, latência, erros) também
-  aparecem no painel GenAI Observability; o consumo do web-search é rastreado por `WebSearchCalls`.
+Tudo vai para o painel **CloudWatch → GenAI Observability** (aba *Bedrock AgentCore*), sem
+métrica "na mão". A instrumentação é **automática**: o runtime é deployado pela AgentCore CLI
+e o agente inclui **`aws-opentelemetry-distro`** (ADOT) no `requirements.txt`; com o
+**Transaction Search** habilitado na conta, o dashboard mostra por agente/sessão/trace:
+
+- **Consumo de tokens** — `gen_ai.usage.input_tokens` / `output_tokens` / `total_tokens` por
+  invocação de modelo e acumulado por invocação do agente;
+- **Latência** e **modelo** de cada chamada;
+- **Tool-use** — spans `execute_tool` (ex.: `desempenho_faculdade`, `web_search`) e o laço
+  do agente (`invoke_agent`, `execute_event_loop_cycle`);
+- **Downstream** — spans das chamadas AWS (Athena, SSM) e do Gateway/web-search.
+
+Os spans detalhados chegam no stream **`spans`** do log group
+`/aws/bedrock-agentcore/runtimes/<runtime-id>-DEFAULT` (fonte do dashboard). Decisões que
+mantêm isso correto:
+
+- **Não** inicializamos `StrandsTelemetry` no código — o ADOT já instrumenta; fazer os dois
+  duplica os spans de inferência e **double-conta** tokens.
+- O streaming da resposta pro stdout fica desligado (`callback_handler=None`) só para manter
+  os logs limpos; não afeta a telemetria.
+
+**Onde ver:** CloudWatch → *GenAI Observability* → *Bedrock AgentCore* → agente
+`orientador_context` (Agents / Sessions / Traces). Para busca de spans: *Transaction Search*.
+
+> Observação: **custo em USD não é calculado pelo painel nativo** (ele mostra tokens). Se
+> precisar de custo monetário, dá pra derivar dos tokens (tabela de preços por modelo) — não
+> implementado por padrão para não duplicar telemetria; ver a regra de EMF no steering.
 
 ## Estado — DEPLOYADO (deploy cirúrgico)
 

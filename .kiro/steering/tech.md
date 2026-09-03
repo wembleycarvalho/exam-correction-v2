@@ -62,19 +62,19 @@
   Grupos `admin` e `professor`. Login pela **Hosted UI (PKCE)**.
 - **Config/Segredos:** parâmetros via **SSM Parameter Store** e variáveis de ambiente via
   CDK; segredo de origem no **Secrets Manager**. Sem segredos no código ou no bundle do FE.
-- **Observabilidade (LIGADA em tudo, sempre):** **AgentCore Observability**
-  (OpenTelemetry → traces/sessions dos agentes e do Gateway; nunca `--disable-otel`) +
-  CloudWatch **EMF** para métricas de negócio emitidas por **quem executa o modelo** (o
-  próprio agente no Runtime e/ou o worker): **tokens (in/out/total), custo estimado,
-  latência e uso de ferramentas** (chamadas ao Gateway/web-search, ao Athena, erros de
-  tool). EMF vai como **linha JSON isolada** no stdout do componente (o CloudWatch extrai a
-  métrica automaticamente — cuidar para o JSON não colar em outra saída; se o SDK printa a
-  resposta, desligar o callback de streaming). **Namespace por módulo** (ex.:
-  `OrientadorContext/Agent`) com dimensões `Module`/`Mode`/`ModelId`. Custo via **tabela de
-  preços parametrizada por modelo** (env `MODEL_PRICES`/SSM), rótulo "estimado", nunca preço
-  fixo escondido. Verificar no CloudWatch (metrics + logs) antes de dar a tarefa por feita.
-  Métricas de **AgentCore Memory/Gateway** também aparecem no painel GenAI Observability.
-  + logs estruturados (JSON) correlacionados por sessão/`submissionId`.
+- **Observabilidade (LIGADA em tudo, NATIVA primeiro):** usar a **AgentCore Observability
+  nativa** (OpenTelemetry/ADOT). Para agentes no Runtime deployados via AgentCore CLI a
+  instrumentação é **automática** — basta **`aws-opentelemetry-distro`** no `requirements.txt`
+  do agente + **Transaction Search habilitado** na conta (1x). Isso alimenta o painel
+  **CloudWatch GenAI Observability** com **consumo de tokens (gen_ai.usage.*), latência,
+  modelo, tool-use e chamadas downstream (Athena/SSM/Gateway)** por sessão/trace (os spans
+  detalhados chegam no stream **`spans`** do log group do runtime). Nunca desligar OTel;
+  **não** inicializar `StrandsTelemetry` na mão no Runtime (duplica spans e double-conta
+  tokens). Métricas de **Memory/Gateway** também aparecem no painel. **EMF próprio só para
+  lacunas** do nativo (ex.: **custo em USD**): linha JSON isolada, tabela de preços
+  parametrizada por modelo (env `MODEL_PRICES`/SSM), namespace por módulo — exceção, não
+  regra. + logs estruturados (JSON) correlacionados por sessão/`submissionId`. Verificar que
+  tokens/traces aparecem no GenAI Observability antes de dar a tarefa por feita.
 - **Frontend:** **1 `index.html` estático** (HTML/CSS/JS vanilla) + Cognito Hosted UI
   (PKCE), com menu lateral. **Sem React/Vite/MUI/Router.**
 

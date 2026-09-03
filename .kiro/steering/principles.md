@@ -63,20 +63,25 @@ serverless → segurança → custo**.
 
 ## 5. Mensurável e reproduzível
 
-- **Observabilidade em TUDO (regra travada):** todo componente que executa (agentes no
-  AgentCore Runtime, Lambdas, Gateway/web-search, Memory, workers) **deve** nascer com
-  observabilidade **ligada**, não como afterthought. Concretamente:
-  - **Traces:** habilitar **AgentCore Observability** (OpenTelemetry) em todo Runtime/Gateway
-    — nunca desligar `--disable-otel`. Traces alimentam também as Evaluations.
-  - **Métricas de negócio via CloudWatch EMF:** toda invocação de modelo emite **tokens
-    (in/out/total), custo estimado, latência** e **uso de ferramentas** (ex.: chamadas ao
-    Gateway/web-search, ao Athena, erros de tool). Emitir EMF como **linha JSON própria** no
-    stdout do componente (o CloudWatch extrai a métrica); custo estimado a partir de tabela
-    de preços **parametrizada por modelo** (env/SSM), nunca preço fixo escondido no código.
-  - **Namespace por módulo** com dimensões úteis (Módulo, Modo, ModelId) para dá pra fatiar
-    custo/consumo por perfil e por modelo (base para decisão de A/B e de troca de modelo).
+- **Observabilidade em TUDO (regra travada), NATIVA primeiro:** todo componente que executa
+  (agentes no AgentCore Runtime, Lambdas, Gateway/web-search, Memory, workers) **deve**
+  nascer com observabilidade **ligada**, não como afterthought. Preferir SEMPRE a
+  observabilidade **nativa do AgentCore** (não hand-rollar métricas):
+  - **AgentCore Observability (nativo):** agentes no Runtime são **auto-instrumentados**
+    (OpenTelemetry/ADOT). Basta incluir **`aws-opentelemetry-distro`** no `requirements.txt`
+    do agente e ter o **CloudWatch Transaction Search habilitado** (1x por conta). Isso já
+    entrega ao painel **CloudWatch GenAI Observability**: **consumo de tokens (in/out/total),
+    latência, modelo, chamadas de tool e downstream (Athena/SSM/Gateway)** por sessão/trace.
+    Nunca desligar OTel (`--disable-otel`); os spans alimentam também as Evaluations.
+  - **Não duplicar telemetria:** NÃO inicializar `StrandsTelemetry` manualmente no agente no
+    Runtime — o ADOT já instrumenta; setup manual gera "already instrumented" e **double
+    count** de tokens. Deixar o nativo cuidar.
+  - **EMF/métricas próprias só para lacunas:** se o painel nativo não cobrir uma métrica
+    necessária (ex.: **custo em USD**, que o nativo não calcula), aí sim emitir CloudWatch
+    **EMF** — como linha JSON própria, custo via **tabela de preços parametrizada por
+    modelo** (env/SSM), namespace por módulo. Isso é exceção, não a regra.
   - **Logs estruturados** (JSON) com correlação por sessão/`submissionId`.
-- Toda invocação de modelo registra tokens, custo e latência (ver acima) — desde o dia 1.
 - Tudo como código (CDK, 1 stack), parametrizado por ambiente, deploy reproduzível.
 - Verificar cada mudança (validate/build/test) antes de considerar concluída, incluindo
-  **confirmar que as métricas/traces aparecem** no CloudWatch antes de dar a tarefa por feita.
+  **confirmar que traces/tokens aparecem** no GenAI Observability (stream `spans` do log
+  group do runtime / Transaction Search) antes de dar a tarefa por feita.

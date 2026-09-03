@@ -9,10 +9,8 @@ Memoria de conversa: gerenciada pelo AgentCore Memory (ligada por padrao no runt
 RBAC: o bridge passa mode/student_id/groups no payload; as tools de aluno sao forcadas ao
 aluno da sessao e as de coordenacao exigem grupo admin/professor.
 """
-import json
 import os
 import re
-import sys
 import time
 
 import boto3
@@ -26,90 +24,13 @@ REGION = os.environ.get("AWS_REGION", "us-east-1")
 MODEL_ID = os.environ.get("MODEL_ID", "amazon.nova-pro-v1:0")
 GLUE_DB = os.environ.get("GLUE_DB", "moodle_datalake")
 WORKGROUP = os.environ.get("WORKGROUP", "moodle-datalake")
-METRICS_NS = os.environ.get("METRICS_NAMESPACE", "OrientadorContext/Agent")
 
-# Preço on-demand por 1K tokens (in/out). Casa por substring do modelId; sobrescrevível por
-# env MODEL_PRICES (JSON: {"<match>": {"in": x, "out": y}}). Custo é ESTIMADO (rótulo claro).
-_DEFAULT_PRICES = {
-    "nova-micro": {"in": 0.000035, "out": 0.00014},
-    "nova-lite": {"in": 0.00006, "out": 0.00024},
-    "nova-pro": {"in": 0.0008, "out": 0.0032},
-    "nova-premier": {"in": 0.0025, "out": 0.0125},
-    "claude-3-haiku": {"in": 0.00025, "out": 0.00125},
-    "claude-3-5-haiku": {"in": 0.0008, "out": 0.004},
-    "claude-3-5-sonnet": {"in": 0.003, "out": 0.015},
-    "claude-3-7-sonnet": {"in": 0.003, "out": 0.015},
-    "claude-sonnet-4": {"in": 0.003, "out": 0.015},
-}
-
-
-def _prices():
-    prices = dict(_DEFAULT_PRICES)
-    try:
-        prices.update(json.loads(os.environ.get("MODEL_PRICES", "") or "{}"))
-    except Exception:  # noqa: BLE001
-        pass
-    return prices
-
-
-def _estimate_cost(model_id, in_tok, out_tok):
-    table = _prices()
-    match = next((table[k] for k in table if k in (model_id or "")), None)
-    if not match:
-        return 0.0
-    return round((in_tok / 1000.0) * match["in"] + (out_tok / 1000.0) * match["out"], 6)
-
-
-def _emit_metrics(*, mode, model_id, usage, latency_ms, tool_metrics):
-    """Emite CloudWatch EMF (auto-extraído dos logs do runtime) com tokens, custo estimado,
-    latência e uso de ferramentas — a base de observabilidade de custo/consumo do agente."""
-    in_tok = int((usage or {}).get("inputTokens", 0) or 0)
-    out_tok = int((usage or {}).get("outputTokens", 0) or 0)
-    tot_tok = int((usage or {}).get("totalTokens", 0) or (in_tok + out_tok))
-    tool_calls = sum(int(getattr(m, "call_count", 0) or 0) for m in (tool_metrics or {}).values())
-    tool_errors = sum(int(getattr(m, "error_count", 0) or 0) for m in (tool_metrics or {}).values())
-    web_calls = int(getattr((tool_metrics or {}).get("web_search"), "call_count", 0) or 0)
-    athena_calls = tool_calls - web_calls
-    cost = _estimate_cost(model_id, in_tok, out_tok)
-    emf = {
-        "_aws": {
-            "Timestamp": int(time.time() * 1000),
-            "CloudWatchMetrics": [{
-                "Namespace": METRICS_NS,
-                "Dimensions": [["Module"], ["Module", "Mode"], ["Module", "Mode", "ModelId"]],
-                "Metrics": [
-                    {"Name": "Invocations", "Unit": "Count"},
-                    {"Name": "InputTokens", "Unit": "Count"},
-                    {"Name": "OutputTokens", "Unit": "Count"},
-                    {"Name": "TotalTokens", "Unit": "Count"},
-                    {"Name": "EstimatedCostUSD", "Unit": "None"},
-                    {"Name": "LatencyMs", "Unit": "Milliseconds"},
-                    {"Name": "ToolCalls", "Unit": "Count"},
-                    {"Name": "ToolErrors", "Unit": "Count"},
-                    {"Name": "WebSearchCalls", "Unit": "Count"},
-                    {"Name": "AthenaToolCalls", "Unit": "Count"},
-                ],
-            }],
-        },
-        "Module": "orientador-context",
-        "Mode": mode,
-        "ModelId": model_id,
-        "Invocations": 1,
-        "InputTokens": in_tok,
-        "OutputTokens": out_tok,
-        "TotalTokens": tot_tok,
-        "EstimatedCostUSD": cost,
-        "LatencyMs": float(latency_ms or 0),
-        "ToolCalls": tool_calls,
-        "ToolErrors": tool_errors,
-        "WebSearchCalls": web_calls,
-        "AthenaToolCalls": max(0, athena_calls),
-    }
-    # Uma linha JSON isolada no stdout do runtime -> CloudWatch Logs -> métricas EMF extraídas.
-    # O "\n" inicial garante que o EMF fique em um evento de log próprio (JSON válido).
-    print("\n" + json.dumps(emf), file=sys.stdout, flush=True)
-
-_athena = boto3.client("athena", region_name=REGION)
+# Observabilidade NATIVA do AgentCore — sem métricas "na mão" e sem setup de telemetria no
+# código. O pacote `aws-opentelemetry-distro` (ADOT) no requirements faz o Runtime
+# auto-instrumentar o agente: cada chamada ao Bedrock (Converse) vira um span com
+# gen_ai.usage.* (tokens in/out/total), modelo, latência e aws.genai.* — exportados para o
+# CloudWatch GenAI Observability (seção de consumo de tokens/latência). Não inicializamos
+# StrandsTelemetry aqui de propósito: isso duplicaria os spans de inferência (double count).
 
 _athena = boto3.client("athena", region_name=REGION)
 
@@ -389,21 +310,13 @@ def invoke(payload):
     system = _SYS_COORD if is_coord else _SYS_ALUNO
     tools = list(COORD_TOOLS if is_coord else ALUNO_TOOLS)
     tools += _WEB_TOOLS  # web search (AgentCore Gateway); vazio se o gateway nao estiver configurado
-    # callback_handler=None: nao streamar a resposta pro stdout (mantem os logs limpos p/ o
-    # EMF ser extraido como evento JSON proprio pelo CloudWatch).
+    # callback_handler=None: nao streamar a resposta pro stdout (mantem os logs limpos; os
+    # traces/tokens vao via OpenTelemetry -> AgentCore Observability, nao via stdout).
     agent = Agent(model=BedrockModel(model_id=MODEL_ID, region_name=REGION),
                   system_prompt=system, tools=tools, callback_handler=None,
                   messages=_seed_messages(payload.get("history")))
     result = agent(q)
     answer = _clean_answer(str(result))
-    try:
-        m = getattr(result, "metrics", None)
-        _emit_metrics(mode=mode, model_id=MODEL_ID,
-                      usage=getattr(m, "accumulated_usage", None),
-                      latency_ms=(getattr(m, "accumulated_metrics", {}) or {}).get("latencyMs", 0),
-                      tool_metrics=getattr(m, "tool_metrics", None))
-    except Exception as e:  # noqa: BLE001 — métricas nunca derrubam a resposta
-        print("metric emit failed:", repr(e), file=sys.stderr, flush=True)
     return {"result": {"answer": answer, "mode": mode}}
 
 
