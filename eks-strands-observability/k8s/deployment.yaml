@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: strands
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: strands-agent
+  namespace: strands
+  labels: { app: strands-agent }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: strands-agent }
+  template:
+    metadata:
+      labels: { app: strands-agent }
+    spec:
+      # service account com IRSA (role IAM: Bedrock + entrega de telemetria) — criada pelo deploy.
+      serviceAccountName: strands-agent
+      containers:
+        - name: agent
+          image: __IMAGE__
+          ports:
+            - containerPort: 8080
+          env:
+            # ---- App ----
+            - { name: AWS_REGION, value: "us-east-1" }
+            - { name: MODEL_ID, value: "amazon.nova-pro-v1:0" }
+            # ---- Observability nativa do AgentCore (modo "non-runtime hosted agent") ----
+            # Ativa o pipeline ADOT em processo (opentelemetry-instrument no CMD da imagem).
+            - { name: AGENT_OBSERVABILITY_ENABLED, value: "true" }
+            - { name: OTEL_PYTHON_DISTRO, value: "aws_distro" }
+            - { name: OTEL_PYTHON_CONFIGURATOR, value: "aws_configurator" }
+            - { name: OTEL_EXPORTER_OTLP_PROTOCOL, value: "http/protobuf" }
+            # Entrega logs+metricas e traces (spans) para o CloudWatch (GenAI Observability).
+            - { name: OTEL_EXPORTER_OTLP_LOGS_HEADERS, value: "x-aws-log-group=/aws/eks-strands-observability/agent,x-aws-log-stream=default,x-aws-metric-namespace=bedrock-agentcore" }
+            - { name: OTEL_EXPORTER_OTLP_TRACES_HEADERS, value: "x-aws-log-group=/aws/eks-strands-observability/agent,x-aws-log-stream=default" }
+            # Identifica o agente no painel (Agents / service.name).
+            - { name: OTEL_RESOURCE_ATTRIBUTES, value: "service.name=eks-strands-agent,aws.service.type=gen_ai_agent,deployment.environment.name=eks-fargate" }
+          readinessProbe:
+            httpGet: { path: /health, port: 8080 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests: { cpu: "250m", memory: "512Mi" }
+            limits: { cpu: "1", memory: "1Gi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: strands-agent
+  namespace: strands
+spec:
+  selector: { app: strands-agent }
+  ports:
+    - port: 80
+      targetPort: 8080

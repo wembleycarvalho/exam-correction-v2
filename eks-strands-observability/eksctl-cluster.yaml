@@ -1,0 +1,35 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: strands-obs-demo
+  region: us-east-1
+  version: "1.32"
+
+# OIDC habilitado -> necessario para IRSA (IAM Roles for Service Accounts):
+# a service account do agente assume uma role IAM (Bedrock + entrega de telemetria).
+iam:
+  withOIDC: true
+
+# REUSA uma VPC existente (a conta esta no limite de VPCs/EIPs; criar nova falha). Subnets
+# privadas com egress via NAT em 2 AZs — onde os pods Fargate rodam.
+vpc:
+  id: vpc-03bb181e3c226b528
+  subnets:
+    private:
+      us-east-1b: { id: subnet-068bd6408fa6699ae }
+      us-east-1f: { id: subnet-06d315ff57f379c69 }
+
+# Cluster 100% Fargate (sem nodegroup EC2): pods serverless. Perfis cobrem o CoreDNS
+# (kube-system), o default e o namespace dedicado do agente.
+fargateProfiles:
+  - name: fp-system
+    selectors:
+      - namespace: kube-system
+  - name: fp-strands
+    selectors:
+      - namespace: strands
+      - namespace: default
+
+# Sem cloudWatch logging do control plane (custo) — a observabilidade do AGENTE vai por
+# OpenTelemetry/ADOT para o CloudWatch GenAI Observability, nao pelos logs do cluster.
