@@ -1,8 +1,14 @@
 # Gateway Inference — backend no EKS Fargate (streaming SSE)
 
 Backend do módulo **AgentCore → Gateway Inference** rodando no **Amazon EKS Fargate**
-(cluster `strands-obs-demo`, us-east-1), com **streaming token-a-token via SSE** e
-**observability nativa** (spans `gen_ai.*` no CloudWatch GenAI Observability / X-Ray).
+(cluster `strands-obs-demo`, us-east-1), com **streaming via SSE**, **Guardrail nativo do
+Bedrock**, **memória de conversa** e **observability nativa** (spans `gen_ai.*` no
+CloudWatch GenAI Observability / X-Ray).
+
+> **Nota de comportamento:** o backend sempre streama (SSE). O **chat Inference** hoje
+> **bufferiza no navegador** e só exibe a resposta **final** (depois do Guardrail de saída),
+> para nunca mostrar texto que seria bloqueado. A **Evaluation** mostra o streaming **ao
+> vivo** por modelo (o veredito do juiz vem depois).
 
 ## Problema real
 
@@ -22,24 +28,41 @@ isso que validamos a PoC de EKS no Fargate.
 
 ## Arquitetura
 
+![Arquitetura Gateway Inference no EKS](docs/architecture/gateway-inference-eks.png)
+
+> Fonte do diagrama (versionado): `docs/architecture/gateway-inference-eks.py`
+> (skill `aws-architecture-diagram`). Render: `python3 docs/architecture/gateway-inference-eks.py`.
+
+<details><summary>Versão Mermaid (renderiza no GitHub)</summary>
+
 ```mermaid
 flowchart LR
-  B["Browser (portal)<br/>JWT Cognito"] -->|"/agentcore/api/ask/stream"| CF["CloudFront<br/>(CachingDisabled)"]
-  CF -->|http-only, sem buffer| ALB["ALB interno-facing<br/>(AWS LB Controller)"]
+  B["Browser (portal)<br/>JWT Cognito + history"] -->|"/agentcore/api/ask/stream"| CF["CloudFront<br/>(CachingDisabled)"]
+  CF -->|http-only, sem buffer| ALB["ALB internet-facing<br/>(AWS LB Controller)"]
   ALB --> POD["EKS Fargate pod<br/>FastAPI + Strands<br/>opentelemetry-instrument"]
   POD -->|"1. ApplyGuardrail INPUT"| GR["Bedrock Guardrail<br/>(nativo, ArteDoPossivel)"]
-  POD -->|"2. token m2m (Secrets)"| GW["AgentCore Gateway<br/>(bedrock-mantle, 54 modelos)"]
+  POD -->|"2. inferência (token m2m)<br/>Agent(messages=history)"| GW["AgentCore Gateway<br/>(bedrock-mantle, 54 modelos)"]
   POD -->|"3. ApplyGuardrail OUTPUT"| GR
-  POD -->|"stream_async (SSE)"| ALB
+  POD -->|"resposta (SSE)"| ALB
   POD -.->|"spans gen_ai.* (ADOT, sem /health)"| XR["CloudWatch GenAI<br/>Observability / X-Ray"]
   POD -.->|"config + guardrail-id"| SSM["SSM /gateway-inference/*"]
+  POD -.->|"token m2m"| SEC["Secrets Manager"]
+  POD -.->|"valida JWT"| COG["Cognito (portal)"]
 ```
+</details>
 
 - **Roteamento por API** (igual ao runtime `agent.py`): `anthropic.*` → `AnthropicModel`;
   `openai.gpt-5*`/`gpt-oss*` (não-safeguard) → `OpenAIResponsesModel`; resto → `OpenAIModel`.
   Todos apontando para o **base_url do Gateway** com o token OAuth m2m.
 - **Auth**: o app valida o **JWT do Cognito do portal** (pool `POOL_ID`, `token_use`
   access|id, assinatura via JWKS). O browser nunca vê o segredo m2m nem fala com o Gateway.
+- **Memória de conversa (chat multi-turno)**: o frontend mantém o histórico da conversa e
+  o envia no campo `history`; o backend **semeia o `Agent` Strands** com os turnos
+  anteriores (`Agent(messages=…)`). Assim o chat resolve referências ("essa cidade", "ele").
+  O pod fica **stateless** (memória vive no cliente; sobrevive a restart/scale). "Nova
+  conversa" limpa a memória. A **Evaluation** roda **sem** histórico (cada modelo isolado).
+  Para memória **persistente/cross-sessão**, o caminho nativo seria o **AgentCore Memory**
+  (follow-up).
 - **Guardrail (nativo do Bedrock)**: como a inferência passa pelo Gateway (APIs
   OpenAI/Anthropic-compatíveis, sem `guardrailConfig`), aplicamos o Guardrail como uma
   verificação **independente** via **`ApplyGuardrail`** — na **entrada** (bloqueia antes de
@@ -57,26 +80,34 @@ flowchart LR
 |--------|-----------------|-----|
 | GET    | `/health`       | healthcheck (ALB) |
 | GET    | `/models`       | modelos do Gateway (agrupados por provider) |
-| POST   | `/ask`          | resposta **completa** em JSON — usada pela **Evaluation** (N modelos + judge) |
-| POST   | `/ask/stream`   | **SSE token-a-token** — usada pelo **chat Inference** |
+| POST   | `/ask`          | resposta **completa** em JSON — usada pela **Evaluation** (judge) |
+| POST   | `/ask/stream`   | **SSE** — usada pelo **chat Inference** e pelos candidatos da **Evaluation** |
 | GET    | `/mantle/metrics` | uso do Gateway (CloudWatch `AWS/BedrockMantle`) |
+
+Corpo de `/ask` e `/ask/stream`: `{question, model, system_prompt?, conv?, history?}`.
+`history` = `[{role:"user"|"assistant", text}]` (memória; usado só pelo chat Inference).
 
 Formato SSE: `data: {"type":"delta","text":"…"}` … `data: {"type":"done","model","debug"}`
 (ou `{"type":"error"}`). O `debug.guardrail` traz `{blocked, stage}` (`input`/`output`/`pass`);
-em bloqueio de entrada a mensagem do Guardrail vem como um único `delta`.
+em bloqueio de entrada a mensagem do Guardrail vem como um único `delta`. O **chat Inference**
+consome esse SSE mas **só renderiza no `done`** (aguarda o Guardrail de saída); a
+**Evaluation** renderiza os `delta` ao vivo em cada card.
 
 ## Estrutura
 
 ```
 eks/
-  app/                 server.py (FastAPI+Strands), requirements.txt, Dockerfile, buildspec.yml
-  k8s/                 deployment.yaml (Deployment+Service, env ADOT), ingress.yaml (ALB)
-  iam/                 agent-irsa-policy.json (SSM/Secrets/CloudWatch + telemetria)
+  app/                 server.py (FastAPI+Strands+Guardrail+memória), requirements, Dockerfile, buildspec
+  k8s/                 deployment.yaml (Deployment+Service, env ADOT + exclusão /health), ingress.yaml (ALB)
+  iam/                 agent-irsa-policy.json (SSM/Secrets/CloudWatch/ApplyGuardrail + telemetria)
+  docs/architecture/   gateway-inference-eks.py + .png (diagrama versionado)
   build-image.sh       build da imagem na nuvem (CodeBuild -> ECR gateway-inference-eks)
   alb-controller.sh    instala o AWS Load Balancer Controller (helm + IRSA)
   deploy-eks.sh        log group + resource policy X-Ray + IRSA + Deployment/Service
   cloudfront_repoint.py  repontar a origin /agentcore/* p/ o ALB (e --restore de volta)
 ```
+
+> Imagem atual: `gateway-inference-eks:v4` (`IMAGE_TAG=vN ./build-image.sh` para novas versões).
 
 ## Deploy (reprodutível)
 
@@ -100,7 +131,11 @@ python cloudfront_repoint.py --dist <DIST_ID> --alb "$ALB"
 ## Verificação (feita)
 
 - `/agentcore/api/health` → 200; `/models` sem token → 401.
-- **Streaming pela borda**: chunks SSE incrementais chegando via CloudFront (sem buffering).
+- **Streaming pela borda**: chunks SSE incrementais chegando via CloudFront (sem buffering
+  na borda). O chat Inference opta por buffering **no FE** (aguarda o Guardrail de saída).
+- **Memória**: turno 1 "capital da França" → "Paris"; turno 2 "quantos habitantes tem
+  **essa cidade**?" (com `history`) respondeu sobre Paris — contexto preservado.
+- **Evaluation**: cada modelo candidato streama ao vivo no seu card; o juiz roda depois.
 - **Observability**: spans `gen_ai.*` do `service.name=gwinf-eks-agent` aparecem no X-Ray /
   CloudWatch GenAI Observability. Requer a resource policy `TransactionSearchXRayAccess`
   autorizando `logs:PutLogEvents` no `/aws/gwinf-eks/agent` (o `deploy-eks.sh` faz isso).
