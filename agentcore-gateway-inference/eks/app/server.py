@@ -82,7 +82,15 @@ _CFG = {
     "client_id": os.environ.get("COGNITO_CLIENT_ID") or _ssm_get("client-id"),
     "scope": os.environ.get("COGNITO_SCOPE") or _ssm_get("scope"),
     "secret_arn": os.environ.get("CLIENT_SECRET_ARN") or _ssm_get("client-secret-arn"),
+    # Guardrail nativo do Bedrock (opcional). Vazio = desativado.
+    "guardrail_id": os.environ.get("GUARDRAIL_ID") or _ssm_get("guardrail-id"),
+    "guardrail_version": os.environ.get("GUARDRAIL_VERSION") or _ssm_get("guardrail-version", "DRAFT"),
 }
+
+# Cliente do Bedrock só para o Guardrail (ApplyGuardrail). A inferência em si NÃO usa
+# Bedrock direto — passa pelo AgentCore Gateway. O Guardrail é o serviço NATIVO do Bedrock,
+# aplicado como uma verificação independente sobre o texto (entrada e saída).
+_bedrock_rt = boto3.client("bedrock-runtime", region_name=REGION)
 
 _TOK = {"secret": None, "token": None, "ts": 0.0}
 _TOKEN_TTL = 50 * 60
@@ -116,6 +124,31 @@ def _m2m_token(force=False):
 def _clean(text):
     return re.sub(r"<thinking>.*?</thinking>", "", text or "",
                   flags=re.DOTALL | re.IGNORECASE).strip()
+
+
+def _guardrail(text, source):
+    """Aplica o Guardrail NATIVO do Bedrock (ApplyGuardrail) ao texto, independente do
+    Gateway. `source` é "INPUT" (pergunta) ou "OUTPUT" (resposta). Retorna
+    (blocked: bool, message: str) — message é o texto de bloqueio/mascarado do Guardrail.
+    No-op se o Guardrail não estiver configurado."""
+    gid = _CFG.get("guardrail_id")
+    if not gid or not (text or "").strip():
+        return (False, "")
+    try:
+        resp = _bedrock_rt.apply_guardrail(
+            guardrailIdentifier=gid,
+            guardrailVersion=_CFG.get("guardrail_version") or "DRAFT",
+            source=source,
+            content=[{"text": {"text": text}}],
+        )
+        if resp.get("action") == "GUARDRAIL_INTERVENED":
+            outs = resp.get("outputs") or []
+            msg = (outs[0].get("text") if outs else "") or \
+                "Não posso ajudar com esse conteúdo (bloqueado pela política de uso)."
+            return (True, msg)
+    except Exception as e:  # noqa: BLE001 — falha do guardrail não deve derrubar a inferência
+        print("guardrail error:", repr(e))
+    return (False, "")
 
 
 # --------------------------------------------------------------------------- model routing
@@ -307,11 +340,20 @@ def ask(req: AskReq, authorization: str = Header(default="")):
     model_id = (req.model or DEFAULT_MODEL).strip()
     ctx_tok = context.attach(baggage.set_baggage("session.id", _session_id(sub, req.conv)))
     try:
+        blocked, gmsg = _guardrail(q, "INPUT")
+        if blocked:
+            return {"result": {"answer": gmsg, "model": model_id,
+                               "debug": {"model": model_id,
+                                         "guardrail": {"blocked": True, "stage": "input"}}}}
         agent = _build_agent(model_id, (req.system_prompt or "").strip())
         result = agent(q)
         answer = _clean(str(result))
-        return {"result": {"answer": answer, "model": model_id,
-                           "debug": _debug_from(result, model_id)}}
+        debug = _debug_from(result, model_id)
+        oblocked, omsg = _guardrail(answer, "OUTPUT")
+        if oblocked:
+            answer = omsg
+        debug["guardrail"] = {"blocked": oblocked, "stage": "output" if oblocked else "pass"}
+        return {"result": {"answer": answer, "model": model_id, "debug": debug}}
     except Exception as e:  # noqa: BLE001
         print("ask error:", repr(e))
         return JSONResponse(status_code=502, content={"error": "falha ao processar"})
@@ -340,15 +382,30 @@ async def ask_stream(req: AskReq, authorization: str = Header(default="")):
             return
         ctx_tok = context.attach(baggage.set_baggage("session.id", session_id))
         final = None
+        acc = []
         try:
+            # Guardrail de ENTRADA: bloqueia antes de gastar qualquer token do modelo.
+            blocked, gmsg = _guardrail(q, "INPUT")
+            if blocked:
+                yield _sse({"type": "delta", "text": gmsg})
+                yield _sse({"type": "done", "model": model_id,
+                            "debug": {"model": model_id,
+                                      "guardrail": {"blocked": True, "stage": "input"}}})
+                return
             agent = _build_agent(model_id, system)
             async for event in agent.stream_async(q):
                 if isinstance(event, dict):
                     if "data" in event and event["data"]:
+                        acc.append(event["data"])
                         yield _sse({"type": "delta", "text": event["data"]})
                     if "result" in event and event["result"] is not None:
                         final = event["result"]
             debug = _debug_from(final, model_id) if final is not None else {"model": model_id}
+            # Guardrail de SAÍDA: avalia o texto acumulado; se intervir, o FE substitui.
+            oblocked, omsg = _guardrail("".join(acc), "OUTPUT")
+            debug["guardrail"] = {"blocked": oblocked, "stage": "output" if oblocked else "pass"}
+            if oblocked:
+                debug["guardrail"]["message"] = omsg
             yield _sse({"type": "done", "model": model_id, "debug": debug})
         except Exception as e:  # noqa: BLE001
             print("ask/stream error:", repr(e))

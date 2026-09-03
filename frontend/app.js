@@ -3208,13 +3208,21 @@ async function gwSend() {
     const dbg = await gwStream(
       { question: q, model, system_prompt: window._gwSys || "", conv: window._gwConv },
       (t) => { acc += t; live.innerHTML = _oriMd(acc); box.scrollTop = box.scrollHeight; });
+    const g = dbg.guardrail || {};
+    // Guardrail de saída bloqueou: substitui o texto ja exibido pela mensagem do guardrail.
+    if (g.blocked && g.stage === "output" && g.message) acc = g.message;
     live.innerHTML = _oriMd(acc || "(sem resposta)");
+    if (g.blocked) live.classList.add("danger");
     el("gw-wait").removeAttribute("id");
     const tok = dbg.tokens || {};
+    const gbadge = g.blocked
+      ? `<span class="danger">bloqueado (${g.stage === "input" ? "entrada" : "saída"})</span>`
+      : `<b>OK</b>`;
     const body = el("gw-debug-body"); body.classList.remove("muted");
     body.innerHTML = `<div class="octx-dbg-sec"><ul>
       <li>host: <b>EKS Fargate (streaming SSE)</b></li>
       <li>modelo: <b>${esc(dbg.model || model)}</b></li>
+      <li>guardrail (Bedrock): ${gbadge}</li>
       <li>tokens: entrada <b>${tok.input||0}</b> · saída <b>${tok.output||0}</b> · total <b>${tok.total||0}</b></li>
       <li>gateway: <code>${esc(dbg.gateway||"")}</code></li>
     </ul></div><details class="octx-dbg-raw"><summary>JSON bruto</summary><pre>${esc(JSON.stringify(dbg,null,2))}</pre></details>`;
@@ -3277,12 +3285,39 @@ async function gwEvalRun(){
   const prompt=(el("ev-prompt").value||"").trim(); if(!prompt) return;
   const cands=[el("ev-a").value, el("ev-b").value, el("ev-c").value].filter((v,i,a)=>v&&a.indexOf(v)===i);
   const judge=el("ev-judge").value;
-  const out=el("ev-out"); out.innerHTML=`<div class="card muted">Rodando ${cands.length} modelos em paralelo…</div>`;
-  let runs;
-  try{ runs=await Promise.all(cands.map(m=>_gwAsk(m,prompt,window._gwSys))); }
-  catch(e){ out.innerHTML=`<div class="card danger">${esc(e.message)}</div>`; return; }
   const labels="ABCDE".split("");
-  out.innerHTML=`<div class="card muted">Consultando o juiz (${esc(judge.split("/").pop())})…</div>`;
+  const out=el("ev-out");
+  // 1) Cada modelo streama a resposta AO VIVO no seu proprio card (juiz vem depois).
+  out.innerHTML=`<div class="card"><h3>Respostas (streaming)</h3>
+     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">
+     ${cands.map((m,i)=>`<div class="card" style="margin:0">
+        <div class="row" style="justify-content:space-between"><b>[${labels[i]}] ${esc(m.split("/").pop())}</b>
+          <span id="ev-badge-${i}" class="muted">…</span></div>
+        <div id="ev-live-${i}" class="msg bot" style="min-height:40px">…</div>
+        <div id="ev-meta-${i}" class="muted" style="font-size:12px"></div>
+      </div>`).join("")}
+     </div></div>
+     <div id="ev-verdict"></div>`;
+  const runs=new Array(cands.length);
+  const texts={};
+  await Promise.all(cands.map((m,i)=>{
+    texts[i]=""; const t0=performance.now();
+    return gwStream({question:prompt,model:m,system_prompt:window._gwSys||"",conv:"eval-"+Math.random().toString(36).slice(2)},
+        (t)=>{ texts[i]+=t; const e=el("ev-live-"+i); if(e) e.innerHTML=_oriMd(texts[i]); })
+      .then(dbg=>{ const ms=Math.round(performance.now()-t0); const g=dbg.guardrail||{};
+        if(g.blocked&&g.stage==="output"&&g.message){ texts[i]=g.message; }
+        const e=el("ev-live-"+i); if(e){ e.innerHTML=_oriMd(texts[i]||"(sem resposta)"); if(g.blocked) e.classList.add("danger"); }
+        const b=el("ev-badge-"+i); if(b) b.innerHTML=g.blocked?`<span class="danger">🛡️ bloqueado (${g.stage==="input"?"entrada":"saída"})</span>`:`🛡️ OK`;
+        const tok=dbg.tokens||{}; const mt=el("ev-meta-"+i);
+        if(mt) mt.textContent=`tokens ${tok.total||0} · ${ms} ms`;
+        runs[i]={model:m, answer:texts[i], tokens:tok, ms, blocked:!!g.blocked};
+      })
+      .catch(e=>{ const el2=el("ev-live-"+i); if(el2) el2.innerHTML=`<span class="danger">${esc(e.message)}</span>`;
+        runs[i]={model:m, answer:"", tokens:{}, ms:0, error:e.message}; });
+  }));
+  // 2) Juiz roda DEPOIS, sobre as respostas ja recebidas.
+  const jout=el("ev-verdict");
+  jout.innerHTML=`<div class="card muted">Consultando o juiz (${esc(judge.split("/").pop())})…</div>`;
   const jprompt="Voce e um juiz imparcial de respostas de LLMs. Prompt do usuario:\n\""+prompt+"\"\n\n"+
     runs.map((r,i)=>`[${labels[i]}] modelo=${r.model}\nResposta:\n${r.answer}`).join("\n\n---\n\n")+
     "\n\nAvalie CADA resposta de 0 a 10 em accuracy, completeness, relevance, clarity e calcule overall (media). "+
@@ -3296,23 +3331,23 @@ async function gwEvalRun(){
   }catch(e){ verdict={error:String(e)}; }
   const smap={}; (verdict.scores||[]).forEach(s=>smap[s.label]=s);
   const rows=runs.map((r,i)=>{ const L=labels[i]; const s=smap[L]||{}; const tps=r.tokens.output&&r.ms?((r.tokens.output/(r.ms/1000)).toFixed(1)):"—";
-    const win=verdict.winner===L;
-    return `<tr class="${win?'':''}"><td><b>${L}</b>${win?' 🏆':''}</td><td>${esc(r.model.split("/").pop())}</td>
+    const win=verdict.winner===L; const gr=r.blocked?'<span class="danger">bloqueado</span>':'OK';
+    return `<tr><td><b>${L}</b>${win?' 🏆':''}</td><td>${esc(r.model.split("/").pop())}</td>
       <td>${s.overall!=null?'<b>'+s.overall+'</b>':'—'}</td>
-      <td>${r.tokens.total||0}</td><td>${r.ms} ms</td><td>${tps} tok/s</td>
-      <td style="max-width:340px">${_oriMd((r.answer||"").slice(0,400))}${(r.answer||"").length>400?'…':''}</td></tr>`;}).join("");
+      <td>${gr}</td>
+      <td>${r.tokens.total||0}</td><td>${r.ms} ms</td><td>${tps} tok/s</td></tr>`;}).join("");
   try{
     const saveRows=runs.map((r,i)=>{const L=labels[i];const s=smap[L]||{};
       return {model:r.model, overall:(s.overall!=null?s.overall:null), win:verdict.winner===L};});
     const all=_gwEvalRuns(); all.push({ts:Date.now(), prompt, winner:verdict.winner||"", rows:saveRows});
     localStorage.setItem("gwEvalRuns", JSON.stringify(all.slice(-50)));
   }catch(e){}
-  out.innerHTML=`<div class="card"><h3>Resultado</h3>
-     <table><thead><tr><th>#</th><th>Modelo</th><th>Nota (juiz)</th><th>Tokens</th><th>Latência</th><th>Vazão</th><th>Resposta</th></tr></thead>
+  jout.innerHTML=`<div class="card"><h3>Veredito do juiz</h3>
+     <table><thead><tr><th>#</th><th>Modelo</th><th>Nota (juiz)</th><th>Guardrail</th><th>Tokens</th><th>Latência</th><th>Vazão</th></tr></thead>
      <tbody>${rows}</tbody></table>
      <p style="margin-top:8px">Vencedor: <b>${esc(verdict.winner||"—")}</b>${verdict.rationale?` — ${esc(verdict.rationale)}`:""}</p>
      ${verdict.error?`<p class="danger">Juiz nao retornou JSON valido: ${esc(verdict.error)}</p>`:""}
-     <p class="muted">Juiz: ${esc(judge.split("/").pop())}. Notas 0–10 por accuracy/completeness/relevance/clarity (overall = média).</p></div>`;
+     <p class="muted">Juiz: ${esc(judge.split("/").pop())}. Notas 0–10 por accuracy/completeness/relevance/clarity (overall = média). As respostas aparecem acima, em streaming.</p></div>`;
 }
 async function viewGwMantle(){
   const hrs = window._gwMetHours || 24;

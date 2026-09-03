@@ -27,10 +27,12 @@ flowchart LR
   B["Browser (portal)<br/>JWT Cognito"] -->|"/agentcore/api/ask/stream"| CF["CloudFront<br/>(CachingDisabled)"]
   CF -->|http-only, sem buffer| ALB["ALB interno-facing<br/>(AWS LB Controller)"]
   ALB --> POD["EKS Fargate pod<br/>FastAPI + Strands<br/>opentelemetry-instrument"]
+  POD -->|"1. ApplyGuardrail INPUT"| GR["Bedrock Guardrail<br/>(nativo, ArteDoPossivel)"]
+  POD -->|"2. token m2m (Secrets)"| GW["AgentCore Gateway<br/>(bedrock-mantle, 54 modelos)"]
+  POD -->|"3. ApplyGuardrail OUTPUT"| GR
   POD -->|"stream_async (SSE)"| ALB
-  POD -->|"token m2m (Secrets)"| GW["AgentCore Gateway<br/>(bedrock-mantle, 54 modelos)"]
-  POD -.->|"spans gen_ai.* (ADOT)"| XR["CloudWatch GenAI<br/>Observability / X-Ray"]
-  POD -.->|"config"| SSM["SSM /gateway-inference/*"]
+  POD -.->|"spans gen_ai.* (ADOT, sem /health)"| XR["CloudWatch GenAI<br/>Observability / X-Ray"]
+  POD -.->|"config + guardrail-id"| SSM["SSM /gateway-inference/*"]
 ```
 
 - **Roteamento por API** (igual ao runtime `agent.py`): `anthropic.*` → `AnthropicModel`;
@@ -38,8 +40,16 @@ flowchart LR
   Todos apontando para o **base_url do Gateway** com o token OAuth m2m.
 - **Auth**: o app valida o **JWT do Cognito do portal** (pool `POOL_ID`, `token_use`
   access|id, assinatura via JWKS). O browser nunca vê o segredo m2m nem fala com o Gateway.
+- **Guardrail (nativo do Bedrock)**: como a inferência passa pelo Gateway (APIs
+  OpenAI/Anthropic-compatíveis, sem `guardrailConfig`), aplicamos o Guardrail como uma
+  verificação **independente** via **`ApplyGuardrail`** — na **entrada** (bloqueia antes de
+  gastar tokens) e na **saída** (avalia o texto gerado). Vale para **Inference** e
+  **Evaluation**. Id/versão em `SSM /gateway-inference/guardrail-{id,version}` (vazio =
+  desativado). IAM: `bedrock:ApplyGuardrail`.
 - **Observability**: processo sob `opentelemetry-instrument` (ADOT `aws_distro`); o Strands
-  emite spans `gen_ai.*` → endpoint OTLP do X-Ray (Transaction Search) → CloudWatch.
+  emite spans `gen_ai.*` → endpoint OTLP do X-Ray (Transaction Search) → CloudWatch. O
+  healthcheck do ALB (`/health`) é **excluído** da instrumentação
+  (`OTEL_PYTHON_FASTAPI_EXCLUDED_URLS=health`) para não poluir a observability.
 
 ## Rotas (sob `/agentcore/api/*` no CloudFront; também na raiz p/ o healthcheck do ALB)
 
@@ -52,7 +62,8 @@ flowchart LR
 | GET    | `/mantle/metrics` | uso do Gateway (CloudWatch `AWS/BedrockMantle`) |
 
 Formato SSE: `data: {"type":"delta","text":"…"}` … `data: {"type":"done","model","debug"}`
-(ou `{"type":"error"}`).
+(ou `{"type":"error"}`). O `debug.guardrail` traz `{blocked, stage}` (`input`/`output`/`pass`);
+em bloqueio de entrada a mensagem do Guardrail vem como um único `delta`.
 
 ## Estrutura
 
@@ -93,6 +104,10 @@ python cloudfront_repoint.py --dist <DIST_ID> --alb "$ALB"
 - **Observability**: spans `gen_ai.*` do `service.name=gwinf-eks-agent` aparecem no X-Ray /
   CloudWatch GenAI Observability. Requer a resource policy `TransactionSearchXRayAccess`
   autorizando `logs:PutLogEvents` no `/aws/gwinf-eks/agent` (o `deploy-eks.sh` faz isso).
+  Spans de `/health` **não** aparecem (excluídos da instrumentação).
+- **Guardrail**: verificado com a versão `1` do guardrail (tópico negado "Palmeiras") —
+  pergunta sobre o tópico é **bloqueada na entrada** (mensagem do Guardrail, sem gastar
+  tokens do modelo); prompts normais passam (`guardrail: OK`). Vale em Inference e Evaluation.
 
 ## Segurança — estado atual e follow-ups
 

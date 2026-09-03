@@ -36,6 +36,9 @@ spec:
             - { name: OTEL_PYTHON_DISTRO, value: "aws_distro" }
             - { name: OTEL_PYTHON_CONFIGURATOR, value: "aws_configurator" }
             - { name: OTEL_EXPORTER_OTLP_PROTOCOL, value: "http/protobuf" }
+            # Nao instrumentar o healthcheck do ALB (evita floodar a observability com /health).
+            - { name: OTEL_PYTHON_FASTAPI_EXCLUDED_URLS, value: "health" }
+            - { name: OTEL_PYTHON_EXCLUDED_URLS, value: "health" }
             - { name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT, value: "https://xray.us-east-1.amazonaws.com/v1/traces" }
             - { name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT, value: "https://logs.us-east-1.amazonaws.com/v1/logs" }
             - { name: OTEL_EXPORTER_OTLP_LOGS_HEADERS, value: "x-aws-log-group=/aws/gwinf-eks/agent,x-aws-log-stream=default,x-aws-metric-namespace=bedrock-agentcore" }
