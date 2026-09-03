@@ -3194,6 +3194,28 @@ async function gwStream(body, onDelta, _retried) {
   }
   return debug || {};
 }
+function _gwExchangeHtml(dbg){
+  const rq=dbg.request, rp=dbg.response, rt=dbg.route||{};
+  if(!rq && !rp) return "";
+  const msgs=(rq&&rq.messages||[]).map(m=>
+    `<div class="octx-turn"><span class="octx-who">${esc(m.role)}</span>`+
+    `<div class="msg ${m.role==='user'?'user':'bot'}" style="white-space:pre-wrap">${esc(m.text||"")}</div></div>`).join("");
+  const reqHtml = rq ? `<details open class="octx-dbg-raw"><summary>➡️ Requisição — EKS → Gateway</summary>
+      <ul>
+        <li>endpoint: <code>${esc(rq.endpoint||"")}</code></li>
+        <li>API: <b>${esc(rq.api||"")}</b> · classe: <code>${esc(rq.provider_class||"")}</code></li>
+        <li>target: <code>${esc(rq.target||"")}</code> · model: <code>${esc(rq.model||"")}</code></li>
+        <li>auth: <code>${esc(rq.auth||"")}</code>${rq.max_tokens?` · max_tokens: <b>${rq.max_tokens}</b>`:""}</li>
+        <li>mensagens enviadas (${rq.messages_count||0}):</li>
+      </ul>${msgs}</details>` : "";
+  const respHtml = rp ? `<details open class="octx-dbg-raw"><summary>⬅️ Resposta — Gateway → EKS</summary>
+      <ul>
+        <li>status: <b>${esc(rp.status||"")}</b> · stop: <code>${esc(rp.stop_reason||"—")}</code></li>
+        <li>tokens: entrada <b>${(rp.tokens||{}).input||0}</b> · saída <b>${(rp.tokens||{}).output||0}</b> · total <b>${(rp.tokens||{}).total||0}</b></li>
+        <li>chars da resposta: <b>${rp.output_chars||0}</b> · latência: <b>${rp.latency_ms||0} ms</b></li>
+      </ul></details>` : "";
+  return reqHtml + respHtml;
+}
 async function gwSend() {
   const model = el("gw-model").value, q = (el("gw-q").value || "").trim();
   if (!q) return;
@@ -3235,7 +3257,8 @@ async function gwSend() {
       <li>guardrail (Bedrock): ${gbadge}</li>
       <li>tokens: entrada <b>${tok.input||0}</b> · saída <b>${tok.output||0}</b> · total <b>${tok.total||0}</b></li>
       <li>gateway: <code>${esc(dbg.gateway||"")}</code></li>
-    </ul></div><details class="octx-dbg-raw"><summary>JSON bruto</summary><pre>${esc(JSON.stringify(dbg,null,2))}</pre></details>`;
+    </ul></div>${_gwExchangeHtml(dbg)}
+    <details class="octx-dbg-raw"><summary>JSON bruto</summary><pre>${esc(JSON.stringify(dbg,null,2))}</pre></details>`;
   } catch (e) {
     live.innerHTML = (acc ? _oriMd(acc) + "<br>" : "") + `<span class="danger">${esc(e.message)}</span>`;
   }

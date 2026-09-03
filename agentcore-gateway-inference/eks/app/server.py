@@ -160,20 +160,32 @@ def _guardrail(text, source):
 # Mesmo roteamento determinístico do runtime agent.py: bedrock-mantle expõe cada modelo por
 # UMA das 3 APIs OpenAI/Anthropic-compatíveis.
 def _make_model(model_id, token):
+    """Retorna (model, route) — route descreve exatamente o que o EKS envia ao Gateway:
+    qual API/path, endpoint, target e parametros."""
     short = model_id.rsplit("/", 1)[-1]
     provider = short.split(".", 1)[0]
+    target = model_id.split("/", 1)[0] if "/" in model_id else ""
     base = _CFG["base_url"]
     if provider == "anthropic":
         from strands.models.anthropic import AnthropicModel
         anth_base = re.sub(r"/v1/?$", "", base)
+        route = {"api": "messages", "provider_class": "AnthropicModel",
+                 "base_url": anth_base, "path": "/v1/messages", "target": target,
+                 "max_tokens": 2048, "auth": "Bearer ****(m2m)"}
         return AnthropicModel(client_args={"base_url": anth_base, "auth_token": token},
-                              model_id=model_id, max_tokens=2048)
+                              model_id=model_id, max_tokens=2048), route
     if provider == "openai" and ("gpt-5" in short or "gpt-oss" in short) and "safeguard" not in short:
         from strands.models.openai_responses import OpenAIResponsesModel
+        route = {"api": "responses", "provider_class": "OpenAIResponsesModel",
+                 "base_url": base, "path": "/v1/responses", "target": target,
+                 "auth": "Bearer ****(m2m)"}
         return OpenAIResponsesModel(client_args={"base_url": base, "api_key": token},
-                                    model_id=model_id)
+                                    model_id=model_id), route
     from strands.models.openai import OpenAIModel
-    return OpenAIModel(client_args={"base_url": base, "api_key": token}, model_id=model_id)
+    route = {"api": "chat", "provider_class": "OpenAIModel",
+             "base_url": base, "path": "/v1/chat/completions", "target": target,
+             "auth": "Bearer ****(m2m)"}
+    return OpenAIModel(client_args={"base_url": base, "api_key": token}, model_id=model_id), route
 
 
 def _history_to_messages(history):
@@ -193,16 +205,55 @@ def _history_to_messages(history):
 
 def _build_agent(model_id, system, history=None):
     token = _m2m_token()
-    model = _make_model(model_id, token)
-    return Agent(model=model, system_prompt=system or _SYSTEM_DEFAULT,
-                 messages=_history_to_messages(history), callback_handler=None)
+    model, route = _make_model(model_id, token)
+    seeded = _history_to_messages(history)
+    agent = Agent(model=model, system_prompt=system or _SYSTEM_DEFAULT,
+                  messages=seeded, callback_handler=None)
+    return agent, route, seeded
 
 
-def _debug_from(result, model_id):
+def _trunc(s, n=600):
+    s = s or ""
+    return s if len(s) <= n else s[:n] + f"…(+{len(s) - n} chars)"
+
+
+def _req_debug(route, system, seeded, question, model_id):
+    """O que o EKS ENVIA ao Gateway: rota + payload de mensagens (conteudo real, truncado)."""
+    msgs = []
+    if (system or "").strip():
+        msgs.append({"role": "system", "text": _trunc(system)})
+    for m in (seeded or []):
+        try:
+            txt = m["content"][0].get("text", "")
+        except Exception:  # noqa: BLE001
+            txt = ""
+        msgs.append({"role": m.get("role"), "text": _trunc(txt)})
+    msgs.append({"role": "user", "text": _trunc(question)})
+    return {
+        "endpoint": f"{route.get('base_url', '')}{route.get('path', '')}",
+        "api": route.get("api"),
+        "provider_class": route.get("provider_class"),
+        "target": route.get("target") or "(catálogo bedrock-mantle)",
+        "model": model_id,
+        "auth": route.get("auth"),
+        "max_tokens": route.get("max_tokens"),
+        "messages": msgs,
+        "messages_count": len(msgs),
+    }
+
+
+def _debug_from(result, model_id, route=None, req=None, wall_ms=None):
     m = getattr(result, "metrics", None)
     usage = dict(getattr(m, "accumulated_usage", {}) or {})
     latency = (getattr(m, "accumulated_metrics", {}) or {}).get("latencyMs", 0)
-    return {
+    if not latency and wall_ms:
+        latency = wall_ms
+    answer = ""
+    try:
+        answer = str(result)
+    except Exception:  # noqa: BLE001
+        pass
+    dbg = {
         "model": model_id,
         "gateway": (_CFG["base_url"] or "").split("//")[-1].split("/")[0],
         "tokens": {"input": int(usage.get("inputTokens", 0) or 0),
@@ -210,6 +261,20 @@ def _debug_from(result, model_id):
                    "total": int(usage.get("totalTokens", 0) or 0)},
         "latency_ms": round(float(latency or 0), 1),
     }
+    if route is not None:
+        dbg["route"] = route
+    if req is not None:
+        dbg["request"] = req
+    # O que o Gateway RESPONDE ao EKS (metadados da resposta).
+    dbg["response"] = {
+        "status": "200 OK",
+        "model": model_id,
+        "stop_reason": getattr(result, "stop_reason", None),
+        "output_chars": len(answer or ""),
+        "tokens": dbg["tokens"],
+        "latency_ms": dbg["latency_ms"],
+    }
+    return dbg
 
 
 # --------------------------------------------------------------------------- auth (Cognito)
@@ -645,10 +710,14 @@ def ask(req: AskReq, authorization: str = Header(default="")):
             return {"result": {"answer": gmsg, "model": model_id,
                                "debug": {"model": model_id,
                                          "guardrail": {"blocked": True, "stage": "input"}}}}
-        agent = _build_agent(model_id, (req.system_prompt or "").strip())
+        system = (req.system_prompt or "").strip()
+        agent, route, seeded = _build_agent(model_id, system, req.history)
+        _t0 = time.time()
         result = agent(q)
+        _wall = round((time.time() - _t0) * 1000, 1)
         answer = _clean(str(result))
-        debug = _debug_from(result, model_id)
+        debug = _debug_from(result, model_id, route,
+                            _req_debug(route, system, seeded, q, model_id), _wall)
         oblocked, omsg = _guardrail(answer, "OUTPUT")
         if oblocked:
             answer = omsg
@@ -692,7 +761,9 @@ async def ask_stream(req: AskReq, authorization: str = Header(default="")):
                             "debug": {"model": model_id,
                                       "guardrail": {"blocked": True, "stage": "input"}}})
                 return
-            agent = _build_agent(model_id, system, req.history)
+            agent, route, seeded = _build_agent(model_id, system, req.history)
+            req_dbg = _req_debug(route, system, seeded, q, model_id)
+            _t0 = time.time()
             async for event in agent.stream_async(q):
                 if isinstance(event, dict):
                     if "data" in event and event["data"]:
@@ -700,7 +771,9 @@ async def ask_stream(req: AskReq, authorization: str = Header(default="")):
                         yield _sse({"type": "delta", "text": event["data"]})
                     if "result" in event and event["result"] is not None:
                         final = event["result"]
-            debug = _debug_from(final, model_id) if final is not None else {"model": model_id}
+            _wall = round((time.time() - _t0) * 1000, 1)
+            debug = (_debug_from(final, model_id, route, req_dbg, _wall) if final is not None
+                     else {"model": model_id, "route": route, "request": req_dbg})
             # Guardrail de SAÍDA: avalia o texto acumulado; se intervir, o FE substitui.
             oblocked, omsg = _guardrail("".join(acc), "OUTPUT")
             debug["guardrail"] = {"blocked": oblocked, "stage": "output" if oblocked else "pass"}
