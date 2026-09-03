@@ -2806,6 +2806,10 @@ async function viewOrientadorContextChat() {
                 onkeydown="if(event.key==='Enter')octxSend()">
          <button class="btn" onclick="octxSend()">Enviar</button>
        </div>
+       <details class="octx-debug" id="octx-debug">
+         <summary>🔎 Debug — o que o agente consumiu (requisição, tools, serviços, memória)</summary>
+         <div id="octx-debug-body" class="octx-debug-body muted">Envie uma pergunta para ver os detalhes desta resposta.</div>
+       </details>
      </div>`);
   window._octxHist = [];
 }
@@ -2819,17 +2823,55 @@ async function octxSend() {
   el("octx-q").value = "";
   box.innerHTML += `<div class="octx-turn bot" id="octx-wait"><span class="octx-who">Orientador Context</span><div class="msg bot">…</div></div>`;
   box.scrollTop = box.scrollHeight;
+  const feReq = { question: q, mode, student_id, history: window._octxHist.slice() };
   try {
-    const d = await octxApi("/ask", { method: "POST", body: JSON.stringify(
-      { question: q, mode, student_id, history: window._octxHist }) });
+    const d = await octxApi("/ask", { method: "POST", body: JSON.stringify(feReq) });
     const a = (d.result && d.result.answer) || "(sem resposta)";
     el("octx-wait").outerHTML = `<div class="octx-turn bot"><span class="octx-who">Orientador Context</span><div class="msg bot">${_oriMd(a)}</div></div>`;
     window._octxHist.push({ role: "user", text: q }, { role: "assistant", text: a });
     if (window._octxHist.length > 16) window._octxHist = window._octxHist.slice(-16);
+    _octxDebug(feReq, (d.result && d.result.debug) || null, null);
   } catch (e) {
     el("octx-wait").outerHTML = `<div class="octx-turn bot"><span class="octx-who">Orientador Context</span><div class="msg bot danger">${esc(e.message)}</div></div>`;
+    _octxDebug(feReq, null, e.message);
   }
   box.scrollTop = box.scrollHeight;
+}
+function _octxDebug(feReq, dbg, err) {
+  const body = el("octx-debug-body");
+  if (!body) return;
+  body.classList.remove("muted");
+  dbg = dbg || {};
+  const ag = dbg.agent || {};
+  const req = dbg.request || {};
+  const tok = ag.tokens || {};
+  const mem = ag.memory || {};
+  const li = (arr, f) => (arr && arr.length ? arr.map(f).join("") : '<li class="muted">—</li>');
+  const tools = li(ag.tools, t => `<li><b>${esc(t.name)}</b> ×${t.calls}`
+    + (t.errors ? ` <span class="danger">(${t.errors} erro)</span>` : "")
+    + ` · ${t.time_s}s`
+    + (t.input && Object.keys(t.input).length ? ` · input <code>${esc(JSON.stringify(t.input))}</code>` : "")
+    + `</li>`);
+  const svcs = li(ag.services, s => `<li><b>${esc(s.service)}</b> — ${esc(s.detail)}</li>`);
+  const errBlock = err ? `<div class="octx-dbg-sec danger">Erro: ${esc(err)}</div>` : "";
+  body.innerHTML = errBlock + `
+    <div class="octx-dbg-sec"><h4>1) FE → BE (o que o front enviou)</h4><ul>
+      <li>pergunta: <code>${esc(feReq.question || "")}</code></li>
+      <li>modo: <b>${esc(req.mode || feReq.mode || "")}</b> · aluno: <b>${esc(req.student_id || feReq.student_id || "—")}</b></li>
+      <li>turnos de histórico enviados: <b>${req.history_turns != null ? req.history_turns : (feReq.history || []).length}</b></li>
+      <li>sessão de memória: <code>${esc((req.session_id || "").slice(0, 16))}${req.session_id ? "…" : ""}</code> · actor: <code>${esc(req.actor_id || "—")}</code></li>
+    </ul></div>
+    <div class="octx-dbg-sec"><h4>2) Modelo &amp; consumo</h4><ul>
+      <li>modelo: <b>${esc(ag.model || "—")}</b></li>
+      <li>tokens: entrada <b>${tok.input || 0}</b> · saída <b>${tok.output || 0}</b> · total <b>${tok.total || 0}</b></li>
+      <li>latência: <b>${ag.latency_ms || 0} ms</b> · ciclos do agente: <b>${ag.cycles || 0}</b></li>
+    </ul></div>
+    <div class="octx-dbg-sec"><h4>3) Tools usadas</h4><ul>${tools}</ul></div>
+    <div class="octx-dbg-sec"><h4>4) Serviços / AWS consumidos</h4><ul>${svcs}</ul></div>
+    <div class="octx-dbg-sec"><h4>5) Memória (AgentCore Memory)</h4><ul>
+      <li>${mem.enabled ? "ativa" : "inativa"} — ${esc(mem.backend || "—")}</li>
+    </ul></div>
+    <details class="octx-dbg-raw"><summary>JSON bruto</summary><pre>${esc(JSON.stringify(dbg, null, 2))}</pre></details>`;
 }
 
 async function viewOrientadorContextRisco() {

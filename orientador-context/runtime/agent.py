@@ -296,6 +296,51 @@ def _clean_answer(text):
     return _THINK_RE.sub("", text or "").strip()
 
 
+_ATHENA_TOOLS = {"perfil_aluno", "progresso_aluno", "trilha_aluno", "cursos_faculdade",
+                 "desempenho_faculdade", "alunos_em_risco"}
+
+
+def _build_debug(result, *, mode, model_id, memory_on, session_id, actor_id):
+    """Monta o 'raio-x' da resposta p/ o painel de debug do FE: tokens, latencia, tools
+    usadas (com input), servicos/AWS consumidos e memoria — a partir das metricas do Strands."""
+    m = getattr(result, "metrics", None)
+    usage = dict(getattr(m, "accumulated_usage", {}) or {})
+    latency = (getattr(m, "accumulated_metrics", {}) or {}).get("latencyMs", 0)
+    tool_metrics = getattr(m, "tool_metrics", {}) or {}
+    tools_used = []
+    for name, mt in tool_metrics.items():
+        tool_obj = getattr(mt, "tool", {}) or {}
+        tools_used.append({
+            "name": name,
+            "calls": int(getattr(mt, "call_count", 0) or 0),
+            "success": int(getattr(mt, "success_count", 0) or 0),
+            "errors": int(getattr(mt, "error_count", 0) or 0),
+            "time_s": round(float(getattr(mt, "total_time", 0.0) or 0.0), 3),
+            "input": tool_obj.get("input", {}),
+        })
+    names = {t["name"] for t in tools_used}
+    services = [{"service": "Amazon Bedrock (Converse)", "detail": model_id}]
+    if names & _ATHENA_TOOLS:
+        services.append({"service": "Amazon Athena", "detail": f"data lake {GLUE_DB} (SQL)"})
+    if "web_search" in names:
+        services.append({"service": "AgentCore Gateway", "detail": "conector web-search (MCP/SigV4)"})
+    if memory_on:
+        services.append({"service": "AgentCore Memory", "detail": "curto prazo (STM) — CreateEvent/ListEvents"})
+    return {
+        "model": model_id,
+        "mode": mode,
+        "tokens": {"input": int(usage.get("inputTokens", 0) or 0),
+                   "output": int(usage.get("outputTokens", 0) or 0),
+                   "total": int(usage.get("totalTokens", 0) or 0)},
+        "latency_ms": round(float(latency or 0), 1),
+        "cycles": int(getattr(m, "cycle_count", 0) or 0),
+        "tools": tools_used,
+        "services": services,
+        "memory": {"enabled": bool(memory_on), "backend": "AgentCore Memory (STM)",
+                   "session_id": session_id, "actor_id": actor_id},
+    }
+
+
 def _seed_messages(history):
     """Reconstroi o contexto da conversa (turnos anteriores) no formato do Strands."""
     msgs = []
@@ -371,6 +416,7 @@ def invoke(payload):
     else:
         kwargs["messages"] = _seed_messages(payload.get("history"))  # fallback sem memória
 
+    result = None
     try:
         agent = Agent(**kwargs)
         result = agent(q)
@@ -381,7 +427,9 @@ def invoke(payload):
                 sm.close()  # garante o flush dos eventos de memória (spans CreateEvent)
             except Exception as e:  # noqa: BLE001
                 print("memory session manager close failed:", repr(e))
-    return {"result": {"answer": answer, "mode": mode}}
+    debug = _build_debug(result, mode=mode, model_id=MODEL_ID, memory_on=sm is not None,
+                         session_id=session_id, actor_id=actor_id)
+    return {"result": {"answer": answer, "mode": mode, "debug": debug}}
 
 
 # Web search: ativa quando o Gateway do AgentCore Web Search estiver configurado (SSM/env).

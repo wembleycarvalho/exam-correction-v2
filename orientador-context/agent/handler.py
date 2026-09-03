@@ -105,8 +105,10 @@ def _ask_runtime(question, *, is_coord, student_id, history, groups, session_id,
         raw = raw.decode("utf-8")
     data = json.loads(raw)
     res = data.get("result", data) if isinstance(data, dict) else {}
-    return (res.get("answer") if isinstance(res, dict) else None) or \
-        "Nao consegui elaborar uma resposta."
+    if not isinstance(res, dict):
+        res = {}
+    res.setdefault("answer", "Nao consegui elaborar uma resposta.")
+    return res
 
 
 # ------------------------------------------------------------------ grafo (SVG force graph)
@@ -237,14 +239,20 @@ def handler(event, context):
             # Sem fallback local: se o Runtime falhar, devolvemos erro claro (não degradamos
             # para um agente sem ferramentas).
             try:
-                answer = _ask_runtime(q, is_coord=is_coord, student_id=student_id,
-                                      history=history, groups=_groups(event),
-                                      session_id=session_id, actor_id=actor_id)
+                res = _ask_runtime(q, is_coord=is_coord, student_id=student_id,
+                                   history=history, groups=_groups(event),
+                                   session_id=session_id, actor_id=actor_id)
             except Exception as e:  # noqa: BLE001
                 print("AgentCore Runtime invoke failed:", repr(e))
                 return _resp(502, {"error": "o assistente esta temporariamente indisponivel, "
                                             "tente novamente em instantes"})
-            return _ok({"answer": answer, "mode": "coord" if is_coord else "aluno"})
+            # debug: o que o BE mandou pro Runtime + o que o agente consumiu (tools/servicos/memoria)
+            debug = res.get("debug") if isinstance(res, dict) else None
+            request_sent = {"mode": mode_lbl, "student_id": student_id,
+                            "session_id": session_id, "actor_id": actor_id,
+                            "history_turns": len(history or [])}
+            return _ok({"answer": res.get("answer"), "mode": mode_lbl,
+                        "debug": {"request": request_sent, "agent": debug}})
 
         # ---- aluno (escopado) ----
         if path in ("perfil", "progresso", "trilha", "matricula", "competencias-aluno", "insights"):
