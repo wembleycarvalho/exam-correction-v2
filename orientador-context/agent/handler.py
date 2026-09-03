@@ -7,6 +7,7 @@ Coexiste com o Orientador Academico (Neptune), sem toca-lo.
 RBAC: papel pelos grupos do Cognito (JWT). Coordenador (admin/professor) acessa visoes
 agregadas/coordenacao; aluno e escopado ao proprio.
 """
+import hashlib
 import json
 import os
 
@@ -16,7 +17,23 @@ import tools
 import prompts
 
 _bedrock = boto3.client("bedrock-runtime")
+_agentcore = boto3.client("bedrock-agentcore")
+_ssm = boto3.client("ssm")
 MODEL_ID = os.environ.get("MODEL_ID", "amazon.nova-pro-v1:0")
+
+# ARN do AgentCore Runtime (agente Strands). Env tem prioridade; senao lê do SSM (1x, cache).
+_RUNTIME_ARN_ENV = os.environ.get("RUNTIME_ARN", "")
+_RUNTIME_ARN_PARAM = os.environ.get("RUNTIME_ARN_PARAM", "/orientador-context/runtime-arn")
+_RUNTIME_ARN_CACHE = None
+
+
+def _runtime_arn():
+    global _RUNTIME_ARN_CACHE
+    if _RUNTIME_ARN_CACHE:
+        return _RUNTIME_ARN_CACHE
+    _RUNTIME_ARN_CACHE = _RUNTIME_ARN_ENV or _ssm.get_parameter(
+        Name=_RUNTIME_ARN_PARAM)["Parameter"]["Value"]
+    return _RUNTIME_ARN_CACHE
 
 
 def _resp(status, body):
@@ -51,6 +68,20 @@ def _has_priv(event):
     return bool(_groups(event) & {"admin", "professor"})
 
 
+def _sub(event):
+    try:
+        return event["requestContext"]["authorizer"]["jwt"]["claims"].get("sub", "")
+    except (KeyError, TypeError):
+        return ""
+
+
+def _session_id(event, mode, student_id):
+    """Sessão estável por (usuário, modo, aluno) — chaveia a memória do AgentCore Runtime.
+    O AgentCore exige runtimeSessionId com >= 33 chars; o hash SHA-256 (64 hex) atende."""
+    seed = f"octx:{mode}:{student_id or ''}:{_sub(event)}"
+    return hashlib.sha256(seed.encode()).hexdigest()
+
+
 # ------------------------------------------------------------------ chat (Converse)
 def _messages(history, question):
     msgs = []
@@ -61,6 +92,32 @@ def _messages(history, question):
             msgs.append({"role": role, "content": [{"text": text}]})
     msgs.append({"role": "user", "content": [{"text": question}]})
     return msgs
+
+
+def _ask_runtime(question, *, is_coord, student_id, history, groups, session_id):
+    """Ponte para o AgentCore Runtime (agente Strands: Athena + memória + web search).
+
+    Chamada NÃO-streaming (resposta completa). O browser nunca fala com o Runtime; só esta
+    Lambda, com IAM próprio. RBAC é reforçado tanto aqui quanto dentro do agente.
+    """
+    payload = json.dumps({
+        "question": question,
+        "mode": "coord" if is_coord else "aluno",
+        "student_id": student_id,
+        "groups": sorted(groups),
+        "history": history or [],
+    }).encode("utf-8")
+    resp = _agentcore.invoke_agent_runtime(
+        agentRuntimeArn=_runtime_arn(), runtimeSessionId=session_id,
+        contentType="application/json", accept="application/json", payload=payload)
+    body = resp.get("response")
+    raw = body.read() if hasattr(body, "read") else body
+    if isinstance(raw, (bytes, bytearray)):
+        raw = raw.decode("utf-8")
+    data = json.loads(raw)
+    res = data.get("result", data) if isinstance(data, dict) else {}
+    return (res.get("answer") if isinstance(res, dict) else None) or \
+        "Nao consegui elaborar uma resposta."
 
 
 def _ask(question, *, is_coord, student_id, history):
@@ -210,9 +267,16 @@ def handler(event, context):
                 return _resp(400, {"error": "pergunta vazia"})
             if not is_coord and not student_id:
                 return _resp(400, {"error": "selecione um aluno (modo aluno)"})
-            return _ok({"answer": _ask(q, is_coord=is_coord, student_id=student_id,
-                                       history=body.get("history")),
-                        "mode": "coord" if is_coord else "aluno"})
+            history = body.get("history")
+            session_id = _session_id(event, "coord" if is_coord else "aluno", student_id)
+            try:
+                answer = _ask_runtime(q, is_coord=is_coord, student_id=student_id,
+                                      history=history, groups=_groups(event),
+                                      session_id=session_id)
+            except Exception as e:  # noqa: BLE001 — fallback ao agente-em-Lambda (rollback seguro)
+                print("runtime bridge failed, falling back to local converse:", repr(e))
+                answer = _ask(q, is_coord=is_coord, student_id=student_id, history=history)
+            return _ok({"answer": answer, "mode": "coord" if is_coord else "aluno"})
 
         # ---- aluno (escopado) ----
         if path in ("perfil", "progresso", "trilha", "matricula", "competencias-aluno", "insights"):

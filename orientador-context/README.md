@@ -1,4 +1,4 @@
-# Orientador Context (serverless)
+# Orientador Context
 
 Módulo **novo e isolado** do portal "A Arte do Possível". É a Fase 3 da spec
 `.kiro/specs/orientador-context/`: um orientador acadêmico que consome o **data lake do
@@ -9,32 +9,51 @@ Moodle** (backbone em projeto apartado) em vez de um grafo Neptune próprio.
 > `-c modules=...,orientador-context`. O objetivo é provar o conceito lado a lado e, depois,
 > aposentar o atual (Fase 5).
 
-## Arquitetura (opção B1 da spec — front door = portal)
+## Arquitetura (chat agêntico no AgentCore + telas determinísticas)
 
 ```
 Navegador (portal) ──/orientador-context/*──► CloudFront ──► HTTP API + JWT (Cognito)
                                                                      │
-                                                          Lambda "agente" (serverless)
-                                                          Bedrock Converse + tool-use
-                                                                     │  Athena
-                                                                     ▼
-                                          Glue Data Catalog `moodle_datalake`  (S3)
-                                          (alunos, cursos, matriculas, notas, competencias)
+                                                        Router (Lambda) — decide o caminho:
+                                                                     │
+        ┌────────────────────────────────────────────────────────────┴───────────────┐
+        │ CHAT (/ask)                                       TELAS determinísticas       │
+        ▼                                                   (perfil/grafo/coordenação)  │
+  InvokeAgentRuntime (não-streaming)                                    │  Athena       │
+        ▼                                                               ▼               │
+  Amazon Bedrock AgentCore Runtime                    Glue Data Catalog `moodle_datalake` (S3)
+  · agente Strands (CodeZip, sem VPC)                 (alunos, cursos, matriculas, notas, ...)
+  · Bedrock Converse (Nova/Claude) + tool-use ──► SQL no Athena (mesmos dados do Moodle)
+  · AgentCore Memory (curto prazo, por sessão)
+  · AgentCore Gateway (web-search, MCP/SigV4) ──► índice web da AWS (notícias/fatos atuais)
 ```
 
-- **Sem VPC** (Athena/Glue/S3/Bedrock têm endpoints públicos) → mais simples que o Orientador
-  atual (que precisa de VPC para o Neptune).
-- **Agente em Lambda** (não AgentCore Runtime): a spec permite "agente **AgentCore/Lambda**"
-  na opção B1. Usa **Bedrock Converse + tool-use** — o modelo pede ferramentas, a Lambda
-  executa consultas Athena e devolve os dados; o modelo responde só com base neles
-  (anti-alucinação). `MODEL_ID` configurável (default `amazon.nova-pro-v1:0`).
-- Quando o **AWS Context** (preview) for habilitado sobre o mesmo catálogo, o agente troca a
-  camada de consumo (busca agêntica governada) sem mudar o front door. **AgentCore Memory** e
-  a lógica de grade/what-if do atual entram como evolução (ver spec).
+O **chat** foi migrado para um **sistema agêntico de verdade**: um agente **Strands** hospedado
+no **Amazon Bedrock AgentCore Runtime** (deploy **CodeZip**, sem Docker/VPC). O **Router
+(Lambda)** apenas faz a **ponte** `HTTP → InvokeAgentRuntime` (não-streaming) — o browser
+nunca fala com o Runtime; só a Lambda, com IAM próprio. As **telas determinísticas**
+(perfil, trilha, grafo, coordenação, etc.) seguem consultando o data lake via **Athena direto**
+na Lambda — mais simples e barato para dados tabulares fixos.
+
+Capacidades do agente:
+- **Dados do Moodle** — ferramentas que consultam o **data lake** via Athena (`moodle_datalake`),
+  com RBAC por sessão. Responde só com base no retorno das ferramentas (anti-alucinação).
+- **Notícias / eventos atuais** — **AgentCore Web Search** (conector gerenciado, MCP, servido
+  dentro da AWS, sem chaves/egress) via **AgentCore Gateway** com auth **IAM/SigV4**. O agente
+  cita as fontes (título, URL, data).
+- **Conhecimento geral** — responde direto pelo modelo.
+- **Memória de conversa** — **AgentCore Memory** (curto prazo, 30 dias) provisionada pelo
+  runtime; a continuidade multi-turno também é reforçada pelo histórico enviado na ponte.
+
+- **Sem VPC** (Athena/Glue/S3/Bedrock/AgentCore têm endpoints públicos) → mais simples que o
+  Orientador atual (que precisa de VPC para o Neptune).
+- **Modelos parametrizados** (`MODEL_ID`, default `amazon.nova-pro-v1:0`), nunca fixos no código.
+- **Rollback seguro:** se o `InvokeAgentRuntime` falhar, o Router cai automaticamente no antigo
+  agente-em-Lambda (Bedrock Converse local), sem derrubar o chat.
 
 ## Diagrama de arquitetura
 
-![Orientador Context — arquitetura e fluxo de dados](docs/architecture/orientador-context.png)
+![Orientador Context — arquitetura agêntica (AgentCore) e fluxo de dados](docs/architecture/orientador-context.png)
 
 > Fonte versionada em `docs/architecture/orientador-context.py` (lib `diagrams` + Graphviz).
 > Re-render: `python3 orientador-context/docs/architecture/orientador-context.py`.
@@ -57,20 +76,28 @@ São **dois fluxos** independentes: a **ingestão** (leva o dado do Moodle até 
 > O dado do Moodle vira tabelas SQL no data lake — **derivado e reproduzível** (reexecutar a
 > export regenera os CSVs).
 
-### Pergunta — chat → data lake (tempo real)
+### Pergunta — chat agêntico (tempo real)
 1. **Pergunta:** você digita no chat do portal; o navegador chama
    `https://<portal>/orientador-context/api/ask` (HTTPS) via **CloudFront**.
 2. **Auth/roteamento:** o CloudFront encaminha à **HTTP API**, que valida o **JWT do Cognito**
-   (o grupo — admin/professor vs aluno — define o **RBAC**) e invoca o **agente (Lambda)**.
-3. **Raciocínio (tool-use):** o agente chama o **Bedrock (Converse)**; o modelo decide quais
-   **ferramentas** usar (perfil, notas, risco de evasão, grade noturna, etc.).
-4. **Consulta:** cada ferramenta roda **SQL no Athena** (workgroup `moodle-datalake`) sobre o
-   **Glue Catalog**; o Athena **lê os CSVs no S3** e grava os resultados. O agente recebe os
-   dados e responde **só com base neles** (anti-alucinação), voltando pelo mesmo caminho até o chat.
+   (o grupo — admin/professor vs aluno — define o **RBAC**) e invoca o **Router (Lambda)**.
+3. **Ponte para o Runtime:** o Router lê o ARN do runtime no **SSM** e chama
+   **`InvokeAgentRuntime`** (não-streaming), passando `question`, `mode`, `student_id`,
+   `groups` e o histórico. Uma sessão estável por (usuário, modo, aluno) chaveia a **memória**.
+4. **Raciocínio (agente Strands):** o **AgentCore Runtime** roda o agente, que via **Bedrock
+   Converse + tool-use** decide o que usar:
+   - **SQL no Athena** (workgroup `moodle-datalake`, sobre o Glue Catalog → CSVs no S3) para
+     dados do Moodle — responde **só com base neles** (anti-alucinação);
+   - **AgentCore Web Search** (via Gateway/MCP) para notícias/fatos atuais, **citando fontes**;
+   - conhecimento geral do modelo quando cabe.
+5. **Resposta:** o agente devolve a resposta completa ao Router, que a entrega ao chat. O RBAC
+   é reforçado nas duas pontas (Router + agente): aluno é escopado ao próprio `student_id`;
+   visões de coordenação exigem grupo `admin`/`professor`.
 
 **Em uma frase:** o Moodle abastece um data lake (Aurora → Lambda → S3 → Glue); quando você
-pergunta no chat, o agente traduz a pergunta em SQL no Athena sobre esse lake e responde
-fundamentado — com o papel (aluno/coordenador) imposto pelo Cognito.
+pergunta no chat, o Router aciona um agente Strands no **AgentCore Runtime** que combina SQL no
+Athena (dados do Moodle), **web search** (atualidades) e memória de conversa — com o papel
+(aluno/coordenador) imposto pelo Cognito.
 
 ## Ganho central vs o Orientador atual: RBAC
 
@@ -85,7 +112,8 @@ O Orientador atual não tem RBAC (qualquer logado "vira coordenador"). Aqui o pa
 ## Features (paridade com o Orientador Acadêmico, adaptada ao data lake)
 
 Telas/menu (todas sob "Orientador Context"): **Alunos** (perfil + notas), **Cursos** (disciplinas
-por faculdade com matriculados/média), **Chat** (agente Converse + tools, RBAC), **Trilha**
+por faculdade com matriculados/média), **Chat** (agente Strands no AgentCore Runtime: dados do
+Moodle + web search + memória, RBAC), **Trilha**
 (a refazer/pendentes/concluídas + % conclusão), **Grafo** (SVG força-dirigido reaproveitado:
 `Tudo` = faculdades×disciplinas, `Aluno` = aluno→disciplinas→competências), **Insights**
 (risco de evasão, pontos fortes/fracos, recomendações), **Currículo** (faculdades +
@@ -105,17 +133,25 @@ futuro (a lógica de grade noturna, essa sim, foi portada por só depender da ma
 
 ## Componentes
 
-- `agent/handler.py` — Lambda: rotas HTTP (`bootstrap`, `ask`, `perfil`, `risco`,
-  `desempenho`, `health`) + laço Converse/tool-use + RBAC pelos grupos do Cognito.
-- `agent/tools.py` — tools = consultas Athena sanitizadas (perfil/notas do aluno, alunos em
-  risco, desempenho por faculdade, cursos e competências) + specs do Converse.
+- `agent/handler.py` — **Router (Lambda)**: rotas HTTP + RBAC pelos grupos do Cognito. O
+  `/ask` faz a **ponte** para o AgentCore Runtime (`InvokeAgentRuntime`, lendo o ARN no SSM),
+  com **fallback** ao Converse local. As telas determinísticas seguem em Athena direto.
+- `agent/tools.py` — consultas Athena sanitizadas usadas pelas telas determinísticas (e pelo
+  fallback local) + specs do Converse.
 - `agent/athena.py` — helper de consulta ao workgroup/database do data lake.
 - `agent/prompts.py` — prompts (modo aluno/coordenação) com regra anti-alucinação.
+- `runtime/agent.py` — **agente Strands** do AgentCore Runtime: `@app.entrypoint` +
+  ferramentas Athena (perfil/progresso/trilha/cursos/desempenho/risco) com RBAC por sessão +
+  `web_search` (AgentCore Gateway) + limpeza de saída. Modelo por `MODEL_ID`.
+- `runtime/gateway-websearch.yaml` — CloudFormation do **AgentCore Gateway** (IAM/SigV4 +
+  conector `web-search`). Sem account-id hardcoded (usa pseudo-parâmetros).
+- `runtime/deploy-runtime.sh` — deploy reproduzível do runtime (CodeZip, sem Docker): gateway +
+  `agentcore launch` + IAM least-privilege na execution role + SSM (`runtime-arn`, `gateway-url`).
 - `infra/modules/orientador_context.py` — construct CDK (Lambda + HTTP API + Cognito + IAM
-  least-privilege: Athena/Glue/S3/Bedrock escopados). Exposto no CloudFront sob
+  least-privilege: Athena/Glue/S3/Bedrock/AgentCore/SSM escopados). Exposto no CloudFront sob
   `/orientador-context/*` por bloco aditivo em `infra/exam_stack.py`.
-- Frontend: itens de menu **Orientador Context (serverless)** e telas `octx-*` em
-  `frontend/app.js` (helper `octxApi`) — puramente aditivo.
+- Frontend: itens de menu **Orientador Context** e telas `octx-*` em `frontend/app.js`
+  (helper `octxApi`) — puramente aditivo.
 
 ## Deploy (opt-in — não altera o deploy padrão)
 
@@ -144,11 +180,18 @@ curl -s https://<cloudfront>/orientador-context/health          # {"ok":true,...
 
 ## Estado — DEPLOYADO (deploy cirúrgico)
 
-O módulo está **no ar** no portal, sob `/orientador-context/*`. Verificado ponta a ponta:
-`/orientador-context/health` → 200; `/ask` (aluno) responde com as notas reais do aluno via
-Athena (sem alucinar); `/desempenho` e `/risco` funcionam para coordenação; aluno recebe 403
-nas rotas de coordenação (RBAC); rota autenticada sem token → 401. Os módulos existentes
-(`/api/*`, `/entrevistador/*`, `/orientador/*`, `/lms/*`) seguem **intactos**.
+O módulo está **no ar** no portal, sob `/orientador-context/*`, com o chat já **agêntico**
+(AgentCore Runtime). Verificado ponta a ponta: `/orientador-context/health` → 200; o **runtime**
+responde com as notas/progresso reais do aluno via Athena (sem alucinar), com **web search**
+citando fontes para notícias e **memória** multi-turno; `/desempenho` e `/risco` (telas) seguem
+para coordenação; aluno recebe 403 nas rotas de coordenação (RBAC); rota autenticada sem token
+→ 401. Os módulos existentes (`/api/*`, `/entrevistador/*`, `/orientador/*`, `/lms/*`) seguem
+**intactos**. Se o runtime ficar indisponível, o Router cai no Converse local (rollback).
+
+**Deploy do agente (AgentCore Runtime):** `cd orientador-context/runtime && ./deploy-runtime.sh`
+— provisiona o Gateway (web search), faz `agentcore launch` (CodeZip, **sem Docker**), aplica
+IAM least-privilege na execution role e publica os SSM params (`runtime-arn`, `gateway-url`)
+que o Router consome. Reproduzível, sem account-id/bucket hardcoded (resolve dos stacks).
 
 **Como foi deployado (e por que não pelo `deploy.sh`):** o `deploy.sh` faz `cdk deploy` do
 portal inteiro, inviável neste ambiente — o módulo Entrevistador usa **imagem Docker**
@@ -170,5 +213,8 @@ cd orientador-context/deploy && ./deploy.sh     # resolve IDs/bucket sozinho; N�
 
 ## Próximo (spec Fase 4/5)
 
-Comparação lado a lado com o Orientador atual (acurácia/custo/governança) e, quando o AWS
-Context liberar, plugar a busca governada + AgentCore Memory sobre o mesmo data lake.
+Comparação lado a lado com o Orientador atual (acurácia/custo/governança); **AgentCore
+Observability** para traces do agente (tokens/custo/latência) e **AgentCore Evaluations**
+(online/batch + A/B) alimentadas por esses traces; e, quando o AWS Context liberar, plugar a
+busca governada sobre o mesmo data lake. Memória de longo prazo (LTM) é evolução natural da
+STM já provisionada.

@@ -45,7 +45,8 @@ class OctxStandaloneStack(Stack):
             self, "AgentFn", runtime=lambda_.Runtime.PYTHON_3_12, handler="handler.handler",
             code=lambda_.Code.from_asset("../agent", exclude=["**/__pycache__", "*.pyc"]),
             timeout=Duration.seconds(60), memory_size=512, layers=[layer],
-            environment={"GLUE_DB": glue_db, "WORKGROUP": workgroup, "MODEL_ID": model_id})
+            environment={"GLUE_DB": glue_db, "WORKGROUP": workgroup, "MODEL_ID": model_id,
+                         "RUNTIME_ARN_PARAM": "/orientador-context/runtime-arn"})
 
         fn.add_to_role_policy(iam.PolicyStatement(
             actions=["athena:StartQueryExecution", "athena:GetQueryExecution",
@@ -67,6 +68,13 @@ class OctxStandaloneStack(Stack):
             resources=["arn:aws:bedrock:*::foundation-model/amazon.nova-*",
                        "arn:aws:bedrock:*::foundation-model/anthropic.claude-*",
                        f"arn:aws:bedrock:*:{account}:inference-profile/*"]))
+        # Ponte p/ o AgentCore Runtime (chat agêntico) + leitura do ARN via SSM.
+        fn.add_to_role_policy(iam.PolicyStatement(
+            actions=["bedrock-agentcore:InvokeAgentRuntime"],
+            resources=[f"arn:aws:bedrock-agentcore:{region}:{account}:runtime/orientador_context-*"]))
+        fn.add_to_role_policy(iam.PolicyStatement(
+            actions=["ssm:GetParameter"],
+            resources=[f"arn:aws:ssm:{region}:{account}:parameter/orientador-context/*"]))
 
         authorizer = apigw_authz.HttpUserPoolAuthorizer("Jwt", pool, user_pool_clients=[client])
         http_api = apigw.HttpApi(self, "Api", create_default_stage=True)

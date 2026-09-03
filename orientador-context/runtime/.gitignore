@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+# Estado gerado pelo toolkit (contém account-id e ARNs) — não versionar.
+.bedrock_agentcore.yaml
+.agentcore.yaml
+Dockerfile
+.dockerignore
+# Policy IAM é gerada em runtime pelo deploy-runtime.sh a partir dos stacks.
+octx-runtime-policy.json

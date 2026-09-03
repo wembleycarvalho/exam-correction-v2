@@ -1,0 +1,87 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Orientador Context — AgentCore Gateway (MCP) with AWS_IAM (SigV4) inbound auth and
+  the managed web-search connector. The Orientador Context runtime (Strands agent)
+  connects as an MCP client with its execution role and calls the WebSearch tool to
+  answer questions about current events / news. No API keys, no data egress.
+
+Parameters:
+  GatewayName:
+    Type: String
+    Default: orientador-context-websearch
+    AllowedPattern: "^[a-zA-Z0-9_-]{1,100}$"
+  TargetName:
+    Type: String
+    Default: web-search-tool
+    AllowedPattern: "^[a-zA-Z][a-zA-Z0-9_-]*$"
+
+Resources:
+  GatewayServicePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Permissions for the Orientador Context web-search gateway service role.
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: InvokeGateway
+            Effect: Allow
+            Action: bedrock-agentcore:InvokeGateway
+            Resource: !Sub "arn:aws:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:gateway/*"
+          - Sid: InvokeWebSearch
+            Effect: Allow
+            Action: bedrock-agentcore:InvokeWebSearch
+            Resource: !Sub "arn:aws:bedrock-agentcore:${AWS::Region}:aws:tool/web-search.v1"
+
+  GatewayServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: AgentCore Gateway role for the Orientador Context Web Search connector.
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowAgentCoreToAssumeRole
+            Effect: Allow
+            Principal:
+              Service: bedrock-agentcore.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                aws:SourceArn: !Sub "arn:aws:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:gateway/*"
+      ManagedPolicyArns:
+        - !Ref GatewayServicePolicy
+
+  Gateway:
+    Type: AWS::BedrockAgentCore::Gateway
+    Properties:
+      Name: !Ref GatewayName
+      Description: Orientador Context Web Search via IAM/SigV4.
+      ProtocolType: MCP
+      AuthorizerType: AWS_IAM
+      RoleArn: !GetAtt GatewayServiceRole.Arn
+
+  WebSearchTarget:
+    Type: AWS::BedrockAgentCore::GatewayTarget
+    Properties:
+      GatewayIdentifier: !GetAtt Gateway.GatewayIdentifier
+      Name: !Ref TargetName
+      Description: Built-in Web Search connector.
+      CredentialProviderConfigurations:
+        - CredentialProviderType: GATEWAY_IAM_ROLE
+      TargetConfiguration:
+        Mcp:
+          Connector:
+            Source:
+              ConnectorId: web-search
+            Configurations:
+              - Name: WebSearch
+                ParameterValues: {}
+
+Outputs:
+  GatewayUrl:
+    Description: MCP endpoint URL for the Orientador Context runtime (AGENTCORE_GATEWAY_URL).
+    Value: !GetAtt Gateway.GatewayUrl
+  GatewayId:
+    Description: AgentCore Gateway identifier.
+    Value: !GetAtt Gateway.GatewayIdentifier
