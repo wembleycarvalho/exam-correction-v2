@@ -17,6 +17,8 @@
       "Sid": "ByokAgentCoreControl",
       "Effect": "Allow",
       "Action": [
+        "bedrock-agentcore:CreateTokenVault",
+        "bedrock-agentcore:GetTokenVault",
         "bedrock-agentcore:CreateApiKeyCredentialProvider",
         "bedrock-agentcore:DeleteApiKeyCredentialProvider",
         "bedrock-agentcore:GetApiKeyCredentialProvider",
@@ -27,7 +29,7 @@
         "bedrock-agentcore:ListGatewayTargets"
       ],
       "Resource": [
-        "arn:aws:bedrock-agentcore:REGION:ACCOUNT_ID:token-vault/default/apikeycredentialprovider/*",
+        "arn:aws:bedrock-agentcore:REGION:ACCOUNT_ID:token-vault/*",
         "arn:aws:bedrock-agentcore:REGION:ACCOUNT_ID:gateway/*"
       ]
     },
@@ -36,6 +38,20 @@
       "Effect": "Allow",
       "Action": ["secretsmanager:GetSecretValue"],
       "Resource": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:ClientSecret6773D8CE-*"
+    },
+    {
+      "Sid": "ByokIdentitySecrets",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:CreateSecret",
+        "secretsmanager:PutSecretValue",
+        "secretsmanager:UpdateSecret",
+        "secretsmanager:DeleteSecret",
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:TagResource"
+      ],
+      "Resource": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:bedrock-agentcore-identity*"
     },
     {
       "Sid": "MantleMetricsRead",

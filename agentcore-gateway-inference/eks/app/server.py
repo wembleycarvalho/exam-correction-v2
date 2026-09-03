@@ -351,21 +351,23 @@ def _mantle_metrics(hours=24):
 # Credential Provider, (re)cria o target do Gateway e persiste a lista de modelos que
 # funcionaram (no SSM, SEM a chave) para os pickers mostrarem — ex.: Gemini.
 PROVIDERS = {
+    # Nomes de target/cred proprios do modulo (gwinf-*) para NAO colidir nem clobberar os
+    # recursos compartilhados do inference-demo (gemini-direct-key / target "gemini").
     "openai": {
-        "target": "openai",
+        "target": "gwinf-openai",
         "endpoint": "https://api.openai.com/v1",
         "models_url": "https://api.openai.com/v1/models",
-        "cred": "openai-direct-key",
+        "cred": "gwinf-openai-key",
         "op_path": "/v1/chat/completions",
         "provider_path": "/chat/completions",
         "model_patterns": [{"model": "gpt-*"}, {"model": "o1*"}, {"model": "o3*"},
                            {"model": "o4*"}, {"model": "chatgpt-*"}],
     },
     "gemini": {
-        "target": "gemini",
+        "target": "gwinf-gemini",
         "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai",
         "models_url": "https://generativelanguage.googleapis.com/v1beta/openai/v1/models",
-        "cred": "gemini-direct-key",
+        "cred": "gwinf-gemini-key",
         "op_path": "/v1/chat/completions",
         "provider_path": "/chat/completions",
         "model_patterns": [{"model": "gemini-*"}],
