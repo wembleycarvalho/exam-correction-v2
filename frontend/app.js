@@ -2799,7 +2799,7 @@ async function viewOrientadorContextChat() {
   h(`<div class="hdr"><h2>Orientador Context — Chat</h2>
        <span class="muted">dados do Moodle via data lake (Athena) · RBAC por perfil</span></div>
      <div class="card octx-chat-card">
-       <div class="row"><label>Atuar como:</label> <select id="octx-who">${coordOpt}${students}</select></div>
+       <div class="row"><label>Atuar como:</label> <select id="octx-who" onchange="octxNova()">${coordOpt}${students}</select></div>
        <div id="octx-chat" class="ori-chat"></div>
        <div class="ori-ask">
          <input id="octx-q" placeholder="Pergunte sobre desempenho, disciplinas, risco de evasão…"
