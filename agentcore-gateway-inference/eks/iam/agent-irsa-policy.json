@@ -26,7 +26,9 @@
         "bedrock-agentcore:CreateGatewayTarget",
         "bedrock-agentcore:DeleteGatewayTarget",
         "bedrock-agentcore:GetGatewayTarget",
-        "bedrock-agentcore:ListGatewayTargets"
+        "bedrock-agentcore:ListGatewayTargets",
+        "bedrock-agentcore:SynchronizeGatewayTargets",
+        "bedrock-agentcore:GetGateway"
       ],
       "Resource": [
         "arn:aws:bedrock-agentcore:REGION:ACCOUNT_ID:token-vault/*",
