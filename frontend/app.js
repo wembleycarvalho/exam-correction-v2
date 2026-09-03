@@ -3200,16 +3200,19 @@ async function gwSend() {
   const box = el("gw-chat");
   box.innerHTML += `<div class="octx-turn user"><span class="octx-who">Você</span><div class="msg user">${esc(q)}</div></div>`;
   el("gw-q").value = "";
-  box.innerHTML += `<div class="octx-turn bot" id="gw-wait"><span class="octx-who">${who}</span><div class="msg bot" id="gw-live">…</div></div>`;
+  box.innerHTML += `<div class="octx-turn bot" id="gw-wait"><span class="octx-who">${who}</span><div class="msg bot" id="gw-live"><span class="muted">gerando resposta…</span></div></div>`;
   box.scrollTop = box.scrollHeight;
   let acc = "";
   const live = el("gw-live");
   try {
+    // Inference NAO exibe streaming: acumulamos em silencio e so mostramos a resposta
+    // FINAL, ja verificada pelo guardrail de saida (evita exibir texto cru que seria
+    // bloqueado). O backend continua streamando; o buffering e so no FE.
     const dbg = await gwStream(
       { question: q, model, system_prompt: window._gwSys || "", conv: window._gwConv },
-      (t) => { acc += t; live.innerHTML = _oriMd(acc); box.scrollTop = box.scrollHeight; });
+      (t) => { acc += t; });
     const g = dbg.guardrail || {};
-    // Guardrail de saída bloqueou: substitui o texto ja exibido pela mensagem do guardrail.
+    // Guardrail de saída bloqueou: usa a mensagem do guardrail no lugar do texto gerado.
     if (g.blocked && g.stage === "output" && g.message) acc = g.message;
     live.innerHTML = _oriMd(acc || "(sem resposta)");
     if (g.blocked) live.classList.add("danger");
