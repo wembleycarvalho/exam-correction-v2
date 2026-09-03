@@ -14,12 +14,9 @@ import os
 import boto3
 
 import tools
-import prompts
 
-_bedrock = boto3.client("bedrock-runtime")
 _agentcore = boto3.client("bedrock-agentcore")
 _ssm = boto3.client("ssm")
-MODEL_ID = os.environ.get("MODEL_ID", "amazon.nova-pro-v1:0")
 
 # ARN do AgentCore Runtime (agente Strands). Env tem prioridade; senao lê do SSM (1x, cache).
 _RUNTIME_ARN_ENV = os.environ.get("RUNTIME_ARN", "")
@@ -82,18 +79,7 @@ def _session_id(event, mode, student_id):
     return hashlib.sha256(seed.encode()).hexdigest()
 
 
-# ------------------------------------------------------------------ chat (Converse)
-def _messages(history, question):
-    msgs = []
-    for h in (history or [])[-8:]:
-        role = "assistant" if h.get("role") == "assistant" else "user"
-        text = (h.get("text") or h.get("content") or "").strip()
-        if text:
-            msgs.append({"role": role, "content": [{"text": text}]})
-    msgs.append({"role": "user", "content": [{"text": question}]})
-    return msgs
-
-
+# ------------------------------------------------------------------ chat (AgentCore Runtime)
 def _ask_runtime(question, *, is_coord, student_id, history, groups, session_id):
     """Ponte para o AgentCore Runtime (agente Strands: Athena + memória + web search).
 
@@ -118,34 +104,6 @@ def _ask_runtime(question, *, is_coord, student_id, history, groups, session_id)
     res = data.get("result", data) if isinstance(data, dict) else {}
     return (res.get("answer") if isinstance(res, dict) else None) or \
         "Nao consegui elaborar uma resposta."
-
-
-def _ask(question, *, is_coord, student_id, history):
-    system = prompts.COORD if is_coord else prompts.ALUNO
-    toolset = tools.COORD_TOOLS if is_coord else tools.ALUNO_TOOLS
-    messages = _messages(history, question)
-    for _ in range(6):
-        resp = _bedrock.converse(
-            modelId=MODEL_ID, system=[{"text": system}], messages=messages,
-            toolConfig={"tools": toolset},
-            inferenceConfig={"maxTokens": 1200, "temperature": 0.2})
-        out = resp["output"]["message"]
-        messages.append(out)
-        if resp.get("stopReason") == "tool_use":
-            results = []
-            for block in out.get("content", []):
-                tu = block.get("toolUse")
-                if not tu:
-                    continue
-                r = tools.execute(tu["name"], tu.get("input", {}),
-                                  is_coord=is_coord, student_id=student_id)
-                results.append({"toolResult": {"toolUseId": tu["toolUseId"],
-                                                "content": [{"json": r}]}})
-            messages.append({"role": "user", "content": results})
-            continue
-        return "".join(b.get("text", "") for b in out.get("content", [])).strip() \
-            or "Nao consegui elaborar uma resposta."
-    return "Nao consegui concluir a analise com os dados disponiveis."
 
 
 # ------------------------------------------------------------------ grafo (SVG force graph)
@@ -269,13 +227,17 @@ def handler(event, context):
                 return _resp(400, {"error": "selecione um aluno (modo aluno)"})
             history = body.get("history")
             session_id = _session_id(event, "coord" if is_coord else "aluno", student_id)
+            # Chat 100% no AgentCore Runtime (agente Strands: Athena + memória + web search).
+            # Sem fallback local: se o Runtime falhar, devolvemos erro claro (não degradamos
+            # para um agente sem ferramentas).
             try:
                 answer = _ask_runtime(q, is_coord=is_coord, student_id=student_id,
                                       history=history, groups=_groups(event),
                                       session_id=session_id)
-            except Exception as e:  # noqa: BLE001 — fallback ao agente-em-Lambda (rollback seguro)
-                print("runtime bridge failed, falling back to local converse:", repr(e))
-                answer = _ask(q, is_coord=is_coord, student_id=student_id, history=history)
+            except Exception as e:  # noqa: BLE001
+                print("AgentCore Runtime invoke failed:", repr(e))
+                return _resp(502, {"error": "o assistente esta temporariamente indisponivel, "
+                                            "tente novamente em instantes"})
             return _ok({"answer": answer, "mode": "coord" if is_coord else "aluno"})
 
         # ---- aluno (escopado) ----
