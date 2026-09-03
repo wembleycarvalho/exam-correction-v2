@@ -80,11 +80,12 @@ def _session_id(event, mode, student_id):
 
 
 # ------------------------------------------------------------------ chat (AgentCore Runtime)
-def _ask_runtime(question, *, is_coord, student_id, history, groups, session_id):
+def _ask_runtime(question, *, is_coord, student_id, history, groups, session_id, actor_id):
     """Ponte para o AgentCore Runtime (agente Strands: Athena + memória + web search).
 
     Chamada NÃO-streaming (resposta completa). O browser nunca fala com o Runtime; só esta
-    Lambda, com IAM próprio. RBAC é reforçado tanto aqui quanto dentro do agente.
+    Lambda, com IAM próprio. RBAC é reforçado tanto aqui quanto dentro do agente. Passa
+    session_id/actor_id p/ o AgentCore Memory (continuidade + observability de memória).
     """
     payload = json.dumps({
         "question": question,
@@ -92,6 +93,8 @@ def _ask_runtime(question, *, is_coord, student_id, history, groups, session_id)
         "student_id": student_id,
         "groups": sorted(groups),
         "history": history or [],
+        "session_id": session_id,
+        "actor_id": actor_id,
     }).encode("utf-8")
     resp = _agentcore.invoke_agent_runtime(
         agentRuntimeArn=_runtime_arn(), runtimeSessionId=session_id,
@@ -226,14 +229,17 @@ def handler(event, context):
             if not is_coord and not student_id:
                 return _resp(400, {"error": "selecione um aluno (modo aluno)"})
             history = body.get("history")
-            session_id = _session_id(event, "coord" if is_coord else "aluno", student_id)
+            mode_lbl = "coord" if is_coord else "aluno"
+            session_id = _session_id(event, mode_lbl, student_id)
+            # actor da memória: o aluno (modo aluno) ou o coordenador logado (sub do Cognito).
+            actor_id = student_id if not is_coord else ("coord-" + (_sub(event) or "anon"))
             # Chat 100% no AgentCore Runtime (agente Strands: Athena + memória + web search).
             # Sem fallback local: se o Runtime falhar, devolvemos erro claro (não degradamos
             # para um agente sem ferramentas).
             try:
                 answer = _ask_runtime(q, is_coord=is_coord, student_id=student_id,
                                       history=history, groups=_groups(event),
-                                      session_id=session_id)
+                                      session_id=session_id, actor_id=actor_id)
             except Exception as e:  # noqa: BLE001
                 print("AgentCore Runtime invoke failed:", repr(e))
                 return _resp(502, {"error": "o assistente esta temporariamente indisponivel, "

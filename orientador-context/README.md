@@ -42,8 +42,11 @@ Capacidades do agente:
   dentro da AWS, sem chaves/egress) via **AgentCore Gateway** com auth **IAM/SigV4**. O agente
   cita as fontes (título, URL, data).
 - **Conhecimento geral** — responde direto pelo modelo.
-- **Memória de conversa** — **AgentCore Memory** (curto prazo, 30 dias) provisionada pelo
-  runtime; a continuidade multi-turno também é reforçada pelo histórico enviado na ponte.
+- **Memória de conversa** — **AgentCore Memory** (curto prazo, 30 dias) de verdade, via
+  `AgentCoreMemorySessionManager` do Strands: o agente **persiste e recupera** os turnos no
+  AgentCore Memory (por `session_id`/`actor_id` enviados pela ponte), sem depender do
+  histórico do browser. Isso dá continuidade multi-turno **e** gera os spans nativos de
+  memória (`CreateEvent`/`ListEvents`) no AgentCore Observability.
 
 - **Sem VPC** (Athena/Glue/S3/Bedrock/AgentCore têm endpoints públicos) → mais simples que o
   Orientador atual (que precisa de VPC para o Neptune).
@@ -193,8 +196,24 @@ e o agente inclui **`aws-opentelemetry-distro`** (ADOT) no `requirements.txt`; c
 - **Downstream** — spans das chamadas AWS (Athena, SSM) e do Gateway/web-search.
 
 Os spans detalhados chegam no stream **`spans`** do log group
-`/aws/bedrock-agentcore/runtimes/<runtime-id>-DEFAULT` (fonte do dashboard). Decisões que
-mantêm isso correto:
+`/aws/bedrock-agentcore/runtimes/<runtime-id>-DEFAULT` (fonte do dashboard). Cobertura por
+recurso do AgentCore (tudo nativo, verificado no stream `spans`):
+
+- **Agente/modelo** — `invoke_agent Strands Agents`, `execute_event_loop_cycle`, `chat`
+  (com `gen_ai.usage.*` = tokens in/out/total, modelo, latência).
+- **Tools** — `execute_tool <nome>` (ex.: `desempenho_faculdade`, `web_search`) + as chamadas
+  downstream `Athena.StartQueryExecution/GetQueryExecution/GetQueryResults` e `SSM.GetParameter`.
+- **Memory** — `Bedrock AgentCore.CreateEvent` (grava turno) e `Bedrock AgentCore.ListEvents`
+  (recupera a conversa); métricas de memória (Invocations/Latency/Errors/Creation) saem por
+  padrão no namespace do recurso de Memory.
+- **Gateway (web-search)** — `mcp.session`, `mcp tools/list`, `mcp tools/call
+  web-search-tool___WebSearch`; o recurso de Gateway também emite métricas próprias.
+- **Identity** — a auth é **IAM/SigV4** (não usamos credential provider/OAuth do AgentCore
+  Identity, que não é necessário aqui); a identidade aparece nos atributos `aws.auth.*` das
+  chamadas AWS. Se um dia integrarmos um provedor OAuth via AgentCore Identity, os spans
+  desse fluxo passam a aparecer automaticamente.
+
+Decisões que mantêm isso correto:
 
 - **Não** inicializamos `StrandsTelemetry` no código — o ADOT já instrumenta; fazer os dois
   duplica os spans de inferência e **double-conta** tokens.

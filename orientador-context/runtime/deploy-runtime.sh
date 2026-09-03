@@ -54,7 +54,9 @@ echo ">> agentcore launch (cloud, sem Docker)…"
 RUNTIME_ARN="$(./.venv/bin/python -c "import yaml;c=yaml.safe_load(open('.bedrock_agentcore.yaml'));a=c['agents'][c['default_agent']];print(a['bedrock_agentcore']['agent_arn'])")"
 EXEC_ROLE_ARN="$(./.venv/bin/python -c "import yaml;c=yaml.safe_load(open('.bedrock_agentcore.yaml'));a=c['agents'][c['default_agent']];print(a['aws']['execution_role'])")"
 EXEC_ROLE="${EXEC_ROLE_ARN##*/}"
-echo ">> runtime=$RUNTIME_ARN role=$EXEC_ROLE"
+MEM_ID="$(./.venv/bin/python -c "import yaml;c=yaml.safe_load(open('.bedrock_agentcore.yaml'));a=c['agents'][c['default_agent']];print((a.get('memory') or {}).get('memory_id') or '')")"
+MEM_ARN="arn:aws:bedrock-agentcore:${AWS_REGION}:${ACCOUNT}:memory/${MEM_ID}"
+echo ">> runtime=$RUNTIME_ARN role=$EXEC_ROLE memory=$MEM_ID"
 
 # ---------------------------------------------------------------- 3) IAM least-privilege
 echo ">> Anexando policy least-privilege à execution role…"
@@ -67,6 +69,7 @@ POLICY="$(cat <<JSON
     {"Sid":"DataLakeBucket","Effect":"Allow","Action":["s3:ListBucket","s3:GetBucketLocation"],"Resource":"arn:aws:s3:::${LAKE}"},
     {"Sid":"DataLakeObjects","Effect":"Allow","Action":["s3:GetObject","s3:PutObject"],"Resource":"arn:aws:s3:::${LAKE}/*"},
     {"Sid":"WebSearchGateway","Effect":"Allow","Action":"bedrock-agentcore:InvokeGateway","Resource":"${GW_ARN}"},
+    {"Sid":"AgentCoreMemory","Effect":"Allow","Action":["bedrock-agentcore:CreateEvent","bedrock-agentcore:GetEvent","bedrock-agentcore:ListEvents","bedrock-agentcore:ListSessions","bedrock-agentcore:RetrieveMemoryRecords","bedrock-agentcore:ListMemoryRecords","bedrock-agentcore:GetMemoryRecord"],"Resource":["${MEM_ARN}","${MEM_ARN}/*"]},
     {"Sid":"ConfigParams","Effect":"Allow","Action":"ssm:GetParameter","Resource":"arn:aws:ssm:${AWS_REGION}:${ACCOUNT}:parameter/orientador-context/*"},
     {"Sid":"BedrockInvoke","Effect":"Allow","Action":["bedrock:InvokeModel","bedrock:InvokeModelWithResponseStream"],"Resource":["arn:aws:bedrock:*::foundation-model/amazon.nova-*","arn:aws:bedrock:*::foundation-model/anthropic.claude-*","arn:aws:bedrock:${AWS_REGION}:${ACCOUNT}:inference-profile/us.amazon.nova-*","arn:aws:bedrock:${AWS_REGION}:${ACCOUNT}:inference-profile/us.anthropic.claude-*"]}
   ]

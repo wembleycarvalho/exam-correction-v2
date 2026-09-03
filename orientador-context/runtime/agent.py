@@ -24,6 +24,10 @@ REGION = os.environ.get("AWS_REGION", "us-east-1")
 MODEL_ID = os.environ.get("MODEL_ID", "amazon.nova-pro-v1:0")
 GLUE_DB = os.environ.get("GLUE_DB", "moodle_datalake")
 WORKGROUP = os.environ.get("WORKGROUP", "moodle-datalake")
+# Memória gerenciada pelo AgentCore Memory (o Runtime injeta BEDROCK_AGENTCORE_MEMORY_ID).
+# Usada via AgentCoreMemorySessionManager do Strands: persiste/recupera os turnos e gera
+# os spans nativos (CreateEvent/ListEvents/RetrieveMemoryRecords) no AgentCore Observability.
+MEMORY_ID = os.environ.get("BEDROCK_AGENTCORE_MEMORY_ID", "")
 
 # Observabilidade NATIVA do AgentCore — sem métricas "na mão" e sem setup de telemetria no
 # código. O pacote `aws-opentelemetry-distro` (ADOT) no requirements faz o Runtime
@@ -303,6 +307,34 @@ def _seed_messages(history):
     return msgs
 
 
+_MEM_ID_RE = re.compile(r"[^a-zA-Z0-9-_]")
+
+
+def _san_id(v, fallback):
+    """Sanitiza actor_id/session_id p/ o padrao aceito pelo AgentCore Memory."""
+    v = _MEM_ID_RE.sub("-", (v or "").strip())[:200]
+    return v or fallback
+
+
+def _session_manager(session_id, actor_id):
+    """Cria o AgentCoreMemorySessionManager (STM) — persiste/recupera turnos no AgentCore
+    Memory e emite os spans nativos de memória. Retorna None se memória indisponivel."""
+    if not (MEMORY_ID and session_id):
+        return None
+    try:
+        from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig
+        from bedrock_agentcore.memory.integrations.strands.session_manager import (
+            AgentCoreMemorySessionManager,
+        )
+        cfg = AgentCoreMemoryConfig(memory_id=MEMORY_ID,
+                                    session_id=_san_id(session_id, "session"),
+                                    actor_id=_san_id(actor_id, "user"))
+        return AgentCoreMemorySessionManager(cfg, region_name=REGION)
+    except Exception as e:  # noqa: BLE001 — memória nunca derruba o chat
+        print("memory session manager init failed:", repr(e))
+        return None
+
+
 @app.entrypoint
 def invoke(payload):
     q = (payload.get("question") or payload.get("prompt") or "").strip()
@@ -323,13 +355,32 @@ def invoke(payload):
     tools += _WEB_TOOLS  # web search (AgentCore Gateway); vazio se o gateway nao estiver configurado
     if _WEB_TOOLS:
         system += _SYS_WEB  # reforca o uso da web_search quando ela esta disponivel
+
+    # Memória: AgentCore Memory (nativo) via session manager. actor = aluno (modo aluno) ou
+    # o usuário coordenador; session = a sessão estável enviada pela ponte.
+    session_id = payload.get("session_id")
+    actor_id = payload.get("actor_id") or (student_id if not is_coord else "coord")
+    sm = _session_manager(session_id, actor_id)
+
     # callback_handler=None: nao streamar a resposta pro stdout (mantem os logs limpos; os
     # traces/tokens vao via OpenTelemetry -> AgentCore Observability, nao via stdout).
-    agent = Agent(model=BedrockModel(model_id=MODEL_ID, region_name=REGION),
-                  system_prompt=system, tools=tools, callback_handler=None,
-                  messages=_seed_messages(payload.get("history")))
-    result = agent(q)
-    answer = _clean_answer(str(result))
+    kwargs = dict(model=BedrockModel(model_id=MODEL_ID, region_name=REGION),
+                  system_prompt=system, tools=tools, callback_handler=None)
+    if sm is not None:
+        kwargs["session_manager"] = sm  # memória nativa cuida do histórico
+    else:
+        kwargs["messages"] = _seed_messages(payload.get("history"))  # fallback sem memória
+
+    try:
+        agent = Agent(**kwargs)
+        result = agent(q)
+        answer = _clean_answer(str(result))
+    finally:
+        if sm is not None:
+            try:
+                sm.close()  # garante o flush dos eventos de memória (spans CreateEvent)
+            except Exception as e:  # noqa: BLE001
+                print("memory session manager close failed:", repr(e))
     return {"result": {"answer": answer, "mode": mode}}
 
 
