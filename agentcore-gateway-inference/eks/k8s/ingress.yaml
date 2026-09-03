@@ -1,0 +1,32 @@
+# A IngressClass "alb" (controller ingress.k8s.aws/alb) é criada pelo chart do
+# AWS Load Balancer Controller (alb-controller.sh). Só referenciamos aqui.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gwinf
+  namespace: gwinf
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    # subnets públicas do VPC (o pod fica em subnet privada; alvos por IP no mesmo VPC).
+    alb.ingress.kubernetes.io/subnets: subnet-00b24b3674bc2d9ef,subnet-00d77fb36df06cfaf
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/healthcheck-port: "8080"
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/target-group-attributes: stickiness.enabled=false
+    # janelas de idle altas para não cortar respostas SSE longas.
+    alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=300
+    alb.ingress.kubernetes.io/tags: module=agentcore-gateway-inference
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gwinf-agent
+                port:
+                  number: 80

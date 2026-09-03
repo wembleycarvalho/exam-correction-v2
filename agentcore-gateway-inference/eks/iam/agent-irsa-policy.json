@@ -1,0 +1,58 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "GatewayConfigSSM",
+      "Effect": "Allow",
+      "Action": ["ssm:GetParameter", "ssm:GetParameters"],
+      "Resource": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/gateway-inference/*"
+    },
+    {
+      "Sid": "GatewayClientSecret",
+      "Effect": "Allow",
+      "Action": ["secretsmanager:GetSecretValue"],
+      "Resource": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:ClientSecret6773D8CE-*"
+    },
+    {
+      "Sid": "MantleMetricsRead",
+      "Effect": "Allow",
+      "Action": ["cloudwatch:ListMetrics", "cloudwatch:GetMetricData"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ObservabilityLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+        "logs:DescribeLogGroups",
+        "logs:DescribeLogStreams"
+      ],
+      "Resource": [
+        "arn:aws:logs:REGION:ACCOUNT_ID:log-group:/aws/gwinf-eks/agent:*",
+        "arn:aws:logs:REGION:ACCOUNT_ID:log-group:aws/spans:*",
+        "arn:aws:logs:REGION:ACCOUNT_ID:log-group:/aws/application-signals/data:*"
+      ]
+    },
+    {
+      "Sid": "ObservabilityXRay",
+      "Effect": "Allow",
+      "Action": [
+        "xray:PutTraceSegments",
+        "xray:PutSpans",
+        "xray:PutSpansForIndexing",
+        "xray:GetSamplingRules",
+        "xray:GetSamplingTargets"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ObservabilityMetrics",
+      "Effect": "Allow",
+      "Action": "cloudwatch:PutMetricData",
+      "Resource": "*",
+      "Condition": {"StringEquals": {"cloudwatch:namespace": "bedrock-agentcore"}}
+    }
+  ]
+}

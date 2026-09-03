@@ -3130,7 +3130,7 @@ async function gwinfApi(path, opts = {}, _retried) {
 }
 async function viewGwInference() {
   h(`<div class="hdr"><h2>Gateway Inference — Inference</h2>
-       <span class="muted">chat via AgentCore Gateway (bedrock-mantle) · agente no Runtime</span></div>
+       <span class="muted">chat via AgentCore Gateway (bedrock-mantle) · agente Strands no EKS Fargate · streaming</span></div>
      <div class="card muted">Carregando modelos…</div>`);
   let mods;
   try { mods = await gwinfApi("/models"); }
@@ -3141,7 +3141,7 @@ async function viewGwInference() {
     groups[g].map(m => `<option value="${esc(m)}">${esc(m.split("/").pop())}</option>`).join("") +
     `</optgroup>`).join("");
   h(`<div class="hdr"><h2>Gateway Inference — Inference</h2>
-       <span class="muted">${mods.count} modelos · AgentCore Gateway · agente no Runtime</span></div>
+       <span class="muted">${mods.count} modelos · AgentCore Gateway · agente Strands no EKS Fargate · streaming SSE</span></div>
      <div class="card octx-chat-card">
        <div class="row"><label>Modelo:</label> <select id="gw-model">${opts}</select>
          <button class="btn sec" onclick="gwNova()" title="Nova conversa">Nova conversa</button></div>
@@ -3159,29 +3159,67 @@ async function viewGwInference() {
 function gwNova(){ window._gwConv = Date.now().toString(36)+Math.random().toString(36).slice(2,10);
   const b=el("gw-chat"); if(b) b.innerHTML=""; const d=el("gw-debug-body");
   if(d){ d.classList.add("muted"); d.innerHTML="Envie uma pergunta para ver os detalhes."; } }
+/* Streaming SSE: o backend roda no EKS Fargate (pod atrás do ALB) e emite deltas
+   token-a-token via /agentcore/api/ask/stream. Consumimos com fetch + ReadableStream. */
+async function gwStream(body, onDelta, _retried) {
+  const r = await fetch(GWINF + "/ask/stream", {
+    method: "POST", headers: {
+      "Content-Type": "application/json", "Authorization": "Bearer " + ID_TOKEN },
+    body: JSON.stringify(body) });
+  if (r.status === 401 && !_retried) {
+    if (await refreshToken()) return gwStream(body, onDelta, true);
+    login(); throw new Error("Sessão expirada. Redirecionando para o login…");
+  }
+  if (!r.ok || !r.body) {
+    const d = await r.json().catch(() => ({}));
+    throw new Error(d.error || ("HTTP " + r.status));
+  }
+  const reader = r.body.getReader(), dec = new TextDecoder();
+  let buf = "", debug = null;
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let i;
+    while ((i = buf.indexOf("\n\n")) >= 0) {
+      const frame = buf.slice(0, i); buf = buf.slice(i + 2);
+      const line = frame.split("\n").find(l => l.startsWith("data:"));
+      if (!line) continue;
+      let ev; try { ev = JSON.parse(line.slice(5).trim()); } catch { continue; }
+      if (ev.type === "delta") onDelta(ev.text || "");
+      else if (ev.type === "done") debug = ev.debug || {};
+      else if (ev.type === "error") throw new Error(ev.error || "falha no streaming");
+    }
+  }
+  return debug || {};
+}
 async function gwSend() {
   const model = el("gw-model").value, q = (el("gw-q").value || "").trim();
   if (!q) return;
+  const who = esc(model.split("/").pop());
   const box = el("gw-chat");
   box.innerHTML += `<div class="octx-turn user"><span class="octx-who">Você</span><div class="msg user">${esc(q)}</div></div>`;
   el("gw-q").value = "";
-  box.innerHTML += `<div class="octx-turn bot" id="gw-wait"><span class="octx-who">${esc(model.split("/").pop())}</span><div class="msg bot">…</div></div>`;
+  box.innerHTML += `<div class="octx-turn bot" id="gw-wait"><span class="octx-who">${who}</span><div class="msg bot" id="gw-live">…</div></div>`;
   box.scrollTop = box.scrollHeight;
+  let acc = "";
+  const live = el("gw-live");
   try {
-    const d = await gwinfApi("/ask", { method: "POST", body: JSON.stringify(
-      { question: q, model, system_prompt: window._gwSys || "", conv: window._gwConv }) });
-    const res = d.result || {}, a = res.answer || "(sem resposta)";
-    el("gw-wait").outerHTML = `<div class="octx-turn bot"><span class="octx-who">${esc(model.split("/").pop())}</span><div class="msg bot">${_oriMd(a)}</div></div>`;
-    const dbg = res.debug || {}, tok = dbg.tokens || {};
+    const dbg = await gwStream(
+      { question: q, model, system_prompt: window._gwSys || "", conv: window._gwConv },
+      (t) => { acc += t; live.innerHTML = _oriMd(acc); box.scrollTop = box.scrollHeight; });
+    live.innerHTML = _oriMd(acc || "(sem resposta)");
+    el("gw-wait").removeAttribute("id");
+    const tok = dbg.tokens || {};
     const body = el("gw-debug-body"); body.classList.remove("muted");
     body.innerHTML = `<div class="octx-dbg-sec"><ul>
+      <li>host: <b>EKS Fargate (streaming SSE)</b></li>
       <li>modelo: <b>${esc(dbg.model || model)}</b></li>
       <li>tokens: entrada <b>${tok.input||0}</b> · saída <b>${tok.output||0}</b> · total <b>${tok.total||0}</b></li>
-      <li>latência: <b>${dbg.latency_ms||0} ms</b></li>
       <li>gateway: <code>${esc(dbg.gateway||"")}</code></li>
     </ul></div><details class="octx-dbg-raw"><summary>JSON bruto</summary><pre>${esc(JSON.stringify(dbg,null,2))}</pre></details>`;
   } catch (e) {
-    el("gw-wait").outerHTML = `<div class="octx-turn bot"><span class="octx-who">${esc(model.split("/").pop())}</span><div class="msg bot danger">${esc(e.message)}</div></div>`;
+    live.innerHTML = (acc ? _oriMd(acc) + "<br>" : "") + `<span class="danger">${esc(e.message)}</span>`;
   }
   box.scrollTop = box.scrollHeight;
 }

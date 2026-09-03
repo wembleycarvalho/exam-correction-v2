@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gwinf
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gwinf-agent
+  namespace: gwinf
+  labels: { app: gwinf-agent }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: gwinf-agent }
+  template:
+    metadata:
+      labels: { app: gwinf-agent }
+    spec:
+      # service account com IRSA (SSM/Secrets/CloudWatch + entrega de telemetria) — criada pelo deploy.
+      serviceAccountName: gwinf-agent
+      containers:
+        - name: agent
+          image: __IMAGE__
+          ports:
+            - containerPort: 8080
+          env:
+            # ---- App ----
+            - { name: AWS_REGION, value: "us-east-1" }
+            - { name: SSM_PREFIX, value: "/gateway-inference" }
+            # POOL_ID: Cognito user pool do PORTAL (valida o JWT do browser).
+            - { name: POOL_ID, value: "__POOL_ID__" }
+            - { name: REQUIRE_AUTH, value: "true" }
+            # ---- Observability nativa do AgentCore (modo "non-runtime hosted agent") ----
+            - { name: AGENT_OBSERVABILITY_ENABLED, value: "true" }
+            - { name: OTEL_PYTHON_DISTRO, value: "aws_distro" }
+            - { name: OTEL_PYTHON_CONFIGURATOR, value: "aws_configurator" }
+            - { name: OTEL_EXPORTER_OTLP_PROTOCOL, value: "http/protobuf" }
+            - { name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT, value: "https://xray.us-east-1.amazonaws.com/v1/traces" }
+            - { name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT, value: "https://logs.us-east-1.amazonaws.com/v1/logs" }
+            - { name: OTEL_EXPORTER_OTLP_LOGS_HEADERS, value: "x-aws-log-group=/aws/gwinf-eks/agent,x-aws-log-stream=default,x-aws-metric-namespace=bedrock-agentcore" }
+            - { name: OTEL_EXPORTER_OTLP_TRACES_HEADERS, value: "x-aws-log-group=/aws/gwinf-eks/agent,x-aws-log-stream=default" }
+            - { name: OTEL_RESOURCE_ATTRIBUTES, value: "service.name=gwinf-eks-agent,aws.service.type=gen_ai_agent,deployment.environment.name=eks-fargate" }
+          readinessProbe:
+            httpGet: { path: /health, port: 8080 }
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests: { cpu: "500m", memory: "1Gi" }
+            limits: { cpu: "1", memory: "2Gi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gwinf-agent
+  namespace: gwinf
+spec:
+  type: ClusterIP
+  selector: { app: gwinf-agent }
+  ports:
+    - port: 80
+      targetPort: 8080
