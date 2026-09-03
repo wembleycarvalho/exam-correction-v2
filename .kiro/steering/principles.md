@@ -21,6 +21,13 @@ serverless → segurança → custo**.
   a segurança (menos código próprio, credenciais gerenciadas, governança central). Ex.:
   usar o **AgentCore Runtime** para hospedar os agentes e o **AgentCore Evaluations** para
   medir qualidade, em vez de hand-rollar hospedagem e harness/scorers próprios.
+- **AgentCore primeiro (regra travada):** para qualquer capacidade agêntica — hospedar
+  agente, memória de conversa, busca na web, tools via MCP, avaliação/A-B, observabilidade
+  de agente — **sempre dar preferência ao AgentCore** (Runtime, Memory, Gateway + conectores
+  como `web-search`, Evaluations, Observability) em vez de reimplementar na mão ou colar
+  serviço externo/API com chave. Só fugir do AgentCore com justificativa explícita de
+  requisito (ex.: recurso indisponível na região) — e registrar o motivo. O fato de um
+  recurso do AgentCore estar em preview **não** é impeditivo neste projeto (é demo).
 - **Agentes**: implementados com **Strands** e hospedados no **AgentCore Runtime** (deploy
   CodeZip, sem Docker local), chamando modelos via **Bedrock Converse direto**. O
   **Correction Worker (Lambda)** apenas faz a ponte `SQS → InvokeAgentRuntime` (sem lógica
@@ -56,6 +63,20 @@ serverless → segurança → custo**.
 
 ## 5. Mensurável e reproduzível
 
-- Toda invocação de modelo registra tokens, custo e latência.
+- **Observabilidade em TUDO (regra travada):** todo componente que executa (agentes no
+  AgentCore Runtime, Lambdas, Gateway/web-search, Memory, workers) **deve** nascer com
+  observabilidade **ligada**, não como afterthought. Concretamente:
+  - **Traces:** habilitar **AgentCore Observability** (OpenTelemetry) em todo Runtime/Gateway
+    — nunca desligar `--disable-otel`. Traces alimentam também as Evaluations.
+  - **Métricas de negócio via CloudWatch EMF:** toda invocação de modelo emite **tokens
+    (in/out/total), custo estimado, latência** e **uso de ferramentas** (ex.: chamadas ao
+    Gateway/web-search, ao Athena, erros de tool). Emitir EMF como **linha JSON própria** no
+    stdout do componente (o CloudWatch extrai a métrica); custo estimado a partir de tabela
+    de preços **parametrizada por modelo** (env/SSM), nunca preço fixo escondido no código.
+  - **Namespace por módulo** com dimensões úteis (Módulo, Modo, ModelId) para dá pra fatiar
+    custo/consumo por perfil e por modelo (base para decisão de A/B e de troca de modelo).
+  - **Logs estruturados** (JSON) com correlação por sessão/`submissionId`.
+- Toda invocação de modelo registra tokens, custo e latência (ver acima) — desde o dia 1.
 - Tudo como código (CDK, 1 stack), parametrizado por ambiente, deploy reproduzível.
-- Verificar cada mudança (validate/build/test) antes de considerar concluída.
+- Verificar cada mudança (validate/build/test) antes de considerar concluída, incluindo
+  **confirmar que as métricas/traces aparecem** no CloudWatch antes de dar a tarefa por feita.

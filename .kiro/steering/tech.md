@@ -62,8 +62,19 @@
   Grupos `admin` e `professor`. Login pela **Hosted UI (PKCE)**.
 - **Config/Segredos:** parâmetros via **SSM Parameter Store** e variáveis de ambiente via
   CDK; segredo de origem no **Secrets Manager**. Sem segredos no código ou no bundle do FE.
-- **Observabilidade:** **AgentCore Observability** (traces dos agentes) + CloudWatch
-  **EMF** (tokens/custo/latência) emitido pelo worker + logs estruturados.
+- **Observabilidade (LIGADA em tudo, sempre):** **AgentCore Observability**
+  (OpenTelemetry → traces/sessions dos agentes e do Gateway; nunca `--disable-otel`) +
+  CloudWatch **EMF** para métricas de negócio emitidas por **quem executa o modelo** (o
+  próprio agente no Runtime e/ou o worker): **tokens (in/out/total), custo estimado,
+  latência e uso de ferramentas** (chamadas ao Gateway/web-search, ao Athena, erros de
+  tool). EMF vai como **linha JSON isolada** no stdout do componente (o CloudWatch extrai a
+  métrica automaticamente — cuidar para o JSON não colar em outra saída; se o SDK printa a
+  resposta, desligar o callback de streaming). **Namespace por módulo** (ex.:
+  `OrientadorContext/Agent`) com dimensões `Module`/`Mode`/`ModelId`. Custo via **tabela de
+  preços parametrizada por modelo** (env `MODEL_PRICES`/SSM), rótulo "estimado", nunca preço
+  fixo escondido. Verificar no CloudWatch (metrics + logs) antes de dar a tarefa por feita.
+  Métricas de **AgentCore Memory/Gateway** também aparecem no painel GenAI Observability.
+  + logs estruturados (JSON) correlacionados por sessão/`submissionId`.
 - **Frontend:** **1 `index.html` estático** (HTML/CSS/JS vanilla) + Cognito Hosted UI
   (PKCE), com menu lateral. **Sem React/Vite/MUI/Router.**
 

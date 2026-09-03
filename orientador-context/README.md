@@ -178,6 +178,30 @@ curl -s https://<cloudfront>/orientador-context/health          # {"ok":true,...
 # Coordenação:   POST /orientador-context/api/desempenho   (exige grupo admin/professor)
 ```
 
+## Observabilidade (ligada em tudo)
+
+- **Traces / sessions:** **AgentCore Observability** (OpenTelemetry) habilitada no runtime —
+  aparece no painel **CloudWatch → GenAI Observability** (sessões, spans, ferramentas, erros).
+- **Métricas de negócio (custo/consumo):** o agente emite **CloudWatch EMF** a cada invocação,
+  no namespace **`OrientadorContext/Agent`** com dimensões `Module` / `Mode` / `ModelId`:
+  - `InputTokens`, `OutputTokens`, `TotalTokens` — consumo de tokens;
+  - `EstimatedCostUSD` — custo estimado (tabela de preços por modelo, override via env
+    `MODEL_PRICES`; rótulo "estimado", nunca preço fixo escondido);
+  - `LatencyMs` — latência do laço do agente;
+  - `ToolCalls`, `ToolErrors`, `WebSearchCalls` (uso do Gateway), `AthenaToolCalls`, `Invocations`.
+- **Como emite:** uma **linha JSON EMF isolada** no stdout do runtime → CloudWatch extrai a
+  métrica (o streaming da resposta é desligado no agente para não "colar" no JSON).
+- **Ver rápido:**
+  ```bash
+  aws cloudwatch list-metrics --namespace OrientadorContext/Agent
+  aws cloudwatch get-metric-statistics --namespace OrientadorContext/Agent \
+    --metric-name TotalTokens --dimensions Name=Module,Value=orientador-context \
+    --start-time $(date -u -v-1H +%FT%TZ) --end-time $(date -u +%FT%TZ) \
+    --period 3600 --statistics Sum
+  ```
+- **Gateway/Memory:** métricas gerenciadas do AgentCore (invocações, latência, erros) também
+  aparecem no painel GenAI Observability; o consumo do web-search é rastreado por `WebSearchCalls`.
+
 ## Estado — DEPLOYADO (deploy cirúrgico)
 
 O módulo está **no ar** no portal, sob `/orientador-context/*`, com o chat já **agêntico**
