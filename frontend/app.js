@@ -2815,19 +2815,19 @@ async function octxSend() {
   const mode = who === "__coord__" ? "coord" : "aluno";
   const student_id = who === "__coord__" ? null : who;
   const box = el("octx-chat");
-  box.innerHTML += `<div class="msg user">${esc(q)}</div>`;
+  box.innerHTML += `<div class="octx-turn user"><span class="octx-who">Você</span><div class="msg user">${esc(q)}</div></div>`;
   el("octx-q").value = "";
-  box.innerHTML += `<div class="msg bot" id="octx-wait">…</div>`;
+  box.innerHTML += `<div class="octx-turn bot" id="octx-wait"><span class="octx-who">Orientador Context</span><div class="msg bot">…</div></div>`;
   box.scrollTop = box.scrollHeight;
   try {
     const d = await octxApi("/ask", { method: "POST", body: JSON.stringify(
       { question: q, mode, student_id, history: window._octxHist }) });
     const a = (d.result && d.result.answer) || "(sem resposta)";
-    el("octx-wait").outerHTML = `<div class="msg bot">${_oriMd(a)}</div>`;
+    el("octx-wait").outerHTML = `<div class="octx-turn bot"><span class="octx-who">Orientador Context</span><div class="msg bot">${_oriMd(a)}</div></div>`;
     window._octxHist.push({ role: "user", text: q }, { role: "assistant", text: a });
     if (window._octxHist.length > 16) window._octxHist = window._octxHist.slice(-16);
   } catch (e) {
-    el("octx-wait").outerHTML = `<div class="msg bot danger">${esc(e.message)}</div>`;
+    el("octx-wait").outerHTML = `<div class="octx-turn bot"><span class="octx-who">Orientador Context</span><div class="msg bot danger">${esc(e.message)}</div></div>`;
   }
   box.scrollTop = box.scrollHeight;
 }
