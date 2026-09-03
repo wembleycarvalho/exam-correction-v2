@@ -72,10 +72,12 @@ def _sub(event):
         return ""
 
 
-def _session_id(event, mode, student_id):
-    """Sessão estável por (usuário, modo, aluno) — chaveia a memória do AgentCore Runtime.
-    O AgentCore exige runtimeSessionId com >= 33 chars; o hash SHA-256 (64 hex) atende."""
-    seed = f"octx:{mode}:{student_id or ''}:{_sub(event)}"
+def _session_id(event, mode, student_id, conv=""):
+    """Sessão por (usuário, modo, aluno, conversa) — chaveia a memória do AgentCore Runtime.
+    O `conv` (nonce por conversa, enviado pelo FE) garante que uma NOVA conversa/reload caia
+    numa instância com o código atual do runtime (evita afinidade de sessão a instância antiga)
+    e permite 'Nova conversa'. O AgentCore exige runtimeSessionId >= 33 chars; SHA-256 atende."""
+    seed = f"octx:{mode}:{student_id or ''}:{_sub(event)}:{conv or ''}"
     return hashlib.sha256(seed.encode()).hexdigest()
 
 
@@ -232,7 +234,7 @@ def handler(event, context):
                 return _resp(400, {"error": "selecione um aluno (modo aluno)"})
             history = body.get("history")
             mode_lbl = "coord" if is_coord else "aluno"
-            session_id = _session_id(event, mode_lbl, student_id)
+            session_id = _session_id(event, mode_lbl, student_id, body.get("conv"))
             # actor da memória: o aluno (modo aluno) ou o coordenador logado (sub do Cognito).
             actor_id = student_id if not is_coord else ("coord-" + (_sub(event) or "anon"))
             # Chat 100% no AgentCore Runtime (agente Strands: Athena + memória + web search).

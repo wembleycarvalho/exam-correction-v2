@@ -2805,6 +2805,7 @@ async function viewOrientadorContextChat() {
          <input id="octx-q" placeholder="Pergunte sobre desempenho, disciplinas, risco de evasão…"
                 onkeydown="if(event.key==='Enter')octxSend()">
          <button class="btn" onclick="octxSend()">Enviar</button>
+         <button class="btn sec" onclick="octxNova()" title="Inicia uma nova conversa (limpa a memória da sessão)">Nova conversa</button>
        </div>
        <details class="octx-debug" id="octx-debug">
          <summary>🔎 Debug — o que o agente consumiu (requisição, tools, serviços, memória)</summary>
@@ -2812,6 +2813,16 @@ async function viewOrientadorContextChat() {
        </details>
      </div>`);
   window._octxHist = [];
+  // Nonce de conversa por carregamento de página: garante uma sessão do AgentCore Runtime
+  // com o código atual (evita afinidade a instância antiga) e habilita "Nova conversa".
+  if (!window._octxConv) window._octxConv = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+}
+function octxNova() {
+  window._octxConv = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+  window._octxHist = [];
+  const box = el("octx-chat"); if (box) box.innerHTML = "";
+  const dbg = el("octx-debug-body");
+  if (dbg) { dbg.classList.add("muted"); dbg.innerHTML = "Envie uma pergunta para ver os detalhes desta resposta."; }
 }
 async function octxSend() {
   const who = el("octx-who").value, q = (el("octx-q").value || "").trim();
@@ -2823,7 +2834,7 @@ async function octxSend() {
   el("octx-q").value = "";
   box.innerHTML += `<div class="octx-turn bot" id="octx-wait"><span class="octx-who">Orientador Context</span><div class="msg bot">…</div></div>`;
   box.scrollTop = box.scrollHeight;
-  const feReq = { question: q, mode, student_id, history: window._octxHist.slice() };
+  const feReq = { question: q, mode, student_id, conv: window._octxConv, history: window._octxHist.slice() };
   try {
     const d = await octxApi("/ask", { method: "POST", body: JSON.stringify(feReq) });
     const a = (d.result && d.result.answer) || "(sem resposta)";
