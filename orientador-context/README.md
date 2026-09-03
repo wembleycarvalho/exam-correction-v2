@@ -32,6 +32,46 @@ Navegador (portal) ──/orientador-context/*──► CloudFront ──► HTT
   camada de consumo (busca agêntica governada) sem mudar o front door. **AgentCore Memory** e
   a lógica de grade/what-if do atual entram como evolução (ver spec).
 
+## Diagrama de arquitetura
+
+![Orientador Context — arquitetura e fluxo de dados](docs/architecture/orientador-context.png)
+
+> Fonte versionada em `docs/architecture/orientador-context.py` (lib `diagrams` + Graphviz).
+> Re-render: `python3 orientador-context/docs/architecture/orientador-context.py`.
+
+## Fluxo de dados (do Moodle ao chat)
+
+São **dois fluxos** independentes: a **ingestão** (leva o dado do Moodle até o data lake) e a
+**pergunta** (o chat consome o data lake em tempo real).
+
+### Ingestão — Moodle → data lake (diária / sob demanda)
+- **A. Extração:** o Moodle grava tudo no **Aurora PostgreSQL** (privado, sem IP público). Uma
+  **Lambda de export** lê visões curadas via **RDS Data API** (HTTPS, sem VPC/driver),
+  disparada por **EventBridge (diário)** ou sob demanda (`invoke`).
+- **B. Escrita:** a Lambda grava um **CSV por dataset** no **S3** em `s3://.../moodle/<dataset>/`
+  (alunos, cursos, matriculas, notas, competencias).
+- **C. Catalogação:** ao terminar, a Lambda **dispara o Glue Crawler**.
+- **D. Catálogo:** o crawler infere o schema e cria/atualiza as tabelas no **Glue Data Catalog**
+  (database `moodle_datalake`), deixando-as consultáveis por SQL.
+
+> O dado do Moodle vira tabelas SQL no data lake — **derivado e reproduzível** (reexecutar a
+> export regenera os CSVs).
+
+### Pergunta — chat → data lake (tempo real)
+1. **Pergunta:** você digita no chat do portal; o navegador chama
+   `https://<portal>/orientador-context/api/ask` (HTTPS) via **CloudFront**.
+2. **Auth/roteamento:** o CloudFront encaminha à **HTTP API**, que valida o **JWT do Cognito**
+   (o grupo — admin/professor vs aluno — define o **RBAC**) e invoca o **agente (Lambda)**.
+3. **Raciocínio (tool-use):** o agente chama o **Bedrock (Converse)**; o modelo decide quais
+   **ferramentas** usar (perfil, notas, risco de evasão, grade noturna, etc.).
+4. **Consulta:** cada ferramenta roda **SQL no Athena** (workgroup `moodle-datalake`) sobre o
+   **Glue Catalog**; o Athena **lê os CSVs no S3** e grava os resultados. O agente recebe os
+   dados e responde **só com base neles** (anti-alucinação), voltando pelo mesmo caminho até o chat.
+
+**Em uma frase:** o Moodle abastece um data lake (Aurora → Lambda → S3 → Glue); quando você
+pergunta no chat, o agente traduz a pergunta em SQL no Athena sobre esse lake e responde
+fundamentado — com o papel (aluno/coordenador) imposto pelo Cognito.
+
 ## Ganho central vs o Orientador atual: RBAC
 
 O Orientador atual não tem RBAC (qualquer logado "vira coordenador"). Aqui o papel vem dos
