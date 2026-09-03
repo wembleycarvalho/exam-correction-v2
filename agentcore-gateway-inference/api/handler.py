@@ -17,12 +17,15 @@ import os
 import time
 import urllib.parse
 import urllib.request
+from datetime import datetime, timedelta, timezone
 
 import boto3
 
 _agentcore = boto3.client("bedrock-agentcore")
 _ssm = boto3.client("ssm")
 _secrets = boto3.client("secretsmanager")
+_cw = boto3.client("cloudwatch")
+_MANTLE_NS = "AWS/BedrockMantle"
 
 _CFG = None
 _TOK = {"secret": None, "token": None, "ts": 0.0}
@@ -100,6 +103,55 @@ def _ask(cfg, *, question, model, system_prompt, session_id):
     return data.get("result", data) if isinstance(data, dict) else {}
 
 
+def _chunks(seq, n):
+    for i in range(0, len(seq), n):
+        yield seq[i:i + n]
+
+
+def _mantle_metrics(hours=24):
+    """Observabilidade de uso do Gateway (namespace CloudWatch AWS/BedrockMantle): tokens e
+    inferências por modelo (dimensão Model), agregados na janela. É o mesmo dado do painel
+    de observability do bedrock-mantle."""
+    # descobre os modelos com dimensão Model-only
+    models = set()
+    pag = _cw.get_paginator("list_metrics")
+    for page in pag.paginate(Namespace=_MANTLE_NS, MetricName="TotalInputTokens",
+                             Dimensions=[{"Name": "Model"}]):
+        for m in page.get("Metrics", []):
+            dims = {d["Name"] for d in m["Dimensions"]}
+            if dims == {"Model"}:
+                models.add(m["Dimensions"][0]["Value"])
+    models = sorted(models)
+    end = datetime.now(timezone.utc)
+    start = end - timedelta(hours=hours)
+    span = max(hours * 3600, 60)
+
+    def mq(qid, metric, model, stat):
+        return {"Id": qid, "ReturnData": True, "MetricStat": {
+            "Metric": {"Namespace": _MANTLE_NS, "MetricName": metric,
+                       "Dimensions": [{"Name": "Model", "Value": model}]},
+            "Period": span, "Stat": stat}}
+
+    queries, idmap = [], {}
+    for i, model in enumerate(models):
+        queries += [mq(f"m{i}i", "TotalInputTokens", model, "Sum"),
+                    mq(f"m{i}o", "TotalOutputTokens", model, "Sum"),
+                    mq(f"m{i}n", "Inferences", model, "Sum")]
+        idmap[f"m{i}i"] = (model, "inputTokens"); idmap[f"m{i}o"] = (model, "outputTokens")
+        idmap[f"m{i}n"] = (model, "inferences")
+    rows = {m: {"model": m, "inputTokens": 0, "outputTokens": 0, "inferences": 0} for m in models}
+    for chunk in _chunks(queries, 450):
+        res = _cw.get_metric_data(MetricDataQueries=chunk, StartTime=start, EndTime=end)
+        for r in res["MetricDataResults"]:
+            model, key = idmap[r["Id"]]
+            rows[model][key] = int(sum(r.get("Values", [])))
+    table = sorted(rows.values(), key=lambda r: r["inputTokens"] + r["outputTokens"], reverse=True)
+    totals = {"inputTokens": sum(r["inputTokens"] for r in table),
+              "outputTokens": sum(r["outputTokens"] for r in table),
+              "inferences": sum(r["inferences"] for r in table)}
+    return {"hours": hours, "namespace": _MANTLE_NS, "models": table, "totals": totals}
+
+
 def _session_id(event, model):
     import hashlib
     try:
@@ -130,6 +182,13 @@ def handler(event, context):
     try:
         if path == "models":
             return _resp(200, _list_models(cfg))
+        if path == "mantle/metrics":
+            hours = 24
+            try:
+                hours = int((event.get("queryStringParameters") or {}).get("hours", 24))
+            except (ValueError, TypeError):
+                hours = 24
+            return _resp(200, _mantle_metrics(max(1, min(hours, 168))))
         if path == "ask":
             q = (body.get("question") or "").strip()
             if not q:

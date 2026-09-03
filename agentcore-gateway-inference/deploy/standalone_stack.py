@@ -51,6 +51,9 @@ class GwInfStandaloneStack(Stack):
             resources=[f"arn:aws:ssm:{region}:{account}:parameter/gateway-inference/*"]))
         fn.add_to_role_policy(iam.PolicyStatement(
             actions=["secretsmanager:GetSecretValue"], resources=[secret_arn]))
+        # Observability do Gateway (Mantle-config): metricas AWS/BedrockMantle no CloudWatch.
+        fn.add_to_role_policy(iam.PolicyStatement(
+            actions=["cloudwatch:ListMetrics", "cloudwatch:GetMetricData"], resources=["*"]))
 
         authorizer = apigw_authz.HttpUserPoolAuthorizer("Jwt", pool, user_pool_clients=[client])
         http_api = apigw.HttpApi(self, "Api", create_default_stage=True)

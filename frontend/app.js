@@ -3198,9 +3198,131 @@ function viewGwSysprompt() {
 }
 function _gwSoon(title, desc){ h(`<div class="hdr"><h2>Gateway Inference — ${title}</h2></div>
   <div class="card"><p>${desc}</p><p class="muted">Em construção — próxima fase do módulo.</p></div>`); }
-function viewGwEval(){ _gwSoon("Evaluation","Compare até 3 modelos no mesmo prompt (velocidade/tokens) + LLM-as-a-judge."); }
-function viewGwHistory(){ _gwSoon("History","Histórico de avaliações + benchmark por modelo + jobs do Bedrock Evaluations."); }
-function viewGwMantle(){ _gwSoon("Mantle-config","Projetos bedrock-mantle, dashboards de observability e retenção de dados."); }
+async function _gwLoadModels(){
+  if(!window._gwModels){ window._gwModels = await gwinfApi("/models"); }
+  return window._gwModels;
+}
+function _gwModelOpts(sel){
+  const g=(window._gwModels&&window._gwModels.grouped)||{};
+  return Object.keys(g).sort().map(p=>`<optgroup label="${esc(p)}">`+
+    g[p].map(m=>`<option value="${esc(m)}"${m===sel?" selected":""}>${esc(m.split("/").pop())}</option>`).join("")+
+    `</optgroup>`).join("");
+}
+async function viewGwEval(){
+  h(`<div class="hdr"><h2>Gateway Inference — Evaluation</h2></div><div class="card muted">Carregando modelos…</div>`);
+  try{ await _gwLoadModels(); }catch(e){ return h(`<div class="card danger">${esc(e.message)}</div>`); }
+  const g=(window._gwModels.grouped)||{}; const flat=window._gwModels.models||[];
+  const dflt=[flat.find(m=>/claude/.test(m)),flat.find(m=>/deepseek/.test(m)),flat.find(m=>/qwen|gemma|mistral/.test(m))];
+  const judge=flat.find(m=>/claude-sonnet|claude-opus/.test(m))||dflt[0];
+  h(`<div class="hdr"><h2>Gateway Inference — Evaluation</h2>
+       <span class="muted">mesmo prompt em até 3 modelos + LLM-as-a-judge</span></div>
+     <div class="card">
+       <label>Prompt</label><textarea id="ev-prompt" style="min-height:80px">Explique o que é o Amazon Bedrock AgentCore em 3 frases.</textarea>
+       <div class="row" style="margin-top:8px">
+         <div style="flex:1"><label>Modelo A</label><select id="ev-a">${_gwModelOpts(dflt[0])}</select></div>
+         <div style="flex:1"><label>Modelo B</label><select id="ev-b">${_gwModelOpts(dflt[1])}</select></div>
+         <div style="flex:1"><label>Modelo C (opcional)</label><select id="ev-c"><option value="">—</option>${_gwModelOpts(dflt[2])}</select></div>
+       </div>
+       <div class="row"><div style="flex:1"><label>Juiz (LLM-as-a-judge)</label><select id="ev-judge">${_gwModelOpts(judge)}</select></div>
+         <div style="align-self:flex-end"><button class="btn" onclick="gwEvalRun()">Avaliar</button></div></div>
+       <p class="muted">Dica: escolha um juiz que NÃO seja candidato (evita viés).</p>
+     </div>
+     <div id="ev-out"></div>`);
+}
+async function _gwAsk(model, question, system){
+  const t0=performance.now();
+  const d=await gwinfApi("/ask",{method:"POST",body:JSON.stringify({question,model,system_prompt:system||"",conv:"eval-"+Math.random().toString(36).slice(2)})});
+  const ms=Math.round(performance.now()-t0); const r=d.result||{};
+  return {model, answer:r.answer||"", tokens:(r.debug&&r.debug.tokens)||{}, ms};
+}
+async function gwEvalRun(){
+  const prompt=(el("ev-prompt").value||"").trim(); if(!prompt) return;
+  const cands=[el("ev-a").value, el("ev-b").value, el("ev-c").value].filter((v,i,a)=>v&&a.indexOf(v)===i);
+  const judge=el("ev-judge").value;
+  const out=el("ev-out"); out.innerHTML=`<div class="card muted">Rodando ${cands.length} modelos em paralelo…</div>`;
+  let runs;
+  try{ runs=await Promise.all(cands.map(m=>_gwAsk(m,prompt,window._gwSys))); }
+  catch(e){ out.innerHTML=`<div class="card danger">${esc(e.message)}</div>`; return; }
+  const labels="ABCDE".split("");
+  out.innerHTML=`<div class="card muted">Consultando o juiz (${esc(judge.split("/").pop())})…</div>`;
+  const jprompt="Voce e um juiz imparcial de respostas de LLMs. Prompt do usuario:\n\""+prompt+"\"\n\n"+
+    runs.map((r,i)=>`[${labels[i]}] modelo=${r.model}\nResposta:\n${r.answer}`).join("\n\n---\n\n")+
+    "\n\nAvalie CADA resposta de 0 a 10 em accuracy, completeness, relevance, clarity e calcule overall (media). "+
+    "Responda SOMENTE com JSON valido, sem markdown: "+
+    '{"scores":[{"label":"A","accuracy":n,"completeness":n,"relevance":n,"clarity":n,"overall":n}],"winner":"A","rationale":"1 frase"}';
+  let verdict={};
+  try{
+    const jr=await _gwAsk(judge, jprompt, "Responda apenas com JSON valido.");
+    const mtxt=(jr.answer||"").replace(/```json|```/g,"").trim();
+    verdict=JSON.parse(mtxt.slice(mtxt.indexOf("{"), mtxt.lastIndexOf("}")+1));
+  }catch(e){ verdict={error:String(e)}; }
+  const smap={}; (verdict.scores||[]).forEach(s=>smap[s.label]=s);
+  const rows=runs.map((r,i)=>{ const L=labels[i]; const s=smap[L]||{}; const tps=r.tokens.output&&r.ms?((r.tokens.output/(r.ms/1000)).toFixed(1)):"—";
+    const win=verdict.winner===L;
+    return `<tr class="${win?'':''}"><td><b>${L}</b>${win?' 🏆':''}</td><td>${esc(r.model.split("/").pop())}</td>
+      <td>${s.overall!=null?'<b>'+s.overall+'</b>':'—'}</td>
+      <td>${r.tokens.total||0}</td><td>${r.ms} ms</td><td>${tps} tok/s</td>
+      <td style="max-width:340px">${_oriMd((r.answer||"").slice(0,400))}${(r.answer||"").length>400?'…':''}</td></tr>`;}).join("");
+  try{
+    const saveRows=runs.map((r,i)=>{const L=labels[i];const s=smap[L]||{};
+      return {model:r.model, overall:(s.overall!=null?s.overall:null), win:verdict.winner===L};});
+    const all=_gwEvalRuns(); all.push({ts:Date.now(), prompt, winner:verdict.winner||"", rows:saveRows});
+    localStorage.setItem("gwEvalRuns", JSON.stringify(all.slice(-50)));
+  }catch(e){}
+  out.innerHTML=`<div class="card"><h3>Resultado</h3>
+     <table><thead><tr><th>#</th><th>Modelo</th><th>Nota (juiz)</th><th>Tokens</th><th>Latência</th><th>Vazão</th><th>Resposta</th></tr></thead>
+     <tbody>${rows}</tbody></table>
+     <p style="margin-top:8px">Vencedor: <b>${esc(verdict.winner||"—")}</b>${verdict.rationale?` — ${esc(verdict.rationale)}`:""}</p>
+     ${verdict.error?`<p class="danger">Juiz nao retornou JSON valido: ${esc(verdict.error)}</p>`:""}
+     <p class="muted">Juiz: ${esc(judge.split("/").pop())}. Notas 0–10 por accuracy/completeness/relevance/clarity (overall = média).</p></div>`;
+}
+async function viewGwMantle(){
+  const hrs = window._gwMetHours || 24;
+  h(`<div class="hdr"><h2>Gateway Inference — Mantle-config</h2>
+       <span class="muted">observability do Gateway (CloudWatch AWS/BedrockMantle)</span></div>
+     <div class="card">
+       <div class="row"><label>Janela:</label>
+         <select id="gw-hrs" onchange="window._gwMetHours=+this.value;viewGwMantle()">
+           ${[["1","1h"],["24","24h"],["168","7 dias"]].map(([v,t])=>`<option value="${v}"${+v===hrs?" selected":""}>${t}</option>`).join("")}</select></div>
+       <div id="gw-met" class="muted">Carregando métricas…</div>
+     </div>`);
+  try{
+    const m = await gwinfApi("/mantle/metrics?hours="+hrs);
+    const t = m.totals||{};
+    const rows = (m.models||[]).map(r=>`<tr><td>${esc(r.model.split("/").pop())}</td>
+      <td>${r.inferences}</td><td>${r.inputTokens}</td><td>${r.outputTokens}</td>
+      <td>${r.inputTokens+r.outputTokens}</td></tr>`).join("") || `<tr><td colspan="5" class="muted">sem dados na janela</td></tr>`;
+    el("gw-met").classList.remove("muted");
+    el("gw-met").innerHTML = `<div class="kpis" style="margin-bottom:10px">
+        <div class="kpi"><b>${t.inferences||0}</b>inferências</div>
+        <div class="kpi"><b>${t.inputTokens||0}</b>tokens entrada</div>
+        <div class="kpi"><b>${t.outputTokens||0}</b>tokens saída</div></div>
+      <table><thead><tr><th>Modelo</th><th>Inferências</th><th>Tokens in</th><th>Tokens out</th><th>Total</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+      <p class="muted">Uso agregado por modelo no Gateway (namespace ${esc(m.namespace)}). Inclui todo o tráfego do Gateway na conta.</p>`;
+  }catch(e){ el("gw-met").innerHTML=`<span class="danger">${esc(e.message)}</span>`; }
+}
+function _gwEvalRuns(){ try{ return JSON.parse(localStorage.getItem("gwEvalRuns")||"[]"); }catch(e){ return []; } }
+function viewGwHistory(){
+  const runs=_gwEvalRuns();
+  const bench={};
+  runs.forEach(run=>(run.rows||[]).forEach(r=>{ const b=bench[r.model]=bench[r.model]||{model:r.model,runs:0,sum:0,wins:0};
+    b.runs++; if(r.overall!=null) b.sum+=r.overall; if(r.win) b.wins++; }));
+  const brows=Object.values(bench).sort((a,b)=>(b.sum/b.runs)-(a.sum/a.runs)).map(b=>
+    `<tr><td>${esc(b.model.split("/").pop())}</td><td>${(b.sum/b.runs).toFixed(1)}</td><td>${b.wins}</td><td>${b.runs}</td></tr>`).join("")
+    || `<tr><td colspan="4" class="muted">sem avaliações ainda — rode uma na aba Evaluation</td></tr>`;
+  const hist=runs.slice(-15).reverse().map(run=>`<tr><td>${esc(new Date(run.ts).toLocaleString())}</td>
+    <td style="max-width:320px">${esc((run.prompt||"").slice(0,80))}</td><td>${esc((run.winner||"—"))}</td>
+    <td>${(run.rows||[]).map(r=>esc(r.model.split("/").pop())).join(", ")}</td></tr>`).join("")
+    || `<tr><td colspan="4" class="muted">—</td></tr>`;
+  h(`<div class="hdr"><h2>Gateway Inference — History</h2>
+       <span class="muted">avaliações salvas neste navegador · benchmark por modelo</span></div>
+     <div class="card"><h3>Benchmark por modelo</h3>
+       <table><thead><tr><th>Modelo</th><th>Nota média (juiz)</th><th>Vitórias</th><th>Avaliações</th></tr></thead><tbody>${brows}</tbody></table>
+       <div style="margin-top:8px"><button class="btn sec" onclick="localStorage.removeItem('gwEvalRuns');viewGwHistory()">Limpar histórico</button></div></div>
+     <div class="card"><h3>Últimas avaliações</h3>
+       <table><thead><tr><th>Quando</th><th>Prompt</th><th>Vencedor</th><th>Modelos</th></tr></thead><tbody>${hist}</tbody></table></div>`);
+}
 function viewGwKeys(){ _gwSoon("Keys","Traga sua chave OpenAI/Gemini (AgentCore Identity) para usar via o mesmo Gateway."); }
 
 const ROUTES = {
