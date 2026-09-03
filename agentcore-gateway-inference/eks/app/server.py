@@ -366,7 +366,7 @@ PROVIDERS = {
     "gemini": {
         "target": "gwinf-gemini",
         "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai",
-        "models_url": "https://generativelanguage.googleapis.com/v1beta/openai/v1/models",
+        "models_url": "https://generativelanguage.googleapis.com/v1beta/openai/models",
         "cred": "gwinf-gemini-key",
         "op_path": "/v1/chat/completions",
         "provider_path": "/chat/completions",
@@ -410,7 +410,11 @@ def _http_json(method, url, key=None, body=None, timeout=25):
 
 
 def _provider_models(cfg, key):
-    _, data = _http_json("GET", cfg["models_url"], key=key, timeout=20)
+    try:
+        _, data = _http_json("GET", cfg["models_url"], key=key, timeout=20)
+    except urllib.error.HTTPError as e:  # inclui o corpo do erro p/ diagnostico
+        detail = (e.read() or b"")[:300].decode("utf-8", "ignore")
+        raise RuntimeError(f"{e.code}: {detail}") from e
     ids = []
     for m in data.get("data", []):
         mid = (m.get("id") or "").split("/")[-1]  # gemini retorna "models/gemini-.."
