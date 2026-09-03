@@ -32,10 +32,15 @@ with Diagram("Gateway Inference — EKS Fargate (streaming SSE + Guardrail + mem
     with Cluster("Bedrock"):
         guardrail = Bedrock("Guardrail nativo\nApplyGuardrail\n(entrada + saida)")
         gateway = Bedrock("AgentCore Gateway\nbedrock-mantle\n(54 modelos)")
+        gwtarget = Bedrock("Gateway target\ngemini / openai (BYOK)")
+
+    with Cluster("Keys (BYOK) — AgentCore Identity"):
+        identity = IAMRole("API Key Credential\nProvider (guarda a chave)")
+        providers = Users("APIs de provider\nOpenAI / Google Gemini")
 
     with Cluster("Auth / Config / Segredos"):
         cognito = Cognito("Cognito (portal)")
-        ssm = SystemsManagerParameterStore("SSM /gateway-inference/*")
+        ssm = SystemsManagerParameterStore("SSM /gateway-inference/*\n(config, guardrail, keys)")
         secret = SecretsManager("Secrets Manager")
 
     obs = Cloudwatch("CloudWatch GenAI\nObservability / X-Ray")
@@ -48,10 +53,16 @@ with Diagram("Gateway Inference — EKS Fargate (streaming SSE + Guardrail + mem
     pod >> Edge(label="5. inferencia (token m2m)") >> gateway
     pod >> Edge(label="6. Guardrail saida") >> guardrail
     pod >> Edge(label="7. resposta final\n(FE aguarda p/ guardrail)", color="darkgreen") >> alb
+    gateway >> Edge(style="dashed", color="purple", label="gemini/* , openai/* (chave BYOK)") >> gwtarget
+
+    # --- Keys (BYOK): valida chave -> AgentCore Identity -> (re)cria target no Gateway ---
+    pod >> Edge(color="purple", label="POST /keys (admin):\nvalida + testa modelos") >> providers
+    pod >> Edge(color="purple", label="guarda chave") >> identity
+    identity >> Edge(style="dashed", color="purple") >> gwtarget
 
     # --- config/auth/segredos (dependencias, tracejado) ---
     pod >> Edge(style="dashed", color="gray", label="valida JWT") >> cognito
-    pod >> Edge(style="dashed", color="gray", label="config + guardrail-id") >> ssm
+    pod >> Edge(style="dashed", color="gray", label="config + guardrail + keys") >> ssm
     pod >> Edge(style="dashed", color="gray", label="token m2m") >> secret
 
     # --- observabilidade nativa (pontilhado) ---

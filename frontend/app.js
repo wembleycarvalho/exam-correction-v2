@@ -3406,7 +3406,60 @@ function viewGwHistory(){
      <div class="card"><h3>Últimas avaliações</h3>
        <table><thead><tr><th>Quando</th><th>Prompt</th><th>Vencedor</th><th>Modelos</th></tr></thead><tbody>${hist}</tbody></table></div>`);
 }
-function viewGwKeys(){ _gwSoon("Keys","Traga sua chave OpenAI/Gemini (AgentCore Identity) para usar via o mesmo Gateway."); }
+async function viewGwKeys(){
+  h(`<div class="hdr"><h2>Gateway Inference — Keys (BYOK)</h2>
+       <span class="muted">sua chave OpenAI/Gemini via AgentCore Identity → mesmo Gateway</span></div>
+     <div class="card">
+       <p class="muted">Traga sua própria chave: ela é validada, guardada no <b>AgentCore Identity</b>
+       (nunca no navegador), e um <b>target</b> do Gateway é criado para ela. Os modelos que
+       funcionarem passam a aparecer no seletor de Inference/Evaluation (ex.: <code>gemini/*</code>).</p>
+       <div class="row" style="gap:8px;align-items:flex-end;flex-wrap:wrap">
+         <div><label>Provider</label><select id="k-prov"><option value="gemini">gemini</option><option value="openai">openai</option></select></div>
+         <div style="flex:1;min-width:280px"><label>API key</label>
+           <input id="k-key" type="password" placeholder="cole a chave do provider" autocomplete="off"></div>
+         <button class="btn" onclick="gwKeySave()">Validar e salvar</button>
+       </div>
+       <div id="k-msg" class="muted" style="margin-top:8px"></div>
+     </div>
+     <div id="k-list" class="card muted">Carregando chaves…</div>`);
+  gwKeysRefresh();
+}
+async function gwKeysRefresh(){
+  const box=el("k-list");
+  try{
+    const d=await gwinfApi("/keys");
+    const rows=(d.providers||[]).map(p=>{
+      const st=p.configured?`<span style="color:green">configurado</span>`:`<span class="muted">não configurado</span>`;
+      const models=(p.models||[]).map(m=>`<code>${esc(m.split("/").pop())}</code>`).join(" ")||"—";
+      const del=p.configured?`<button class="btn sec" onclick="gwKeyDelete('${esc(p.provider)}')">Remover</button>`:"";
+      return `<tr><td><b>${esc(p.provider)}</b></td><td>${st}</td>
+        <td>${p.updatedAt?esc(new Date(p.updatedAt).toLocaleString()):"—"}</td>
+        <td style="max-width:420px">${models}</td><td>${del}</td></tr>`;}).join("");
+    box.classList.remove("muted");
+    box.innerHTML=`<h3>Chaves / providers</h3>
+      <table><thead><tr><th>Provider</th><th>Status</th><th>Atualizado</th><th>Modelos testados</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table>`;
+  }catch(e){ box.classList.remove("muted"); box.innerHTML=`<div class="danger">${esc(e.message)}</div>`; }
+}
+async function gwKeySave(){
+  const provider=el("k-prov").value, apiKey=(el("k-key").value||"").trim();
+  const msg=el("k-msg");
+  if(!apiKey){ msg.innerHTML=`<span class="danger">Informe a chave.</span>`; return; }
+  msg.classList.remove("muted"); msg.innerHTML=`Validando e testando modelos… (pode levar alguns segundos)`;
+  try{
+    const d=await gwinfApi("/keys",{method:"POST",body:JSON.stringify({provider,apiKey})});
+    const okN=(d.models||[]).length; const failed=(d.tested||[]).filter(t=>!t.ok).length;
+    msg.innerHTML=`<span style="color:green">OK</span> — ${okN} modelo(s) disponíveis${failed?`, ${failed} falharam`:""}. `
+      + `Status do target: <b>${esc(d.targetStatus||"?")}</b>. Já aparecem no seletor.`;
+    el("k-key").value=""; window._gwModels=null;   // invalida cache do picker
+    gwKeysRefresh();
+  }catch(e){ msg.innerHTML=`<span class="danger">${esc(e.message)}</span>`; }
+}
+async function gwKeyDelete(provider){
+  if(!confirm(`Remover a chave e o target de "${provider}"? Os modelos desse provider deixam de aparecer.`)) return;
+  try{ await gwinfApi("/keys/"+encodeURIComponent(provider),{method:"DELETE"}); window._gwModels=null; gwKeysRefresh(); }
+  catch(e){ alert(e.message); }
+}
 
 const ROUTES = {
   "ex-corrige":()=>viewCorrecao("exam"), "ex-criar":viewCriar, "ex-hist":()=>viewHistorico("exam"),

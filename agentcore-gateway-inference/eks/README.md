@@ -2,8 +2,8 @@
 
 Backend do módulo **AgentCore → Gateway Inference** rodando no **Amazon EKS Fargate**
 (cluster `strands-obs-demo`, us-east-1), com **streaming via SSE**, **Guardrail nativo do
-Bedrock**, **memória de conversa** e **observability nativa** (spans `gen_ai.*` no
-CloudWatch GenAI Observability / X-Ray).
+Bedrock**, **memória de conversa**, **BYOK (Keys) para OpenAI/Gemini** e **observability
+nativa** (spans `gen_ai.*` no CloudWatch GenAI Observability / X-Ray).
 
 > **Nota de comportamento:** o backend sempre streama (SSE). O **chat Inference** hoje
 > **bufferiza no navegador** e só exibe a resposta **final** (depois do Guardrail de saída),
@@ -83,6 +83,9 @@ flowchart LR
 | POST   | `/ask`          | resposta **completa** em JSON — usada pela **Evaluation** (judge) |
 | POST   | `/ask/stream`   | **SSE** — usada pelo **chat Inference** e pelos candidatos da **Evaluation** |
 | GET    | `/mantle/metrics` | uso do Gateway (CloudWatch `AWS/BedrockMantle`) |
+| GET    | `/keys`         | providers BYOK configurados (openai/gemini) + modelos |
+| POST   | `/keys`         | **admin** — registra chave do provider, testa modelos, (re)cria target |
+| DELETE | `/keys/{provider}` | **admin** — remove target + credential provider + registro |
 
 Corpo de `/ask` e `/ask/stream`: `{question, model, system_prompt?, conv?, history?}`.
 `history` = `[{role:"user"|"assistant", text}]` (memória; usado só pelo chat Inference).
@@ -107,7 +110,7 @@ eks/
   cloudfront_repoint.py  repontar a origin /agentcore/* p/ o ALB (e --restore de volta)
 ```
 
-> Imagem atual: `gateway-inference-eks:v4` (`IMAGE_TAG=vN ./build-image.sh` para novas versões).
+> Imagem atual: `gateway-inference-eks:v5` (`IMAGE_TAG=vN ./build-image.sh` para novas versões).
 
 ## Deploy (reprodutível)
 
@@ -143,6 +146,32 @@ python cloudfront_repoint.py --dist <DIST_ID> --alb "$ALB"
 - **Guardrail**: verificado com a versão `1` do guardrail (tópico negado "Palmeiras") —
   pergunta sobre o tópico é **bloqueada na entrada** (mensagem do Guardrail, sem gastar
   tokens do modelo); prompts normais passam (`guardrail: OK`). Vale em Inference e Evaluation.
+
+## Keys (BYOK) — provedores diretos OpenAI / Gemini
+
+O catálogo do Gateway (bedrock-mantle) cobre 54 modelos, mas **não inclui Gemini nem os
+modelos OpenAI diretos**. Para esses, o módulo suporta **BYOK** (traga sua chave), replicando
+o inference-demo:
+
+1. O admin envia a chave em **Keys** (`POST /keys`, restrito ao grupo `admin`).
+2. O backend **valida** a chave contra o provider (`/v1/models`) e **testa** os modelos de
+   chat em paralelo.
+3. Guarda a chave no **AgentCore Identity** (API Key Credential Provider) — **nunca** no
+   navegador nem no repo.
+4. (Re)cria um **target no Gateway** (`gemini`/`openai`) que autentica com essa chave
+   (`credentialProviderType: API_KEY`, header `Authorization: Bearer`).
+5. Persiste a lista de modelos que funcionaram em `SSM /gateway-inference/keys-<provider>`
+   (sem a chave). O `/models` **mescla** esses modelos, então aparecem no seletor de
+   Inference/Evaluation como `gemini/<modelo>` / `openai/<modelo>`.
+
+O roteamento desses ids cai no `OpenAIModel` (Chat completions) apontando para o Gateway —
+o mesmo caminho dos demais, com Guardrail e observability. Config: `SSM /gateway-inference/
+gateway-id`. IAM: `bedrock-agentcore:*ApiKeyCredentialProvider`, `*GatewayTarget`.
+
+> **Gemini:** o target `gemini` já existe no Gateway; para os modelos aparecerem no portal
+> basta registrar a chave uma vez em **Keys** (o `save_key` descobre os modelos atuais do
+> Google — ex.: `gemini-3.6-flash`, `gemini-2.5-flash`, `gemini-flash-latest` — e persiste).
+> Verificado que a inferência `gemini/*` funciona ponta a ponta pelo nosso roteamento.
 
 ## Segurança — estado atual e follow-ups
 

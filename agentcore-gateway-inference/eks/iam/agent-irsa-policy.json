@@ -8,6 +8,30 @@
       "Resource": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/gateway-inference/*"
     },
     {
+      "Sid": "KeysRecordSSM",
+      "Effect": "Allow",
+      "Action": ["ssm:PutParameter", "ssm:DeleteParameter"],
+      "Resource": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/gateway-inference/keys-*"
+    },
+    {
+      "Sid": "ByokAgentCoreControl",
+      "Effect": "Allow",
+      "Action": [
+        "bedrock-agentcore:CreateApiKeyCredentialProvider",
+        "bedrock-agentcore:DeleteApiKeyCredentialProvider",
+        "bedrock-agentcore:GetApiKeyCredentialProvider",
+        "bedrock-agentcore:ListApiKeyCredentialProviders",
+        "bedrock-agentcore:CreateGatewayTarget",
+        "bedrock-agentcore:DeleteGatewayTarget",
+        "bedrock-agentcore:GetGatewayTarget",
+        "bedrock-agentcore:ListGatewayTargets"
+      ],
+      "Resource": [
+        "arn:aws:bedrock-agentcore:REGION:ACCOUNT_ID:token-vault/default/apikeycredentialprovider/*",
+        "arn:aws:bedrock-agentcore:REGION:ACCOUNT_ID:gateway/*"
+      ]
+    },
+    {
       "Sid": "GatewayClientSecret",
       "Effect": "Allow",
       "Action": ["secretsmanager:GetSecretValue"],

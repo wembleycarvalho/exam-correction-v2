@@ -31,8 +31,10 @@ import json
 import os
 import re
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 import boto3
@@ -56,6 +58,7 @@ _MANTLE_NS = "AWS/BedrockMantle"
 _ssm = boto3.client("ssm", region_name=REGION)
 _secrets = boto3.client("secretsmanager", region_name=REGION)
 _cw = boto3.client("cloudwatch", region_name=REGION)
+_agc = boto3.client("bedrock-agentcore-control", region_name=REGION)
 
 _SYSTEM_DEFAULT = (
     "You are a helpful assistant. Reply clearly and naturally in the same language as the "
@@ -85,6 +88,8 @@ _CFG = {
     # Guardrail nativo do Bedrock (opcional). Vazio = desativado.
     "guardrail_id": os.environ.get("GUARDRAIL_ID") or _ssm_get("guardrail-id"),
     "guardrail_version": os.environ.get("GUARDRAIL_VERSION") or _ssm_get("guardrail-version", "DRAFT"),
+    # Gateway id (control-plane) p/ o BYOK (menu Keys): (re)criar targets de provider.
+    "gateway_id": os.environ.get("GATEWAY_ID") or _ssm_get("gateway-id"),
 }
 
 # Cliente do Bedrock só para o Guardrail (ApplyGuardrail). A inferência em si NÃO usa
@@ -219,10 +224,10 @@ def _jwk_client():
     return _JWK["client"]
 
 
-def _verify_jwt(authorization):
-    """Valida o access/id token do Cognito do portal. Retorna o `sub` (ou '' se auth off)."""
+def _decode(authorization):
+    """Valida o access/id token do Cognito do portal e retorna os claims ({} se auth off)."""
     if not REQUIRE_AUTH:
-        return ""
+        return {}
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="missing bearer token")
     tok = authorization.split(" ", 1)[1].strip()
@@ -236,11 +241,30 @@ def _verify_jwt(authorization):
         )
         if claims.get("token_use") not in ("access", "id"):
             raise HTTPException(status_code=401, detail="invalid token_use")
-        return claims.get("sub", "")
+        return claims
     except HTTPException:
         raise
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=401, detail="invalid token") from e
+
+
+def _verify_jwt(authorization):
+    """Valida o token e retorna o `sub` (ou '' se auth off)."""
+    return _decode(authorization).get("sub", "")
+
+
+def _require_admin(authorization):
+    """Exige o grupo Cognito 'admin' para acoes administrativas (ex.: Keys). Se o token
+    nao trouxer 'cognito:groups' (pools que nao anexam grupos), falha-aberto — o menu ja e
+    admin-only no frontend e o JWT e validado."""
+    claims = _decode(authorization)
+    if not REQUIRE_AUTH:
+        return
+    groups = claims.get("cognito:groups") or []
+    if isinstance(groups, str):
+        groups = [groups]
+    if groups and "admin" not in groups:
+        raise HTTPException(status_code=403, detail="admin only")
 
 
 def _session_id(sub, conv):
@@ -254,11 +278,23 @@ def _list_models():
                                  headers={"Authorization": f"Bearer {token}"})
     with urllib.request.urlopen(req, timeout=20) as r:  # noqa: S310 — base URL do Gateway (SSM)
         data = json.loads(r.read())
-    ids = sorted(m["id"] for m in data.get("data", []))
+    ids = [m["id"] for m in data.get("data", [])]
     grouped = {}
     for mid in ids:
         short = mid.rsplit("/", 1)[-1]
         grouped.setdefault(short.split(".", 1)[0], []).append(mid)
+    # BYOK (menu Keys): mescla os modelos dos providers configurados (ex.: gemini/*), que
+    # NAO aparecem no /models do Gateway (catalogo bedrock-mantle) mas existem via target.
+    for prov, rec in _all_key_records().items():
+        for mid in (rec.get("models") or []):
+            grouped.setdefault(prov, [])
+            if mid not in grouped[prov]:
+                grouped[prov].append(mid)
+            if mid not in ids:
+                ids.append(mid)
+    ids = sorted(set(ids))
+    for k in grouped:
+        grouped[k] = sorted(set(grouped[k]))
     return {"models": ids, "grouped": grouped, "count": len(ids)}
 
 
@@ -307,6 +343,220 @@ def _mantle_metrics(hours=24):
     return {"hours": hours, "namespace": _MANTLE_NS, "models": table, "totals": totals}
 
 
+# --------------------------------------------------------------------------- Keys (BYOK)
+# Chaves diretas de provider (OpenAI/Gemini) via AgentCore Identity + Gateway. "Direto" =
+# ainda passa pelo Gateway, mas por um target CUSTOM que autentica com a chave do cliente
+# (guardada no AgentCore Identity, modo API_KEY) em vez do conector zero-config bedrock-mantle.
+# Fluxo ao salvar: valida a chave no provider, testa os modelos, guarda a chave como API Key
+# Credential Provider, (re)cria o target do Gateway e persiste a lista de modelos que
+# funcionaram (no SSM, SEM a chave) para os pickers mostrarem — ex.: Gemini.
+PROVIDERS = {
+    "openai": {
+        "target": "openai",
+        "endpoint": "https://api.openai.com/v1",
+        "models_url": "https://api.openai.com/v1/models",
+        "cred": "openai-direct-key",
+        "op_path": "/v1/chat/completions",
+        "provider_path": "/chat/completions",
+        "model_patterns": [{"model": "gpt-*"}, {"model": "o1*"}, {"model": "o3*"},
+                           {"model": "o4*"}, {"model": "chatgpt-*"}],
+    },
+    "gemini": {
+        "target": "gemini",
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai",
+        "models_url": "https://generativelanguage.googleapis.com/v1beta/openai/v1/models",
+        "cred": "gemini-direct-key",
+        "op_path": "/v1/chat/completions",
+        "provider_path": "/chat/completions",
+        "model_patterns": [{"model": "gemini-*"}],
+    },
+}
+_OPENAI_SKIP = ("audio", "realtime", "transcribe", "tts", "image", "embedding",
+                "moderation", "search", "instruct", "dall-e", "whisper", "codex")
+_MAX_TEST_MODELS = 16
+
+
+def _key_param(provider):
+    return f"{_SSM_PREFIX}/keys-{provider}"
+
+
+def _get_key_record(provider):
+    try:
+        v = _ssm.get_parameter(Name=_key_param(provider))["Parameter"]["Value"]
+        return json.loads(v)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _all_key_records():
+    out = {}
+    for p in PROVIDERS:
+        rec = _get_key_record(p)
+        if rec:
+            out[p] = rec
+    return out
+
+
+def _http_json(method, url, key=None, body=None, timeout=25):
+    headers = {"Content-Type": "application/json"}
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    with urllib.request.urlopen(req, timeout=timeout) as r:  # noqa: S310 — endpoint de provider fixo
+        return r.status, json.loads(r.read() or b"{}")
+
+
+def _provider_models(cfg, key):
+    _, data = _http_json("GET", cfg["models_url"], key=key, timeout=20)
+    ids = []
+    for m in data.get("data", []):
+        mid = (m.get("id") or "").split("/")[-1]  # gemini retorna "models/gemini-.."
+        if mid:
+            ids.append(mid)
+    return ids
+
+
+def _is_chat_candidate(provider, mid):
+    if provider == "gemini":
+        return mid.startswith("gemini-") and "embedding" not in mid
+    low = mid.lower()
+    if any(s in low for s in _OPENAI_SKIP):
+        return False
+    return low.startswith(("gpt-", "o1", "o3", "o4", "chatgpt-"))
+
+
+def _test_model(cfg, key, mid):
+    """Chat completion minimo p/ confirmar que a chave usa o modelo."""
+    url = f"{cfg['endpoint']}/chat/completions"
+    base = {"model": mid, "messages": [{"role": "user", "content": "ping"}]}
+    for tok_field in ("max_tokens", "max_completion_tokens"):
+        try:
+            st, _ = _http_json("POST", url, key=key, body={**base, tok_field: 1}, timeout=25)
+            if st == 200:
+                return (mid, True, "")
+        except urllib.error.HTTPError as e:  # noqa: PERF203
+            txt = (e.read() or b"").decode(errors="ignore")[:120]
+            if e.code == 400 and "max_tokens" in txt and tok_field == "max_tokens":
+                continue
+            return (mid, False, f"{e.code}: {txt}")
+        except Exception as e:  # noqa: BLE001
+            return (mid, False, str(e)[:120])
+    return (mid, False, "unsupported token parameter")
+
+
+def _ensure_cred_provider(cfg, key):
+    name = cfg["cred"]
+    try:
+        _agc.delete_api_key_credential_provider(name=name)
+        time.sleep(2)
+    except Exception:  # noqa: BLE001
+        pass
+    return _agc.create_api_key_credential_provider(name=name, apiKey=key)["credentialProviderArn"]
+
+
+def _ensure_target(cfg, provider_arn):
+    gid = _CFG["gateway_id"]
+    target = cfg["target"]
+    try:
+        for t in _agc.list_gateway_targets(gatewayIdentifier=gid).get("items", []):
+            if t.get("name") == target:
+                _agc.delete_gateway_target(gatewayIdentifier=gid, targetId=t["targetId"])
+                time.sleep(4)
+    except Exception:  # noqa: BLE001
+        pass
+    target_config = {"inference": {"provider": {
+        "endpoint": cfg["endpoint"],
+        "operations": [{"path": cfg["op_path"], "providerPath": cfg["provider_path"],
+                        "models": cfg["model_patterns"]}],
+    }}}
+    cred_configs = [{
+        "credentialProviderType": "API_KEY",
+        "credentialProvider": {"apiKeyCredentialProvider": {
+            "providerArn": provider_arn,
+            "credentialLocation": "HEADER",
+            "credentialParameterName": "Authorization",
+            "credentialPrefix": "Bearer",
+        }},
+    }]
+    return _agc.create_gateway_target(gatewayIdentifier=gid, name=target,
+                                      targetConfiguration=target_config,
+                                      credentialProviderConfigurations=cred_configs)
+
+
+def _save_key(provider, key):
+    cfg = PROVIDERS.get(provider)
+    if not cfg:
+        return 400, {"error": "provider deve ser 'openai' ou 'gemini'"}
+    if not key:
+        return 400, {"error": "apiKey obrigatoria"}
+    if not _CFG.get("gateway_id"):
+        return 500, {"error": "gateway nao configurado (SSM gateway-id)"}
+    try:
+        all_ids = _provider_models(cfg, key)
+    except Exception as exc:  # noqa: BLE001
+        return 400, {"error": f"chave rejeitada ou listagem falhou: {str(exc)[:200]}"}
+    candidates = [m for m in all_ids if _is_chat_candidate(provider, m)][:_MAX_TEST_MODELS]
+    tested, working = [], []
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        for mid, ok, err in ex.map(lambda m: _test_model(cfg, key, m), candidates):
+            tested.append({"model": mid, "ok": ok, "error": err})
+            if ok:
+                working.append(f"{cfg['target']}/{mid}")
+    if not working:
+        return 400, {"error": "a chave nao conseguiu usar nenhum modelo", "tested": tested}
+    try:
+        arn = _ensure_cred_provider(cfg, key)
+        tgt = _ensure_target(cfg, arn)
+    except Exception as exc:  # noqa: BLE001
+        return 502, {"error": f"testou OK, mas o target do Gateway falhou: {str(exc)[:250]}"}
+    rec = {"provider": provider, "target": cfg["target"], "models": working,
+           "updatedAt": datetime.now(timezone.utc).isoformat(),
+           "targetStatus": tgt.get("status")}
+    try:
+        _ssm.put_parameter(Name=_key_param(provider), Type="String", Overwrite=True,
+                           Value=json.dumps(rec))
+    except Exception as exc:  # noqa: BLE001
+        print("save key record error:", repr(exc))
+    return 200, {"provider": provider, "models": working, "tested": tested,
+                 "targetStatus": tgt.get("status")}
+
+
+def _list_keys():
+    out = []
+    for provider in PROVIDERS:
+        rec = _get_key_record(provider)
+        if rec:
+            out.append({"provider": provider, "configured": True,
+                        "models": rec.get("models", []), "updatedAt": rec.get("updatedAt"),
+                        "targetStatus": rec.get("targetStatus")})
+        else:
+            out.append({"provider": provider, "configured": False, "models": []})
+    return {"providers": out}
+
+
+def _delete_key(provider):
+    cfg = PROVIDERS.get(provider)
+    if not cfg:
+        return 400, {"error": "provider desconhecido"}
+    gid = _CFG.get("gateway_id")
+    try:
+        for t in _agc.list_gateway_targets(gatewayIdentifier=gid).get("items", []):
+            if t.get("name") == cfg["target"]:
+                _agc.delete_gateway_target(gatewayIdentifier=gid, targetId=t["targetId"])
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        _agc.delete_api_key_credential_provider(name=cfg["cred"])
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        _ssm.delete_parameter(Name=_key_param(provider))
+    except Exception:  # noqa: BLE001
+        pass
+    return 200, {"provider": provider, "removed": True}
+
+
 # --------------------------------------------------------------------------- request models
 class AskReq(BaseModel):
     question: str = ""
@@ -314,6 +564,11 @@ class AskReq(BaseModel):
     system_prompt: str | None = None
     conv: str | None = None
     history: list | None = None
+
+
+class KeyReq(BaseModel):
+    provider: str = ""
+    apiKey: str = ""
 
 
 # --------------------------------------------------------------------------- routes
@@ -345,6 +600,28 @@ def mantle_metrics(request: Request, authorization: str = Header(default="")):
     except Exception as e:  # noqa: BLE001
         print("mantle metrics error:", repr(e))
         raise HTTPException(status_code=502, detail="falha ao ler métricas") from e
+
+
+@router.get("/keys")
+def keys_list(authorization: str = Header(default="")):
+    _verify_jwt(authorization)
+    return _list_keys()
+
+
+@router.post("/keys")
+def keys_save(req: KeyReq, authorization: str = Header(default="")):
+    """BYOK: registra a chave do provider (openai/gemini), (re)cria o target no Gateway e
+    persiste os modelos testados. Restrito ao grupo admin."""
+    _require_admin(authorization)
+    status, body = _save_key((req.provider or "").strip().lower(), (req.apiKey or "").strip())
+    return JSONResponse(status_code=status, content=body)
+
+
+@router.delete("/keys/{provider}")
+def keys_delete(provider: str, authorization: str = Header(default="")):
+    _require_admin(authorization)
+    status, body = _delete_key(provider.strip().lower())
+    return JSONResponse(status_code=status, content=body)
 
 
 @router.post("/ask")
