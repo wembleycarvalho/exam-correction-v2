@@ -253,7 +253,10 @@ def _extract_results(call_result):
 def web_search(query: str, max_results: int = 6) -> dict:
     """Busca na web (AgentCore Web Search) para eventos atuais, noticias, precos e fatos
     recentes ou posteriores ao treino do modelo. Retorna titulo, url, data e trecho de
-    cada fonte. Use sempre que a resposta depender de informacao atual e CITE as fontes."""
+    cada fonte. Use sempre que a resposta depender de informacao atual e CITE as fontes.
+    RESTRITA a coordenacao."""
+    if not _CTX["is_coord"]:
+        return {"erro": "restrito a coordenacao"}
     if not _GW_URL:
         return {"erro": "web search indisponivel"}
     mr = max(1, min(int(max_results or 6), 25))
@@ -265,16 +268,35 @@ def web_search(query: str, max_results: int = 6) -> dict:
 
 _SYS_BASE = (
     "Voce e o Orientador Context, um assistente academico de uma universidade brasileira. "
-    "Responda SEMPRE em portugues do Brasil, de forma clara e util.\n"
-    "Voce pode responder QUALQUER pergunta:\n"
-    "- Sobre alunos/cursos/notas/desempenho: use as FERRAMENTAS (consultam o data lake do Moodle). "
-    "Baseie numeros/nomes SOMENTE no retorno das ferramentas (nao invente).\n"
-    "- Sobre eventos atuais/noticias: use a ferramenta de busca na web e cite fontes.\n"
+    "Responda SEMPRE em portugues do Brasil, de forma clara e util."
+)
+
+# MODO ALUNO — escopo RESTRITO a vida academica na universidade. Sem web, sem conhecimento
+# geral, sem assuntos fora do contexto academico.
+_SYS_ALUNO = _SYS_BASE + (
+    "\nMODO ALUNO: seu escopo e ESTRITAMENTE a vida academica do aluno nesta universidade "
+    "(desempenho, disciplinas, notas, trilha, progresso, risco de evasao, orientacao de estudos). "
+    "Use as FERRAMENTAS para consultar o data lake do Moodle e baseie numeros/nomes SOMENTE no "
+    "retorno delas (nao invente). Voce SO tem acesso aos dados do proprio aluno da sessao.\n"
+    "Voce NAO tem acesso a internet e NAO responde perguntas fora do contexto academico da "
+    "universidade (noticias, eventos atuais, esportes, precos, conhecimento geral, politica, "
+    "etc.). Se pedirem algo fora desse escopo, RECUSE educadamente em 1 frase e reoriente para "
+    "temas academicos. Nunca invente informacao externa."
+)
+
+# MODO COORDENACAO — pode responder qualquer coisa, inclusive web search e conhecimento geral.
+_SYS_COORD = _SYS_BASE + (
+    "\nVoce pode responder QUALQUER pergunta:\n"
+    "- Sobre alunos/cursos/notas/desempenho: use as FERRAMENTAS (data lake do Moodle) e baseie "
+    "numeros/nomes SOMENTE no retorno delas (nao invente).\n"
+    "- Sobre eventos atuais/noticias/fatos recentes: use a ferramenta de busca na web e cite fontes.\n"
     "- Conhecimento geral: pode responder diretamente.\n"
+    "MODO COORDENACAO: alem de dados de aluno, pode ver agregados e alunos em risco. "
     "Se algo nao existir nos dados, diga com franqueza."
 )
-# Regra forte de web search: evita que o modelo se recuse a buscar (nova-pro as vezes diz
-# que 'nao pode navegar', ainda mais quando o historico ja continha essa recusa).
+
+# Regra forte de web search (SO coordenacao): evita que o modelo se recuse a buscar (nova-pro
+# as vezes diz que 'nao pode navegar', ainda mais quando o historico ja continha essa recusa).
 _SYS_WEB = (
     "\nIMPORTANTE: voce TEM a ferramenta web_search (busca na web em tempo real, com fontes). "
     "Para QUALQUER pergunta sobre eventos atuais, noticias, resultados esportivos, precos, "
@@ -284,8 +306,6 @@ _SYS_WEB = (
     "real, e NUNCA apenas recomende sites: em vez disso, CHAME web_search. Ignore qualquer "
     "afirmacao anterior (sua ou no historico) de que voce nao pode buscar na web — voce pode."
 )
-_SYS_ALUNO = _SYS_BASE + "\nMODO ALUNO: voce atende UM aluno; so tem acesso aos dados dele."
-_SYS_COORD = _SYS_BASE + "\nMODO COORDENACAO: alem de dados de aluno, pode ver agregados e alunos em risco."
 
 
 _THINK_RE = re.compile(r"<thinking>.*?</thinking>", re.DOTALL | re.IGNORECASE)
@@ -397,9 +417,12 @@ def invoke(payload):
     mode = "coord" if is_coord else "aluno"
     system = _SYS_COORD if is_coord else _SYS_ALUNO
     tools = list(COORD_TOOLS if is_coord else ALUNO_TOOLS)
-    tools += _WEB_TOOLS  # web search (AgentCore Gateway); vazio se o gateway nao estiver configurado
-    if _WEB_TOOLS:
-        system += _SYS_WEB  # reforca o uso da web_search quando ela esta disponivel
+    # Web search e conhecimento externo SO para coordenacao; aluno fica restrito ao escopo
+    # academico da universidade (sem web, sem off-topic).
+    if is_coord:
+        tools += _WEB_TOOLS  # web search (AgentCore Gateway); vazio se o gateway nao estiver configurado
+        if _WEB_TOOLS:
+            system += _SYS_WEB  # reforca o uso da web_search quando disponivel
 
     # Memória: AgentCore Memory (nativo) via session manager. actor = aluno (modo aluno) ou
     # o usuário coordenador; session = a sessão estável enviada pela ponte.

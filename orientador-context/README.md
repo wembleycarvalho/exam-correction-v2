@@ -40,8 +40,13 @@ Capacidades do agente:
   com RBAC por sessão. Responde só com base no retorno das ferramentas (anti-alucinação).
 - **Notícias / eventos atuais** — **AgentCore Web Search** (conector gerenciado, MCP, servido
   dentro da AWS, sem chaves/egress) via **AgentCore Gateway** com auth **IAM/SigV4**. O agente
-  cita as fontes (título, URL, data).
-- **Conhecimento geral** — responde direto pelo modelo.
+  cita as fontes (título, URL, data). **Só no perfil coordenação.**
+- **Conhecimento geral** — responde direto pelo modelo. **Só no perfil coordenação.**
+- **Escopo por perfil (RBAC):** o **aluno** fica restrito à vida acadêmica da universidade
+  (dados do Moodle: desempenho, disciplinas, trilha, risco) — **sem web search e sem
+  perguntas fora de escopo** (recusa educadamente e reorienta). Web search e conhecimento
+  externo são exclusivos da **coordenação**. Reforçado nas duas pontas: a tool `web_search`
+  só entra no toolset de coordenação **e** tem guarda interna `restrito a coordenacao`.
 - **Memória de conversa** — **AgentCore Memory** (curto prazo, 30 dias) de verdade, via
   `AgentCoreMemorySessionManager` do Strands: o agente **persiste e recupera** os turnos no
   AgentCore Memory (por `session_id`/`actor_id` enviados pela ponte), sem depender do
@@ -107,9 +112,10 @@ Athena (dados do Moodle), **web search** (atualidades) e memória de conversa �
 O Orientador atual não tem RBAC (qualquer logado "vira coordenador"). Aqui o papel vem dos
 **grupos do Cognito** (claims do JWT):
 - **Coordenador** (`admin`/`professor`): visões agregadas (desempenho por faculdade) e alunos
-  em risco de evasão.
+  em risco de evasão + **web search** e **conhecimento geral** (responde qualquer pergunta).
 - **Aluno**: escopado ao próprio; as tools de aluno são **forçadas** ao `student_id` da sessão
-  e as tools de coordenação retornam "acesso negado". (Com o AWS Context, a permissão passa a
+  e as tools de coordenação retornam "acesso negado". **Escopo restrito ao acadêmico**: sem
+  web search e sem perguntas fora do contexto da universidade (recusa e reorienta). (Com o AWS Context, a permissão passa a
   ser imposta no próprio dado.)
 
 ## Features (paridade com o Orientador Acadêmico, adaptada ao data lake)
