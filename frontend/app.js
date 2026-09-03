@@ -86,6 +86,16 @@ const MENU = [
   ["Entrevistador Virtual", [["ent-entrevista","Entrevista"],["ent-vagas","Vagas"],["ent-avatar","Avatar"],["ent-relatorio","Histórico"]]],
   ["Orientador Acadêmico", [["ori-alunos","Alunos"],["ori-cursos","Cursos"],["ori-carreiras","Carreiras"],["ori-chat","Chat"],["ori-trilha","Trilha"],["ori-grafo","Grafo"],["ori-insights","Insights"],["ori-curriculo","Currículo"],["ori-competencias","Competências"],["ori-coord","Coordenação"]]],
   ["Orientador Context", [["octx-alunos","Alunos"],["octx-cursos","Cursos"],["octx-chat","Chat"],["octx-trilha","Trilha"],["octx-grafo","Grafo"],["octx-insights","Insights"],["octx-curriculo","Currículo"],["octx-competencias","Competências"],["octx-coord","Coordenação"],["octx-risco","Risco de evasão"],["octx-desempenho","Desempenho"]]],
+  ["AgentCore", [
+    ["Gateway Inference", [
+      ["gwinf-inference","Inference"],
+      ["gwinf-eval","Evaluation"],
+      ["gwinf-history","History"],
+      ["gwinf-mantle","Mantle-config"],
+      ["gwinf-keys","Keys"],
+      ["gwinf-sysprompt","System-prompt"],
+    ]],
+  ]],
   ["Atendimento", [["atend-chat","Chat"]]],
   ["Analytics", [["analytics","Dados Analíticos"]]],
 ];
@@ -3103,6 +3113,96 @@ async function viewOrientadorContextCoord() {
   el("octx-gb").addEventListener("click", grade); grade();
 }
 
+/* ---------------- AgentCore — Gateway Inference ----------------
+   Chat via o AgentCore Gateway (target bedrock-mantle) atraves de um agente Strands no
+   AgentCore Runtime (observability nativa). O browser fala so com o Router (/agentcore/api). */
+const GWINF = "/agentcore/api";
+async function gwinfApi(path, opts = {}, _retried) {
+  const r = await fetch(GWINF + path, { ...opts, headers: {
+    "Content-Type": "application/json", "Authorization": "Bearer " + ID_TOKEN, ...(opts.headers || {}) } });
+  if (r.status === 401 && !_retried) {
+    if (await refreshToken()) return gwinfApi(path, opts, true);
+    login(); throw new Error("Sessão expirada. Redirecionando para o login…");
+  }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+  return data;
+}
+async function viewGwInference() {
+  h(`<div class="hdr"><h2>Gateway Inference — Inference</h2>
+       <span class="muted">chat via AgentCore Gateway (bedrock-mantle) · agente no Runtime</span></div>
+     <div class="card muted">Carregando modelos…</div>`);
+  let mods;
+  try { mods = await gwinfApi("/models"); }
+  catch (e) { return h(`<div class="card danger">${esc(e.message)}</div>`); }
+  const groups = mods.grouped || {};
+  const opts = Object.keys(groups).sort().map(g =>
+    `<optgroup label="${esc(g)}">` +
+    groups[g].map(m => `<option value="${esc(m)}">${esc(m.split("/").pop())}</option>`).join("") +
+    `</optgroup>`).join("");
+  h(`<div class="hdr"><h2>Gateway Inference — Inference</h2>
+       <span class="muted">${mods.count} modelos · AgentCore Gateway · agente no Runtime</span></div>
+     <div class="card octx-chat-card">
+       <div class="row"><label>Modelo:</label> <select id="gw-model">${opts}</select>
+         <button class="btn sec" onclick="gwNova()" title="Nova conversa">Nova conversa</button></div>
+       <div id="gw-chat" class="ori-chat" style="max-height:none;flex:1 1 auto;min-height:0"></div>
+       <div class="ori-ask">
+         <input id="gw-q" placeholder="Pergunte qualquer coisa ao modelo selecionado…"
+                onkeydown="if(event.key==='Enter')gwSend()">
+         <button class="btn" onclick="gwSend()">Enviar</button>
+       </div>
+       <details class="octx-debug" id="gw-debug"><summary>🔎 Debug — modelo, tokens, latência, gateway</summary>
+         <div id="gw-debug-body" class="octx-debug-body muted">Envie uma pergunta para ver os detalhes.</div></details>
+     </div>`);
+  if (!window._gwConv) window._gwConv = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+}
+function gwNova(){ window._gwConv = Date.now().toString(36)+Math.random().toString(36).slice(2,10);
+  const b=el("gw-chat"); if(b) b.innerHTML=""; const d=el("gw-debug-body");
+  if(d){ d.classList.add("muted"); d.innerHTML="Envie uma pergunta para ver os detalhes."; } }
+async function gwSend() {
+  const model = el("gw-model").value, q = (el("gw-q").value || "").trim();
+  if (!q) return;
+  const box = el("gw-chat");
+  box.innerHTML += `<div class="octx-turn user"><span class="octx-who">Você</span><div class="msg user">${esc(q)}</div></div>`;
+  el("gw-q").value = "";
+  box.innerHTML += `<div class="octx-turn bot" id="gw-wait"><span class="octx-who">${esc(model.split("/").pop())}</span><div class="msg bot">…</div></div>`;
+  box.scrollTop = box.scrollHeight;
+  try {
+    const d = await gwinfApi("/ask", { method: "POST", body: JSON.stringify(
+      { question: q, model, system_prompt: window._gwSys || "", conv: window._gwConv }) });
+    const res = d.result || {}, a = res.answer || "(sem resposta)";
+    el("gw-wait").outerHTML = `<div class="octx-turn bot"><span class="octx-who">${esc(model.split("/").pop())}</span><div class="msg bot">${_oriMd(a)}</div></div>`;
+    const dbg = res.debug || {}, tok = dbg.tokens || {};
+    const body = el("gw-debug-body"); body.classList.remove("muted");
+    body.innerHTML = `<div class="octx-dbg-sec"><ul>
+      <li>modelo: <b>${esc(dbg.model || model)}</b></li>
+      <li>tokens: entrada <b>${tok.input||0}</b> · saída <b>${tok.output||0}</b> · total <b>${tok.total||0}</b></li>
+      <li>latência: <b>${dbg.latency_ms||0} ms</b></li>
+      <li>gateway: <code>${esc(dbg.gateway||"")}</code></li>
+    </ul></div><details class="octx-dbg-raw"><summary>JSON bruto</summary><pre>${esc(JSON.stringify(dbg,null,2))}</pre></details>`;
+  } catch (e) {
+    el("gw-wait").outerHTML = `<div class="octx-turn bot"><span class="octx-who">${esc(model.split("/").pop())}</span><div class="msg bot danger">${esc(e.message)}</div></div>`;
+  }
+  box.scrollTop = box.scrollHeight;
+}
+function viewGwSysprompt() {
+  const cur = window._gwSys || "";
+  h(`<div class="hdr"><h2>Gateway Inference — System-prompt</h2>
+       <span class="muted">guardado na sessão do navegador; enviado em toda inferência</span></div>
+     <div class="card">
+       <label>System prompt</label>
+       <textarea id="gw-sys" style="min-height:160px">${esc(cur)}</textarea>
+       <div style="margin-top:8px"><button class="btn" onclick="window._gwSys=el('gw-sys').value; alert('System-prompt salvo para esta sessão.')">Salvar</button>
+       <button class="btn sec" onclick="window._gwSys='';el('gw-sys').value=''">Limpar</button></div>
+     </div>`);
+}
+function _gwSoon(title, desc){ h(`<div class="hdr"><h2>Gateway Inference — ${title}</h2></div>
+  <div class="card"><p>${desc}</p><p class="muted">Em construção — próxima fase do módulo.</p></div>`); }
+function viewGwEval(){ _gwSoon("Evaluation","Compare até 3 modelos no mesmo prompt (velocidade/tokens) + LLM-as-a-judge."); }
+function viewGwHistory(){ _gwSoon("History","Histórico de avaliações + benchmark por modelo + jobs do Bedrock Evaluations."); }
+function viewGwMantle(){ _gwSoon("Mantle-config","Projetos bedrock-mantle, dashboards de observability e retenção de dados."); }
+function viewGwKeys(){ _gwSoon("Keys","Traga sua chave OpenAI/Gemini (AgentCore Identity) para usar via o mesmo Gateway."); }
+
 const ROUTES = {
   "ex-corrige":()=>viewCorrecao("exam"), "ex-criar":viewCriar, "ex-hist":()=>viewHistorico("exam"),
   "red-rubrica":viewRubricas, "red-corrige":()=>viewCorrecao("essay"), "red-hist":()=>viewHistorico("essay"),
@@ -3125,6 +3225,8 @@ const ROUTES = {
   "octx-trilha":viewOrientadorContextTrilha, "octx-grafo":viewOrientadorContextGrafo,
   "octx-insights":viewOrientadorContextInsights, "octx-curriculo":viewOrientadorContextCurriculo,
   "octx-competencias":viewOrientadorContextCompetencias, "octx-coord":viewOrientadorContextCoord,
+  "gwinf-inference":viewGwInference, "gwinf-eval":viewGwEval, "gwinf-history":viewGwHistory,
+  "gwinf-mantle":viewGwMantle, "gwinf-keys":viewGwKeys, "gwinf-sysprompt":viewGwSysprompt,
 };
 function route(){ const k=location.hash.slice(1)||"ex-corrige"; renderNav(ROUTES[k]?k:"ex-corrige"); (ROUTES[k]||ROUTES["ex-corrige"])(); toggleSide(false); }
 window.addEventListener("hashchange", route);
