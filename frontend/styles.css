@@ -144,6 +144,9 @@
 .ori-msg { padding:.6rem .8rem; border-radius:12px; max-width:85%; line-height:1.5; font-size:.9rem; }
 .ori-user { align-self:flex-end; background:#e0e7ff; color:#1e293b; }
 .ori-bot { align-self:flex-start; background:var(--surface); border:1px solid var(--line); }
+/* Orientador Context — chat ocupa a janela (card em coluna; área de mensagens cresce) */
+.octx-chat-card { display:flex; flex-direction:column; height:calc(100vh - 140px); }
+.octx-chat-card #octx-chat { max-height:none; flex:1 1 auto; min-height:0; }
 /* Orientador Context — turnos com rótulo (Você / Orientador Context) */
 .octx-turn { display:flex; flex-direction:column; gap:.15rem; max-width:88%; margin:.2rem 0; }
 .octx-turn.user { align-self:flex-end; align-items:flex-end; }

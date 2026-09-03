@@ -2798,7 +2798,7 @@ async function viewOrientadorContextChat() {
     ? `<option value="__coord__">👤 Coordenação (visão do curso)</option>` : "";
   h(`<div class="hdr"><h2>Orientador Context — Chat</h2>
        <span class="muted">dados do Moodle via data lake (Athena) · RBAC por perfil</span></div>
-     <div class="card">
+     <div class="card octx-chat-card">
        <div class="row"><label>Atuar como:</label> <select id="octx-who">${coordOpt}${students}</select></div>
        <div id="octx-chat" class="ori-chat"></div>
        <div class="ori-ask">
