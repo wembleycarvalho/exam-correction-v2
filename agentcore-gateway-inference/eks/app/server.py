@@ -171,10 +171,26 @@ def _make_model(model_id, token):
     return OpenAIModel(client_args={"base_url": base, "api_key": token}, model_id=model_id)
 
 
-def _build_agent(model_id, system):
+def _history_to_messages(history):
+    """Converte o historico [{role,text}] do FE para o formato de mensagens do Strands
+    (Bedrock Converse). Ignora entradas invalidas. É assim que o chat multi-turno tem
+    MEMORIA: semeamos o Agent com os turnos anteriores da conversa."""
+    msgs = []
+    for h in (history or []):
+        if not isinstance(h, dict):
+            continue
+        role = h.get("role")
+        text = (h.get("text") or "").strip()
+        if role in ("user", "assistant") and text:
+            msgs.append({"role": role, "content": [{"text": text}]})
+    return msgs
+
+
+def _build_agent(model_id, system, history=None):
     token = _m2m_token()
     model = _make_model(model_id, token)
-    return Agent(model=model, system_prompt=system or _SYSTEM_DEFAULT, callback_handler=None)
+    return Agent(model=model, system_prompt=system or _SYSTEM_DEFAULT,
+                 messages=_history_to_messages(history), callback_handler=None)
 
 
 def _debug_from(result, model_id):
@@ -297,6 +313,7 @@ class AskReq(BaseModel):
     model: str = ""
     system_prompt: str | None = None
     conv: str | None = None
+    history: list | None = None
 
 
 # --------------------------------------------------------------------------- routes
@@ -392,7 +409,7 @@ async def ask_stream(req: AskReq, authorization: str = Header(default="")):
                             "debug": {"model": model_id,
                                       "guardrail": {"blocked": True, "stage": "input"}}})
                 return
-            agent = _build_agent(model_id, system)
+            agent = _build_agent(model_id, system, req.history)
             async for event in agent.stream_async(q):
                 if isinstance(event, dict):
                     if "data" in event and event["data"]:

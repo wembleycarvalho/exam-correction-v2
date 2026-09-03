@@ -3157,6 +3157,7 @@ async function viewGwInference() {
   if (!window._gwConv) window._gwConv = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
 }
 function gwNova(){ window._gwConv = Date.now().toString(36)+Math.random().toString(36).slice(2,10);
+  window._gwHist = []; window._gwTurn = 0;   // limpa a memoria da conversa
   const b=el("gw-chat"); if(b) b.innerHTML=""; const d=el("gw-debug-body");
   if(d){ d.classList.add("muted"); d.innerHTML="Envie uma pergunta para ver os detalhes."; } }
 /* Streaming SSE: o backend roda no EKS Fargate (pod atrás do ALB) e emite deltas
@@ -3200,23 +3201,29 @@ async function gwSend() {
   const box = el("gw-chat");
   box.innerHTML += `<div class="octx-turn user"><span class="octx-who">Você</span><div class="msg user">${esc(q)}</div></div>`;
   el("gw-q").value = "";
-  box.innerHTML += `<div class="octx-turn bot" id="gw-wait"><span class="octx-who">${who}</span><div class="msg bot" id="gw-live"><span class="muted">gerando resposta…</span></div></div>`;
+  // id ÚNICO por turno (evita colisao de id quando ha varias respostas na conversa).
+  const tid = "gw-live-" + (window._gwTurn = (window._gwTurn || 0) + 1);
+  box.innerHTML += `<div class="octx-turn bot"><span class="octx-who">${who}</span><div class="msg bot" id="${tid}"><span class="muted">gerando resposta…</span></div></div>`;
   box.scrollTop = box.scrollHeight;
+  const live = el(tid);
+  if (!window._gwHist) window._gwHist = [];
+  const history = window._gwHist.slice(-20);   // memoria da conversa (turnos anteriores)
   let acc = "";
-  const live = el("gw-live");
   try {
     // Inference NAO exibe streaming: acumulamos em silencio e so mostramos a resposta
     // FINAL, ja verificada pelo guardrail de saida (evita exibir texto cru que seria
     // bloqueado). O backend continua streamando; o buffering e so no FE.
     const dbg = await gwStream(
-      { question: q, model, system_prompt: window._gwSys || "", conv: window._gwConv },
+      { question: q, model, system_prompt: window._gwSys || "", conv: window._gwConv, history },
       (t) => { acc += t; });
     const g = dbg.guardrail || {};
     // Guardrail de saída bloqueou: usa a mensagem do guardrail no lugar do texto gerado.
     if (g.blocked && g.stage === "output" && g.message) acc = g.message;
-    live.innerHTML = _oriMd(acc || "(sem resposta)");
+    const finalText = acc || "(sem resposta)";
+    live.innerHTML = _oriMd(finalText);
     if (g.blocked) live.classList.add("danger");
-    el("gw-wait").removeAttribute("id");
+    // memoria: registra o turno (pergunta + resposta final) para o proximo envio.
+    window._gwHist.push({ role: "user", text: q }, { role: "assistant", text: finalText });
     const tok = dbg.tokens || {};
     const gbadge = g.blocked
       ? `<span class="danger">bloqueado (${g.stage === "input" ? "entrada" : "saída"})</span>`
