@@ -58,9 +58,13 @@ atendimento/
   pendentes): backend Lambda em `api/` sob `/atendimento/api/*` (auth JWT do portal) + views
   nativas no `frontend/app.js` (menu **Atendimento → Templates WhatsApp / Campanhas**), na
   identidade do portal (sem a UI verde do WhatsApp). Ver "Fase 1 — como rodar" abaixo.
-- **Fase 2 — Chat in-portal do assistente:** reaproveitar EKS/Strands + as MCP tools como
-  ferramentas do agente; evita o problema de CSP/iframe do Connect (que hoje força abrir em
-  janela separada) e ganha streaming/observability/guardrail que já temos.
+- **Fase 2 — Chat in-portal do assistente (AgentCore Runtime + streaming SSE):** agente
+  Strands no **AgentCore Runtime** (CodeZip) usando as MCP tools do Atendimento via o
+  **AgentCore Gateway existente** (+ Memory/Observability nativas). O **streaming ao browser**
+  é feito por uma **ponte Lambda Node.js de response streaming** (Function URL `RESPONSE_STREAM`
+  + CloudFront/OAC) que valida o JWT do portal e repassa `InvokeAgentRuntime` como SSE —
+  **sem EKS** (o `InvokeAgentRuntime` streama e o Lambda response streaming é GA). Evita o
+  CSP/iframe do Connect (que hoje força janela separada).
 - **Fase 3 — Copiloto / screen-pop / timeline / voz:** vivem no **Agent Workspace do Connect**
   (Show View / Q Connect). "Trazer" = versionar Lambdas/scripts aqui e documentar; a UX
   permanece no workspace do Connect.

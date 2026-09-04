@@ -39,8 +39,10 @@ serverless → segurança → custo**.
   2. **AgentCore Runtime — Instances (EC2 gerenciado):** via *capacity provider* (GPU/memory/
      compute-optimized), sessões ≤ 14 dias, AgentCore gerencia EC2. Só com **requisito
      explícito** (carga sustentada, GPU, sessão longa).
-  3. **EKS Fargate (exceção):** só quando o Runtime não atende bem (ex.: **streaming SSE ao
-     browser**). Consciente e documentado (precedente: módulo Gateway Inference).
+  3. **EKS Fargate (último recurso):** só quando o Runtime realmente não atende. **Streaming
+     SSE ao browser NÃO é motivo** — resolve-se com **ponte Lambda de response streaming**
+     (Node, Function URL `RESPONSE_STREAM` + CloudFront) ou API Gateway response streaming,
+     mantendo o agente no Runtime. (Precedente legado: Gateway Inference no EKS.)
   Sempre registrar a justificativa ao sair do default.
 - **RAG/Knowledge Base:** quando precisar de conhecimento externo, usar **Bedrock KB
   gerenciada** (não hand-rollar RAG). **Reutilizar KB existente** antes de criar; **S3

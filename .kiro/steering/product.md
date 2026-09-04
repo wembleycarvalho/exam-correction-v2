@@ -40,11 +40,12 @@ conjunto de demos, e novas demos entram como novos capítulos.
   Gateway** + Lambdas + DynamoDB, e uma **Knowledge Base (RAG)** institucional/vestibular
   (reutilizada, S3 Vectors) com **controle de acesso por metadata** (aluno vs público).
   Inclui **campanhas WhatsApp outbound** (Connect Outbound Campaigns) e um **testador de
-  templates**. Importado do projeto `Harness` (referência em `atendimento/`), a ser
-  **reembalado na identidade do portal** — sem a UI verde de WhatsApp do original. Hoje o
-  capítulo "Atendimento" abre o workspace do Connect; a meta é trazer as capacidades para
-  dentro do portal (ex.: chat in-portal reaproveitando o padrão EKS/Strands do Gateway
-  Inference; campanhas/testador como view nativa). Código em `atendimento/`.
+  templates**. Importado do projeto `Harness` (referência em `atendimento/`), **reembalado na
+  identidade do portal** — sem a UI verde de WhatsApp do original. As campanhas e o testador
+  de templates já são **view nativa** do portal (Fase 1); o **chat in-portal** do assistente
+  (Fase 2) usa um **agente Strands no AgentCore Runtime** com **streaming SSE** ao browser via
+  **ponte Lambda de response streaming** (Node/Function URL, sem EKS). O capítulo também
+  mantém o atalho para o workspace do Connect. Código em `atendimento/`.
 
 Cada nova demo deve entrar como um novo capítulo do menu, reaproveitando auth/borda comuns;
 a arquitetura de cada uma pode variar (serverless por padrão; exceções, como voz em tempo

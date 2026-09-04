@@ -38,14 +38,19 @@
       com AgentCore cuidando de provisionamento/patching/scaling/lifecycle (drivers de GPU
       automáticos). Usar **só quando houver requisito explícito**: cargas sustentadas/
       resource-intensive, **GPU**, ou sessões longas (> 8h). Não é o default.
-  - **Exceção — EKS Fargate:** quando houver **requisito explícito que o Runtime não atende
-    bem** (ex.: **streaming SSE token-a-token** direto ao browser, como no módulo
-    **Gateway Inference**), pode-se hospedar o agente em **EKS Fargate** (FastAPI + Strands),
-    com observability nativa via ADOT. É **exceção consciente e documentada**, não o caminho
-    padrão. Precedente: `agentcore-gateway-inference/eks/`.
-  - Regra prática: **AgentCore Runtime (microVM) → Runtime Instances/EC2 (se sustentado/GPU/
-    longo) → EKS Fargate (só se o Runtime não servir, ex. streaming ao browser).** Registrar
-    a justificativa sempre que sair do default.
+  - **Streaming ao browser NÃO exige mais EKS.** O `InvokeAgentRuntime` **streama** (chunks
+    em tempo real) e o caminho serverless já entrega SSE: **Lambda response streaming**
+    (GA abr/2026; nativo em **Node.js** — Python precisa do Lambda Web Adapter/custom runtime)
+    via **Function URL `RESPONSE_STREAM` + CloudFront (OAC)**, ou **API Gateway response
+    streaming** (nov/2025). Padrão preferido p/ chat com streaming: **agente no AgentCore
+    Runtime + ponte Lambda (Node) de response streaming → SSE**, sem sair do serverless.
+  - **Exceção — EKS Fargate:** só quando o Runtime realmente não atender (não é o caso de
+    "streaming ao browser", que já é resolvido acima). É **exceção consciente e documentada**.
+    Precedente **legado**: `agentcore-gateway-inference/eks/` (feito antes do streaming
+    serverless amadurecer; poderia hoje ser Runtime + Lambda streaming).
+  - Regra prática: **AgentCore Runtime (microVM) + (se precisar streaming) ponte Lambda de
+    response streaming → Runtime Instances/EC2 (se sustentado/GPU/sessão longa) → EKS Fargate
+    (último recurso).** Registrar a justificativa sempre que sair do default.
 - **Modelos:** **Amazon Bedrock Converse API direto** (nativo do Strands). Escolha em
   runtime via `model_config` por capacidade (transcrição e correção independentes;
   challenger para A/B). Nunca hardcoded. O **AgentCore Gateway** só entra **se/quando**
