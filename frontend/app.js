@@ -96,7 +96,11 @@ const MENU = [
       ["gwinf-sysprompt","System-prompt"],
     ]],
   ]],
-  ["Atendimento", [["atend-chat","Chat"]]],
+  ["Atendimento", [
+    ["atend-chat","Chat (Connect)"],
+    ["atend-templates","Templates WhatsApp"],
+    ["atend-campanhas","Campanhas"],
+  ]],
   ["Analytics", [["analytics","Dados Analíticos"]]],
 ];
 // Grupos de topo que ficam SEMPRE por último (separados por uma linha).
@@ -1608,6 +1612,204 @@ function viewAtendimentoChat(){
          <button onclick="window.open('${CONNECT_WORKSPACE_URL}','connectWorkspace','width=1280,height=880')">Abrir painel de atendimento ↗</button>
        </div>
      </div>`);
+}
+
+/* ---------------- Atendimento — Templates WhatsApp & Campanhas (via /atendimento/api) ----------------
+   Backend serverless (Lambda) que porta o campaign_tester: End User Messaging Social +
+   Customer Profiles + Connect Outbound Campaigns. O browser fala só com o Router (JWT do portal). */
+const ATEND = "/atendimento/api";
+async function atendApi(path, opts = {}, _retried) {
+  const r = await fetch(ATEND + path, { ...opts, headers: {
+    "Content-Type": "application/json", "Authorization": "Bearer " + ID_TOKEN, ...(opts.headers || {}) } });
+  if (r.status === 401 && !_retried) {
+    if (await refreshToken()) return atendApi(path, opts, true);
+    login(); throw new Error("Sessão expirada. Redirecionando para o login…");
+  }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+  return data;
+}
+async function _atendTemplates(){
+  if (!window._atendTpls) window._atendTpls = await atendApi("/templates");
+  return window._atendTpls;
+}
+function _atendTplOptions(tpls){
+  return (tpls.templates || []).map(t =>
+    `<option value="${esc(t.metaTemplateId)}" data-name="${esc(t.name)}" data-lang="${esc(t.language)}" data-status="${esc(t.status)}">`
+    + `${esc(t.name)} [${esc(t.status)}] (${esc(t.language)})</option>`).join("");
+}
+
+// ---- Testador de templates (preview + envio 1-a-1 transacional) ----
+async function viewAtendTemplates(){
+  h(`<div class="hdr"><h2>Atendimento — Templates WhatsApp</h2>
+       <span class="muted">preview do template + envio 1-a-1 (transacional) via Amazon Connect / End User Messaging</span></div>
+     <div class="card muted">Carregando templates…</div>`);
+  let tpls;
+  try { tpls = await _atendTemplates(); }
+  catch(e){ return h(`<div class="card danger">${esc(e.message)}</div>`); }
+  h(`<div class="hdr"><h2>Atendimento — Templates WhatsApp</h2>
+       <span class="muted">${(tpls.templates||[]).length} templates na WABA · envio 1-a-1 transacional</span></div>
+     <div class="card">
+       <div class="row"><label>Template:</label>
+         <select id="at-tpl" onchange="atTplLoad()" style="flex:1">${_atendTplOptions(tpls)}</select></div>
+       <div id="at-detail" class="muted" style="margin-top:8px">Selecione um template.</div>
+       <div class="row" style="margin-top:10px">
+         <div style="flex:1"><label>Telefone (com DDI, ex: +5511985743177)</label>
+           <input id="at-to" placeholder="+55..."></div>
+         <div style="align-self:flex-end"><button class="btn" onclick="atSend()">Enviar</button></div>
+       </div>
+       <div id="at-sendout" style="margin-top:8px"></div>
+     </div>`);
+  atTplLoad();
+}
+async function atTplLoad(){
+  const sel = el("at-tpl"); const id = sel && sel.value;
+  const box = el("at-detail");
+  if (!id){ box.innerHTML = "Selecione um template."; return; }
+  box.classList.remove("muted"); box.innerHTML = "carregando definição…";
+  let d;
+  try { d = await atendApi("/template?metaTemplateId=" + encodeURIComponent(id)); }
+  catch(e){ box.innerHTML = `<span class="danger">${esc(e.message)}</span>`; return; }
+  let html = "";
+  for (const p of (d.parts||[])){
+    if (p.component === "body" || p.component === "header"){
+      html += `<label>${p.component.toUpperCase()}</label><div class="preview">${esc(p.text||"")}</div>`;
+      (p.indices||[]).forEach((idx,i)=>{
+        const exv = (p.examples && p.examples[i]) ? p.examples[i] : "";
+        html += `<div style="margin-top:6px"><label>Variável {{${idx}}} <span class="muted">(${p.component})</span></label>`
+              + `<input data-comp="${p.component}" data-idx="${idx}" value="${esc(exv)}"></div>`;
+      });
+    } else if (p.component === "footer"){
+      html += `<label>FOOTER</label><div class="preview">${esc(p.text||"")}</div>`;
+    } else if (p.component === "buttons"){
+      html += `<label>BOTÕES</label><div class="preview">${esc((p.buttons||[]).join(" | "))}</div>`;
+    }
+  }
+  const nvars = (d.parts||[]).reduce((a,p)=>a+((p.indices||[]).length),0);
+  if (!nvars) html += `<p class="muted">Este template não tem variáveis.</p>`;
+  box.innerHTML = html;
+}
+async function atSend(){
+  const sel = el("at-tpl"); if (!sel || !sel.value) return alert("selecione um template");
+  const opt = sel.options[sel.selectedIndex];
+  const to = (el("at-to").value||"").trim();
+  if (!to) return alert("informe o telefone (com DDI)");
+  const byComp = {};
+  [...document.querySelectorAll('#at-detail input[data-comp]')].forEach(inp=>{
+    const c = inp.getAttribute("data-comp"), idx = parseInt(inp.getAttribute("data-idx"));
+    (byComp[c] = byComp[c] || []).push({idx, val: inp.value});
+  });
+  for (const c in byComp) byComp[c].sort((a,b)=>a.idx-b.idx);
+  const out = el("at-sendout"); out.innerHTML = "enviando…";
+  try {
+    const d = await atendApi("/send", { method:"POST", body: JSON.stringify({
+      to, metaTemplateId: sel.value, name: opt.dataset.name, language: opt.dataset.lang,
+      header: (byComp.header||[]).map(x=>x.val), bodyVars: (byComp.body||[]).map(x=>x.val) }) });
+    out.innerHTML = `<span style="color:green">enviado! messageId: <code>${esc(d.messageId||"?")}</code></span>`;
+  } catch(e){ out.innerHTML = `<span class="danger">${esc(e.message)}</span>`; }
+}
+
+// ---- Campanhas (CSV -> Connect Outbound Campaigns) ----
+function _atendParseCSV(text){
+  const rows=[]; let i=0, field="", row=[], inq=false;
+  while(i<text.length){ const c=text[i];
+    if(inq){ if(c==='"'){ if(text[i+1]==='"'){field+='"';i++;} else inq=false; } else field+=c; }
+    else { if(c==='"') inq=true;
+      else if(c===',') { row.push(field); field=""; }
+      else if(c==='\n'||c==='\r'){ if(c==='\r'&&text[i+1]==='\n')i++; row.push(field); rows.push(row); row=[]; field=""; }
+      else field+=c; }
+    i++; }
+  if(field!==""||row.length){ row.push(field); rows.push(row); }
+  return rows.map(r=>r.map(x=>x.trim())).filter(r=>r.some(x=>x!==""));
+}
+async function viewAtendCampanhas(){
+  h(`<div class="hdr"><h2>Atendimento — Campanhas WhatsApp</h2>
+       <span class="muted">disparo por CSV via Amazon Connect Outbound Campaigns (fiel ao arquivo)</span></div>
+     <div class="card muted">Carregando templates…</div>`);
+  let tpls;
+  try { tpls = await _atendTemplates(); }
+  catch(e){ return h(`<div class="card danger">${esc(e.message)}</div>`); }
+  h(`<div class="hdr"><h2>Atendimento — Campanhas WhatsApp</h2>
+       <span class="muted">cria uma campanha nova por disparo (segmento dedicado, fiel ao CSV)</span></div>
+     <div class="card">
+       <div class="row"><label>Template da campanha:</label>
+         <select id="ac-tpl" onchange="acFmt()" style="flex:1">${_atendTplOptions(tpls)}</select></div>
+       <div id="ac-fmt" class="muted" style="margin-top:8px"></div>
+       <label style="margin-top:10px">Nome da campanha</label>
+       <input id="ac-name" placeholder="ex: promo-vestibular (a data/hora é adicionada automaticamente)">
+       <label style="margin-top:10px">Arquivo CSV</label>
+       <input type="file" id="ac-file" accept=".csv,text/csv" onchange="acCsv()">
+       <div id="ac-prev" style="margin-top:8px"></div>
+       <button class="btn" id="ac-btn" onclick="acSend()" disabled style="margin-top:10px">Disparar campanha</button>
+       <div id="ac-out" style="margin-top:8px"></div>
+     </div>
+     <div class="card"><p class="muted">⚠️ Disparar cria uma campanha real no Amazon Connect e envia WhatsApp
+       aos contatos do CSV (só templates <b>APPROVED</b>). O envio sai ~5–6 min após a criação (mínimo do schedule da API).</p></div>`);
+  acFmt();
+}
+let _acFmt = null, _acCsv = null;
+async function acFmt(){
+  const sel = el("ac-tpl"); const id = sel && sel.value;
+  const box = el("ac-fmt");
+  el("ac-btn").disabled = true; _acCsv = null; el("ac-prev").innerHTML = "";
+  try { _acFmt = await atendApi("/campaign/format" + (id ? "?metaTemplateId=" + encodeURIComponent(id) : "")); }
+  catch(e){ box.innerHTML = `<span class="danger">${esc(e.message)}</span>`; return; }
+  box.classList.remove("muted");
+  let h2 = `<p>Colunas esperadas no CSV (coluna <code>phone</code> obrigatória, com DDI):</p>`
+         + `<div class="preview">${esc((_acFmt.columns||["phone"]).join(","))}</div>`;
+  if ((_acFmt.legend||[]).length){
+    h2 += `<table><thead><tr><th>coluna</th><th>variável</th><th>onde</th><th>exemplo</th></tr></thead><tbody>`
+        + _acFmt.legend.map(l=>`<tr><td><code>${esc(l.column)}</code></td><td>${esc(l.placeholder)}</td><td>${esc(l.component)}</td><td>${esc(l.example||"")}</td></tr>`).join("")
+        + `</tbody></table>`;
+  } else { h2 += `<p class="muted">Este template não tem variáveis (basta a coluna <code>phone</code>).</p>`; }
+  box.innerHTML = h2;
+}
+function acCsv(){
+  const f = el("ac-file").files[0]; const box = el("ac-prev");
+  el("ac-btn").disabled = true; _acCsv = null;
+  if (!f){ box.innerHTML = ""; return; }
+  const rd = new FileReader();
+  rd.onload = () => {
+    const grid = _atendParseCSV(rd.result);
+    if (grid.length < 2){ box.innerHTML = `<span class="danger">CSV vazio ou sem linhas de dados</span>`; return; }
+    const header = grid[0], rows = grid.slice(1);
+    _acCsv = { header, rows, text: rd.result, filename: f.name };
+    const phoneCol = (_acFmt && _acFmt.phone) || "phone";
+    const pIdx = header.findIndex(x=>x.toLowerCase()===phoneCol.toLowerCase());
+    const problemas = [];
+    if (pIdx < 0) problemas.push(`falta a coluna obrigatória "${phoneCol}"`);
+    let semTel = 0; rows.forEach(r=>{ if (pIdx>=0 && !((r[pIdx]||"").trim())) semTel++; });
+    if (semTel) problemas.push(`${semTel} linha(s) sem telefone`);
+    let t = `<table><thead><tr>${header.map(x=>`<th>${esc(x)}</th>`).join("")}</tr></thead><tbody>`
+          + rows.slice(0,20).map(r=>`<tr>${header.map((_,i)=>`<td>${esc(r[i]||"")}</td>`).join("")}</tr>`).join("")
+          + `</tbody></table>`;
+    if (rows.length>20) t += `<p class="muted">… +${rows.length-20} linha(s)</p>`;
+    let msg = `<p>${rows.length} contato(s).</p>`;
+    if (problemas.length) msg += `<p class="danger">${esc(problemas.join(" | "))}</p>`;
+    else msg += `<p style="color:green">CSV válido</p>`;
+    box.innerHTML = msg + t;
+    el("ac-btn").disabled = problemas.length > 0;
+  };
+  rd.readAsText(f);
+}
+async function acSend(){
+  if (!_acCsv) return alert("selecione um CSV");
+  const sel = el("ac-tpl"); const nome = (el("ac-name").value||"").trim();
+  if (!nome) return alert("informe o nome da campanha");
+  if (!confirm(`Disparar a campanha "${nome}" para ${_acCsv.rows.length} contato(s)? Isso cria uma campanha real e envia WhatsApp.`)) return;
+  const out = el("ac-out"); out.innerHTML = "disparando (criando campanha nova + enviando)…";
+  try {
+    const d = await atendApi("/campaign/send", { method:"POST", body: JSON.stringify({
+      csv: _acCsv.text, filename: _acCsv.filename, metaTemplateId: sel.value, campaignName: nome }) });
+    const c = d.campaign || {};
+    let m = `<p style="color:green">${d.gravados}/${d.total} perfis · ${d.destinatarios||0} destinatário(s) único(s)</p>`;
+    if (c.error) m += `<p class="danger">campanha: ${esc(c.error)}</p>`;
+    else if (c.campaignId) m += `<p style="color:green">campanha criada: <code>${esc(c.campaignName||"")}</code> · id <code>${esc(c.campaignId)}</code></p>`;
+    else if (c.pending) m += `<p class="muted">campanha NÃO criada — template ${esc(c.status||"PENDENTE")} na Meta.</p>`;
+    m += `<p class="muted">CSV no S3: <code>${esc(d.s3||"")}</code>. Envio sai ~5–6 min após a criação.</p>`;
+    if ((d.erros||[]).length) m += `<p class="danger">${esc(d.erros.join(" | "))}</p>`;
+    out.innerHTML = m;
+  } catch(e){ out.innerHTML = `<span class="danger">${esc(e.message)}</span>`; }
 }
 
 /* ---------------- Orientador Acadêmico (Neptune + AgentCore, via /orientador/api) ---------------- */
@@ -3493,7 +3695,7 @@ const ROUTES = {
   "po-criar":viewOnlineCreate, "po-teste":viewOnlineTest, "po-hist":viewOnlineHist,
   "ent-entrevista":viewEntEntrevista, "ent-vagas":viewEntVagas,
   "ent-avatar":viewEntAvatar, "ent-relatorio":viewEntRelatorio,
-  "atend-chat":viewAtendimentoChat,
+  "atend-chat":viewAtendimentoChat, "atend-templates":viewAtendTemplates, "atend-campanhas":viewAtendCampanhas,
   "ori-alunos":viewOrientadorAlunos, "ori-cursos":viewOrientadorCursos, "ori-carreiras":viewOrientadorCarreiras,
   "ori-coord":viewCoordTransfers,
   "ori-grafo":viewOrientadorGrafo,

@@ -54,16 +54,55 @@ atendimento/
   repo; IAM de privilégio mínimo por Lambda/tool.
 
 ## Plano de reempacotamento (portal)
-- **Fase 1 — Campanhas + Testador de templates como view nativa** (`/atendimento/api/*` sob o
-  CloudFront, auth do portal): portar os endpoints do `campaign_tester/server.py` para um
-  backend (Lambda simples) e reconstruir o HTML na identidade do portal (menu Atendimento →
-  Templates / Campanhas). Alto valor, self-contained, serverless.
+- **Fase 1 — Campanhas + Testador de templates como view nativa ✅ IMPLEMENTADA** (deploy/verificação
+  pendentes): backend Lambda em `api/` sob `/atendimento/api/*` (auth JWT do portal) + views
+  nativas no `frontend/app.js` (menu **Atendimento → Templates WhatsApp / Campanhas**), na
+  identidade do portal (sem a UI verde do WhatsApp). Ver "Fase 1 — como rodar" abaixo.
 - **Fase 2 — Chat in-portal do assistente:** reaproveitar EKS/Strands + as MCP tools como
   ferramentas do agente; evita o problema de CSP/iframe do Connect (que hoje força abrir em
   janela separada) e ganha streaming/observability/guardrail que já temos.
 - **Fase 3 — Copiloto / screen-pop / timeline / voz:** vivem no **Agent Workspace do Connect**
   (Show View / Q Connect). "Trazer" = versionar Lambdas/scripts aqui e documentar; a UX
   permanece no workspace do Connect.
+
+## Fase 1 — como rodar
+
+Estrutura nova (Fase 1):
+```
+atendimento/
+  api/            handler.py (Lambda proxy) + campaign_lib.py (co-localizado)
+  deploy/         standalone_stack.py, app.py, cdk.json, requirements.txt,
+                  cloudfront_behavior.py (/atendimento/*), deploy.sh, teardown.sh
+```
+
+Rotas (`/atendimento/api/*`, JWT do portal): `GET health`, `GET templates`,
+`GET template?metaTemplateId=..`, `GET campaign/format?metaTemplateId=..`,
+`POST send` (1-a-1 transacional), `POST campaign/send` (cria campanha + dispara).
+
+Deploy cirúrgico (não redeploya o portal; reproduzível; sem Docker):
+```bash
+cd atendimento/deploy && ./deploy.sh
+```
+O `deploy.sh`: semeia `SSM /atendimento/*` (waba-id, phone-number-id, campaign-bucket,
+cp-domain, meta-api-version — defaults = recursos de demo do Harness, sobrescrevíveis por
+env), garante o bucket `campanhas-connect-<acct>`, builda a layer boto3, faz `cdk deploy`
+da stack `atendimento` (Lambda + HTTP API + authorizer Cognito importado do portal + IAM
+least-privilege), liga o behavior `/atendimento/*` no CloudFront e publica o `app.js`.
+
+Verificação: `GET https://<api-domain>/atendimento/health` (sem token) ou, pela borda,
+`GET https://<cloudfront>/atendimento/api/health` (com token do portal); depois abrir o
+portal em **Atendimento → Templates WhatsApp** (lista/preview) e **Campanhas** (CSV).
+
+Config no SSM (sobrescrevível por env no deploy): `WABA_ID`, `WHATSAPP_PHONE_NUMBER_ID`,
+`CAMPAIGN_BUCKET`, `CP_DOMAIN`, `META_API_VERSION`, `CONNECT_INSTANCE_ID`. A instância
+Connect, o KB Wisdom de campanhas e o phone ARN de origem usam defaults de demo (env
+`CONNECT_INSTANCE_ID`, `CAMPAIGN_WISDOM_KB_ID`, `CAMPAIGN_PHONE_ARN`).
+
+> **Envio real:** `POST send` e `POST campaign/send` disparam WhatsApp de verdade
+> (transacional / campanha). São ações que o usuário aciona pela UI — não fazem parte da
+> verificação automatizada.
+
+Teardown do módulo (mantém Connect/WABA/KB/portal): `cd atendimento/deploy && ./teardown.sh`.
 
 ## Cuidados conhecidos
 - **Instância Connect compartilhada** com o Harness: mudar flow/event-destination afeta os
