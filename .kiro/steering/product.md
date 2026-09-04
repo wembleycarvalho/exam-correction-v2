@@ -32,6 +32,20 @@ conjunto de demos, e novas demos entram como novos capítulos.
   (FastAPI + WebSocket), rodando em **ECS Fargate** dentro da mesma stack, servido pelo
   **mesmo CloudFront** sob `/entrevistador/*` e embutido no portal. Código em `interviewer/`.
 
+**Atendimento omnichannel (Amazon Connect):**
+- **Atendimento** — assistente virtual de atendimento (educação/saúde) via **Amazon Connect**
+  + **WhatsApp** (End User Messaging) + **voz**, com bot self-service (AI Agent) e **copiloto
+  do atendente** (Agent Assistance: briefing automático, screen-pop, timeline do cliente). Usa
+  **MCP tools** (cadastro, acadêmico, catálogo de cursos, boleto, conteúdo) via **AgentCore
+  Gateway** + Lambdas + DynamoDB, e uma **Knowledge Base (RAG)** institucional/vestibular
+  (reutilizada, S3 Vectors) com **controle de acesso por metadata** (aluno vs público).
+  Inclui **campanhas WhatsApp outbound** (Connect Outbound Campaigns) e um **testador de
+  templates**. Importado do projeto `Harness` (referência em `atendimento/`), a ser
+  **reembalado na identidade do portal** — sem a UI verde de WhatsApp do original. Hoje o
+  capítulo "Atendimento" abre o workspace do Connect; a meta é trazer as capacidades para
+  dentro do portal (ex.: chat in-portal reaproveitando o padrão EKS/Strands do Gateway
+  Inference; campanhas/testador como view nativa). Código em `atendimento/`.
+
 Cada nova demo deve entrar como um novo capítulo do menu, reaproveitando auth/borda comuns;
 a arquitetura de cada uma pode variar (serverless por padrão; exceções, como voz em tempo
 real, são conscientes e documentadas).

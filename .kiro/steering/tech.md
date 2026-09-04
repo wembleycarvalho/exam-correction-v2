@@ -28,6 +28,24 @@
   `exam`, `author`, `judge`, `examgen` (geração de Provas Online) e `answersheet`.
   Instrumentados com **OpenTelemetry** → **AgentCore Observability** (traces que alimentam
   as Evaluations).
+- **Hospedagem de agentes e compute (preferência + exceções):**
+  - **Padrão: AgentCore Runtime.** Todo agente nasce no **AgentCore Runtime** — é a regra.
+    O Runtime tem **dois tipos de compute**:
+    - **microVM (default, serverless):** Firecracker, isolamento por sessão, start rápido,
+      pay-per-use, sessões **≤ 8h**. É o que usamos por padrão (simplicidade → serverless → custo).
+    - **Instances (EC2 gerenciado):** roda o agente em **EC2** na nossa conta via um
+      **capacity provider** (famílias GPU / memory / compute-optimized), sessões **≤ 14 dias**,
+      com AgentCore cuidando de provisionamento/patching/scaling/lifecycle (drivers de GPU
+      automáticos). Usar **só quando houver requisito explícito**: cargas sustentadas/
+      resource-intensive, **GPU**, ou sessões longas (> 8h). Não é o default.
+  - **Exceção — EKS Fargate:** quando houver **requisito explícito que o Runtime não atende
+    bem** (ex.: **streaming SSE token-a-token** direto ao browser, como no módulo
+    **Gateway Inference**), pode-se hospedar o agente em **EKS Fargate** (FastAPI + Strands),
+    com observability nativa via ADOT. É **exceção consciente e documentada**, não o caminho
+    padrão. Precedente: `agentcore-gateway-inference/eks/`.
+  - Regra prática: **AgentCore Runtime (microVM) → Runtime Instances/EC2 (se sustentado/GPU/
+    longo) → EKS Fargate (só se o Runtime não servir, ex. streaming ao browser).** Registrar
+    a justificativa sempre que sair do default.
 - **Modelos:** **Amazon Bedrock Converse API direto** (nativo do Strands). Escolha em
   runtime via `model_config` por capacidade (transcrição e correção independentes;
   challenger para A/B). Nunca hardcoded. O **AgentCore Gateway** só entra **se/quando**
@@ -48,13 +66,28 @@
   **Sem streaming.**
 - **Dados:** DynamoDB (`submissions`, `corrections`, `rubrics`, `exams`, `model_config`,
   `test_registry`, `online-exams`, `online-attempts`; `+ eval_*` na fase 2); S3
-  (uploads/resultados). **Correção de material enviado (redação/discursiva/cartão) não usa
-  KB** — gabarito + conhecimento do modelo cobrem o escopo; **sem S3 Vectors, sem OpenSearch**.
-- **Knowledge Base (só Provas Online):** o módulo de estudo **Provas Online** usa uma
-  **Amazon Bedrock Knowledge Base** (RAG, conteúdo já indexado) para gerar questões e sugerir
-  material de estudo. Só a **API** acessa o KB (`bedrock:Retrieve` no ARN do KB + `s3:GetObject`/
-  `s3:ListBucket` no bucket do acervo); o worker apenas corrige. Configurada por contexto do
-  CDK (`kbId`/`kbBucket`), nunca no bundle do frontend.
+  (uploads/resultados). **A correção de material enviado (redação/discursiva/cartão) não usa
+  KB** — gabarito + conhecimento do modelo cobrem o escopo (esse "sem KB" é **local** desse
+  fluxo, não uma proibição global).
+- **Knowledge Base (RAG) — política geral:** **KB é permitido e incentivado quando há
+  necessidade real** (ex.: RAG sobre acervo institucional, geração de questões, atendimento
+  com base de conhecimento). Ordem de preferência:
+  1. **Reutilizar um KB já existente no projeto** antes de criar outro (evita duplicar
+     ingestão/custo). Ex.: o acervo de **Provas Online** e o **conteúdo institucional** do
+     módulo de Atendimento.
+  2. **Amazon Bedrock Knowledge Base** gerenciada (não hand-rollar RAG), com vector store
+     **Amazon S3 Vectors por padrão** (serverless, ~90% mais barato, escala massiva,
+     sub-segundo) — **prioridade por custo/simplicidade**.
+  3. **GraphRAG (Bedrock KB + Amazon Neptune Analytics)** **quando o problema for
+     relacional/multi-hop** (perguntas que cruzam várias entidades/relações, não lookup de
+     entidade única) — o KB extrai entidades/relações automaticamente e combina busca
+     vetorial + travessia de grafo. **Investigar necessidade/custo antes de adotar**; Neptune
+     Analytics não é serverless-barato como S3 Vectors, então só quando o ganho de grafo se
+     justificar. (OpenSearch/Aurora pgvector só se um requisito específico pedir.)
+  - **Acesso:** só o backend (API/agente) acessa o KB (`bedrock:Retrieve`/`RetrieveAndGenerate`
+    no ARN do KB + `s3:GetObject`/`s3:ListBucket` no acervo, com **metadata filtering** para
+    controle de acesso quando aplicável). `kbId`/`kbBucket` por contexto do CDK/SSM, nunca no
+    bundle do frontend. Nada de KB/bucket de conta específica hardcoded.
 - **Borda:** **CloudFront único** (origem S3/OAC para o frontend estático; origem
   `/api/*` → HTTP API). Nada acessível fora do CloudFront. **Sem WAF** (projeto de teste;
   em produção, adicione um WAF WebACL com regras gerenciadas + rate limiting).
@@ -96,16 +129,17 @@
 - **Borda Opção A:** API protegida por header secreto (Secrets Manager); S3 via OAC
   com Block Public Access. Sem VPC. **Sem WAF** neste projeto de teste (readicionar em produção).
 - **PII fora do QR:** o QR carrega apenas `testId`, resolvido em `test_registry`.
-- **KB apenas para Provas Online:** o "sem KB" acima vale para a **correção de material
-  enviado**. O módulo **Provas Online** (estudo) **precisa** do KB (RAG) para gerar questões
-  e sugerir material — decisão posterior ao escopo original. Só a API acessa o KB; o worker
-  apenas corrige a tentativa (MC determinística / discursiva via `exam`).
+- **KB permitido quando há necessidade (política geral acima):** o "sem KB" vale **só** para a
+  **correção de material enviado** (gabarito + modelo cobrem). Onde RAG agrega — **Provas
+  Online** (gerar questões/material) e **Atendimento** (base institucional/vestibular) — usa-se
+  **Bedrock KB**. **Reutilizar KB existente** antes de criar; **S3 Vectors por padrão**;
+  **GraphRAG/Neptune só se o caso for relacional/multi-hop** (investigar necessidade+custo).
+  Só o backend acessa o KB.
 - **KB demo integrado ao projeto:** o repo inclui um **acervo sintético** em `assets/kb-demo/`
   (só para demonstração, **sem compromisso pedagógico**) e o `scripts/deploy-kb.sh`, que
-  provisiona o KB com **Amazon S3 Vectors** (vector store serverless, escolhido por
-  custo/simplicidade; usar S3 Vectors **só** para o KB de Provas Online) + embeddings Titan v2.
-  `kbId`/`kbBucket` vazios = módulo desabilitado; produção aponta para um KB próprio via
-  `KB_ID`/`KB_BUCKET`. Nada de bucket/KB hardcoded de conta específica no stack.
+  provisiona o KB com **Amazon S3 Vectors** (vector store serverless, custo/simplicidade) +
+  embeddings Titan v2. `kbId`/`kbBucket` vazios = módulo desabilitado; produção aponta para um
+  KB próprio via `KB_ID`/`KB_BUCKET`. Nada de bucket/KB hardcoded de conta específica no stack.
 
 ## Estrutura do repositório
 

@@ -33,6 +33,19 @@ serverless → segurança → custo**.
   **Correction Worker (Lambda)** apenas faz a ponte `SQS → InvokeAgentRuntime` (sem lógica
   de agente e sem streaming). O **AgentCore Gateway** só entra se/quando houver modelos no
   Mantle a rotear (futuro).
+- **Compute do agente (do mais simples ao mais específico):**
+  1. **AgentCore Runtime — microVM (default):** serverless, isolamento por sessão, start
+     rápido, pay-per-use, sessões ≤ 8h. É o padrão.
+  2. **AgentCore Runtime — Instances (EC2 gerenciado):** via *capacity provider* (GPU/memory/
+     compute-optimized), sessões ≤ 14 dias, AgentCore gerencia EC2. Só com **requisito
+     explícito** (carga sustentada, GPU, sessão longa).
+  3. **EKS Fargate (exceção):** só quando o Runtime não atende bem (ex.: **streaming SSE ao
+     browser**). Consciente e documentado (precedente: módulo Gateway Inference).
+  Sempre registrar a justificativa ao sair do default.
+- **RAG/Knowledge Base:** quando precisar de conhecimento externo, usar **Bedrock KB
+  gerenciada** (não hand-rollar RAG). **Reutilizar KB existente** antes de criar; **S3
+  Vectors por padrão** (custo/serverless); **GraphRAG/Neptune Analytics só p/ casos
+  relacionais/multi-hop** (investigar necessidade+custo antes).
 - **Qualidade e A/B** usam **AgentCore Evaluations** (online + batch), alimentado pelos
   traces do Runtime — não reimplementar avaliação na mão.
 - Preferir o deploy **CodeZip** (Python puro, sem container). Dependências nativas (ex.:
