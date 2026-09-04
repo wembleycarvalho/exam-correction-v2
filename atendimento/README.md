@@ -58,13 +58,12 @@ atendimento/
   pendentes): backend Lambda em `api/` sob `/atendimento/api/*` (auth JWT do portal) + views
   nativas no `frontend/app.js` (menu **Atendimento → Templates WhatsApp / Campanhas**), na
   identidade do portal (sem a UI verde do WhatsApp). Ver "Fase 1 — como rodar" abaixo.
-- **Fase 2 — Chat in-portal do assistente (AgentCore Runtime + streaming SSE):** agente
-  Strands no **AgentCore Runtime** (CodeZip) usando as MCP tools do Atendimento via o
-  **AgentCore Gateway existente** (+ Memory/Observability nativas). O **streaming ao browser**
-  é feito por uma **ponte Lambda Node.js de response streaming** (Function URL `RESPONSE_STREAM`
-  + CloudFront/OAC) que valida o JWT do portal e repassa `InvokeAgentRuntime` como SSE —
-  **sem EKS** (o `InvokeAgentRuntime` streama e o Lambda response streaming é GA). Evita o
-  CSP/iframe do Connect (que hoje força janela separada).
+- **Fase 2 — Chat in-portal do assistente (AgentCore Runtime + streaming SSE) ✅ IMPLEMENTADA:**
+  agente Strands no **AgentCore Runtime** (CodeZip, `agent/`) usando as tools do Atendimento
+  (os Lambdas, via `lambda:invoke`) + observability nativa. O **streaming ao browser** é feito
+  por uma **ponte Lambda Node.js de response streaming** (`bridge/`, Function URL
+  `RESPONSE_STREAM`) que valida o JWT do portal e repassa `InvokeAgentRuntime` como SSE —
+  **sem EKS**. Evita o CSP/iframe do Connect. Ver "Fase 2 — como rodar" abaixo.
 - **Fase 3 — Copiloto / screen-pop / timeline / voz:** vivem no **Agent Workspace do Connect**
   (Show View / Q Connect). "Trazer" = versionar Lambdas/scripts aqui e documentar; a UX
   permanece no workspace do Connect.
@@ -107,6 +106,38 @@ Connect, o KB Wisdom de campanhas e o phone ARN de origem usam defaults de demo 
 > verificação automatizada.
 
 Teardown do módulo (mantém Connect/WABA/KB/portal): `cd atendimento/deploy && ./teardown.sh`.
+
+## Fase 2 — como rodar
+
+Estrutura (Fase 2):
+```
+atendimento/
+  agent/          agent.py (Strands @ AgentCore Runtime, streaming), requirements.txt,
+                  deploy-runtime.sh (starter toolkit, CodeZip; SSM /atendimento/runtime-arn; IAM)
+  bridge/         index.mjs (Lambda Node.js, response streaming -> SSE), package.json
+```
+Fluxo: browser → CloudFront `/atendimento/api/ask` → **Function URL do bridge**
+(`RESPONSE_STREAM`) → `InvokeAgentRuntime` (agente no Runtime, streaming) → SSE token-a-token.
+
+Deploy (2 passos):
+```bash
+# 1) agente no AgentCore Runtime (CodeZip; grava SSM /atendimento/runtime-arn)
+cd atendimento/agent && ./deploy-runtime.sh
+# 2) bridge + Function URL + behavior /atendimento/api/ask no CloudFront (parte do deploy do módulo)
+cd atendimento/deploy && ./deploy.sh
+```
+O `deploy.sh` (mesmo da Fase 1) já cria o **BridgeFn** + Function URL e liga o behavior
+`/atendimento/api/ask` (streaming, antes de `/atendimento/*`). Config: `POOL_ID` (Cognito do
+portal) no bridge; `MODEL_ID` do agente (env, default `claude-sonnet-4-5`).
+
+Verificação: pela borda, `POST /atendimento/api/ask` sem token → frame SSE
+`data: {"type":"error","error":"missing token"}` (auth ok); logado, abrir **Atendimento →
+Assistente** e conversar (streaming ao vivo). SSE: frames `data: "<delta>"` (string) e
+`data: {"type":"done"}`.
+
+> **Segurança (follow-up):** o Function URL está como `NONE` + **JWT validado no bridge**
+> (mesma postura do EKS). Endurecer depois com **OAC + header `X-Cognito-Token`** para forçar
+> "só via CloudFront".
 
 ## Cuidados conhecidos
 - **Instância Connect compartilhada** com o Harness: mudar flow/event-destination afeta os
