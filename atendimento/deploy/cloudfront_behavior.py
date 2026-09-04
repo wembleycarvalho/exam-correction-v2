@@ -1,11 +1,13 @@
-"""Liga/desliga a rota /atendimento/* na distribution CloudFront do portal.
+"""Liga/desliga as rotas do módulo Atendimento na distribution CloudFront do portal.
 
-Aditivo e idempotente: clona a config de um behavior de módulo já existente (`/lms/*`),
-preservando todos os demais behaviors.
+Aditivo e idempotente. Clona a config de um behavior existente (`/lms/*`) preservando o resto.
+  - /atendimento/*        -> HTTP API (templates/campanhas, Fase 1)          [origin atendimento-api]
+  - /atendimento/api/ask  -> Function URL do bridge (SSE streaming, Fase 2)  [origin atendimento-stream]
+O behavior de streaming é inserido ANTES de /atendimento/* (CloudFront casa na ordem da lista).
 
 Uso:
-  python cloudfront_behavior.py --dist <DIST_ID> --api <API_DOMAIN>   # liga
-  python cloudfront_behavior.py --dist <DIST_ID> --remove             # desliga (teardown)
+  python cloudfront_behavior.py --dist <ID> --api <API_DOMAIN> [--stream <FURL_DOMAIN>]
+  python cloudfront_behavior.py --dist <ID> --remove
 """
 import argparse
 import copy
@@ -15,12 +17,30 @@ import boto3
 
 PATH = "/atendimento/*"
 ORIGIN_ID = "atendimento-api"
+STREAM_PATH = "/atendimento/api/ask"
+STREAM_ORIGIN_ID = "atendimento-stream"
+
+
+def _clone_origin(origins, src_id, new_id, domain, protocol):
+    src = next(o for o in origins if o["Id"] == src_id)
+    o = copy.deepcopy(src)
+    o["Id"] = new_id
+    o["DomainName"] = domain
+    if "CustomHeaders" in o:
+        o["CustomHeaders"] = {"Quantity": 0}
+    coc = o.setdefault("CustomOriginConfig", {"HTTPPort": 80, "HTTPSPort": 443,
+                                              "OriginSslProtocols": {"Quantity": 1, "Items": ["TLSv1.2"]}})
+    coc["OriginProtocolPolicy"] = protocol
+    coc["OriginReadTimeout"] = 60          # folga p/ streaming
+    coc["OriginKeepaliveTimeout"] = 60
+    return o
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dist", required=True)
     ap.add_argument("--api", default="")
+    ap.add_argument("--stream", default="")
     ap.add_argument("--remove", action="store_true")
     args = ap.parse_args()
 
@@ -31,42 +51,48 @@ def main():
     origins = cfg["Origins"]["Items"]
 
     if args.remove:
-        n0 = len(behs)
-        cfg["CacheBehaviors"]["Items"] = [b for b in behs if b["PathPattern"] != PATH]
-        cfg["Origins"]["Items"] = [o for o in origins if o["Id"] != ORIGIN_ID]
+        before = len(behs)
+        cfg["CacheBehaviors"]["Items"] = [b for b in behs if b["PathPattern"] not in (PATH, STREAM_PATH)]
+        cfg["Origins"]["Items"] = [o for o in origins if o["Id"] not in (ORIGIN_ID, STREAM_ORIGIN_ID)]
         cfg["CacheBehaviors"]["Quantity"] = len(cfg["CacheBehaviors"]["Items"])
         cfg["Origins"]["Quantity"] = len(cfg["Origins"]["Items"])
-        if len(cfg["CacheBehaviors"]["Items"]) == n0:
+        if len(cfg["CacheBehaviors"]["Items"]) == before:
             print("idempotente: nada a remover")
             return
         cf.update_distribution(Id=args.dist, IfMatch=etag, DistributionConfig=cfg)
-        print("OK: behavior/origin do atendimento removidos")
+        print("OK: behaviors/origins do atendimento removidos")
         return
 
     if not args.api:
         sys.exit("--api é obrigatório para ligar")
-    if any(b["PathPattern"] == PATH for b in behs):
-        print("idempotente: behavior já existe")
-        return
-
     lms = next(b for b in behs if b["PathPattern"] == "/lms/*")
-    src = next(o for o in origins if o["Id"] == lms["TargetOriginId"])
-    new_origin = copy.deepcopy(src)
-    new_origin["Id"] = ORIGIN_ID
-    new_origin["DomainName"] = args.api
-    if "CustomHeaders" in new_origin:
-        new_origin["CustomHeaders"] = {"Quantity": 0}
-    origins.append(new_origin)
+
+    # 1) origin + behavior /atendimento/* (HTTP API) — idempotente
+    if not any(b["PathPattern"] == PATH for b in behs):
+        origins.append(_clone_origin(origins, lms["TargetOriginId"], ORIGIN_ID, args.api, "https-only"))
+        nb = copy.deepcopy(lms); nb["PathPattern"] = PATH; nb["TargetOriginId"] = ORIGIN_ID
+        behs.append(nb)
+        print(f"+ behavior {PATH} -> {ORIGIN_ID}")
+    else:
+        print(f"idempotente: {PATH} já existe")
+
+    # 2) origin + behavior /atendimento/api/ask (Function URL, streaming) — ANTES de /atendimento/*
+    if args.stream:
+        if not any(o["Id"] == STREAM_ORIGIN_ID for o in origins):
+            origins.append(_clone_origin(origins, lms["TargetOriginId"], STREAM_ORIGIN_ID, args.stream, "https-only"))
+        if not any(b["PathPattern"] == STREAM_PATH for b in behs):
+            sb = copy.deepcopy(lms); sb["PathPattern"] = STREAM_PATH; sb["TargetOriginId"] = STREAM_ORIGIN_ID
+            # insere antes do /atendimento/* (ordem = precedência no CloudFront)
+            idx = next((i for i, b in enumerate(behs) if b["PathPattern"] == PATH), len(behs))
+            behs.insert(idx, sb)
+            print(f"+ behavior {STREAM_PATH} -> {STREAM_ORIGIN_ID} (streaming, antes de {PATH})")
+        else:
+            print(f"idempotente: {STREAM_PATH} já existe")
+
     cfg["Origins"]["Quantity"] = len(origins)
-
-    new_beh = copy.deepcopy(lms)
-    new_beh["PathPattern"] = PATH
-    new_beh["TargetOriginId"] = ORIGIN_ID
-    behs.append(new_beh)
     cfg["CacheBehaviors"]["Quantity"] = len(behs)
-
     cf.update_distribution(Id=args.dist, IfMatch=etag, DistributionConfig=cfg)
-    print(f"OK: origin '{ORIGIN_ID}' + behavior {PATH} adicionados (behaviors={len(behs)})")
+    print(f"OK: behaviors atualizados (total={len(behs)})")
 
 
 if __name__ == "__main__":

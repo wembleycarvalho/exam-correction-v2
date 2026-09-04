@@ -89,6 +89,26 @@ class AtendimentoStandaloneStack(Stack):
                      "connect-campaigns:DescribeCampaign"],
             resources=["*"]))
 
+        # --- Ponte de STREAMING (Node.js, response streaming) p/ o chat do assistente ---
+        # Agente no AgentCore Runtime; esta Lambda repassa InvokeAgentRuntime como SSE ao
+        # browser. Function URL em RESPONSE_STREAM; valida o JWT do portal no próprio código.
+        bridge = lambda_.Function(
+            self, "BridgeFn", runtime=lambda_.Runtime.NODEJS_22_X, handler="index.handler",
+            code=lambda_.Code.from_asset("../bridge", exclude=["**/__pycache__"]),
+            timeout=Duration.seconds(120), memory_size=512,
+            environment={"POOL_ID": os.environ["OCTX_USER_POOL_ID"]})
+        bridge.add_to_role_policy(iam.PolicyStatement(
+            actions=["ssm:GetParameter"],
+            resources=[f"arn:aws:ssm:{region}:{account}:parameter/atendimento/*"]))
+        bridge.add_to_role_policy(iam.PolicyStatement(
+            actions=["bedrock-agentcore:InvokeAgentRuntime"],
+            resources=[f"arn:aws:bedrock-agentcore:{region}:{account}:runtime/atendimento_assistant-*"]))
+        bridge_url = bridge.add_function_url(
+            auth_type=lambda_.FunctionUrlAuthType.NONE,
+            invoke_mode=lambda_.InvokeMode.RESPONSE_STREAM)
+        CfnOutput(self, "BridgeUrl", value=bridge_url.url)
+        CfnOutput(self, "BridgeFnName", value=bridge.function_name)
+
         authorizer = apigw_authz.HttpUserPoolAuthorizer("Jwt", pool, user_pool_clients=[client])
         http_api = apigw.HttpApi(self, "Api", create_default_stage=True)
         integ = integrations.HttpLambdaIntegration("Integ", fn)

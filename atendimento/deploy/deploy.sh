@@ -47,16 +47,21 @@ aws s3api create-bucket --bucket "$ATEND_CAMPAIGN_BUCKET" --region "$AWS_REGION"
 echo ">> Construindo layer boto3 recente…"
 rm -rf layer && mkdir -p layer/python && python3 -m pip install -q --target layer/python "boto3>=1.35.0"
 
+echo ">> Instalando deps do bridge (Node, response streaming → AgentCore)…"
+( cd ../bridge && npm install --omit=dev --no-audit --no-fund --silent )
+
 echo ">> Deploy da stack standalone…"
 python3 -m venv .venv 2>/dev/null || true
 ./.venv/bin/pip install -q -r requirements.txt
 npx --yes aws-cdk@latest deploy atendimento --app ".venv/bin/python app.py" \
   --require-approval never --outputs-file out.json >/dev/null
 API_DOMAIN="$(python3 -c "import json;print(json.load(open('out.json'))['atendimento']['ApiDomain'])")"
-echo ">> API=$API_DOMAIN"
+BRIDGE_URL="$(python3 -c "import json;print(json.load(open('out.json'))['atendimento'].get('BridgeUrl',''))")"
+STREAM_DOMAIN="$(python3 -c "import urllib.parse,sys;u='$BRIDGE_URL';print(urllib.parse.urlparse(u).netloc if u else '')")"
+echo ">> API=$API_DOMAIN  STREAM=$STREAM_DOMAIN"
 
-echo ">> Ligando o behavior /atendimento/* no CloudFront… (python3 do sistema tem boto3; a venv do CDK não)"
-python3 cloudfront_behavior.py --dist "$DIST_ID" --api "$API_DOMAIN"
+echo ">> Ligando behaviors /atendimento/* (HTTP API) e /atendimento/api/ask (streaming) no CloudFront…"
+python3 cloudfront_behavior.py --dist "$DIST_ID" --api "$API_DOMAIN" ${STREAM_DOMAIN:+--stream "$STREAM_DOMAIN"}
 
 echo ">> Publicando o frontend (app.js) + invalidando…"
 aws s3 cp "$ROOT/frontend/app.js" "s3://$FE_BUCKET/app.js" --content-type application/javascript --region "$AWS_REGION" >/dev/null

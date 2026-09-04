@@ -97,6 +97,7 @@ const MENU = [
     ]],
   ]],
   ["Atendimento", [
+    ["atend-assistente","Assistente"],
     ["atend-chat","Chat (Connect)"],
     ["atend-templates","Templates WhatsApp"],
     ["atend-campanhas","Campanhas"],
@@ -1810,6 +1811,74 @@ async function acSend(){
     if ((d.erros||[]).length) m += `<p class="danger">${esc(d.erros.join(" | "))}</p>`;
     out.innerHTML = m;
   } catch(e){ out.innerHTML = `<span class="danger">${esc(e.message)}</span>`; }
+}
+
+/* ---------------- Atendimento — Assistente (chat, AgentCore Runtime + streaming SSE) ----------------
+   Agente Strands no AgentCore Runtime; a ponte Lambda (response streaming) repassa
+   InvokeAgentRuntime como SSE. O browser consome token-a-token. */
+async function viewAtendAssistente(){
+  h(`<div class="hdr"><h2>Atendimento — Assistente</h2>
+       <span class="muted">agente no AgentCore Runtime · streaming · tools de cursos/acadêmico/boleto/conteúdo</span></div>
+     <div class="card octx-chat-card">
+       <div class="row"><button class="btn sec" onclick="atAssistNova()" title="Nova conversa">Nova conversa</button></div>
+       <div id="asst-chat" class="ori-chat" style="max-height:none;flex:1 1 auto;min-height:0"></div>
+       <div class="ori-ask">
+         <input id="asst-q" placeholder="Pergunte sobre cursos, notas, financeiro, vestibular…"
+                onkeydown="if(event.key==='Enter')atAssistSend()">
+         <button class="btn" onclick="atAssistSend()">Enviar</button>
+       </div>
+       <p class="muted" style="margin-top:6px">Dica: para dados acadêmicos/financeiros, informe o CPF (ex.: use um CPF de teste do acervo demo).</p>
+     </div>`);
+  if (!window._atendConv) window._atendConv = Date.now().toString(36)+Math.random().toString(36).slice(2,10);
+}
+function atAssistNova(){
+  window._atendConv = Date.now().toString(36)+Math.random().toString(36).slice(2,10);
+  window._atendHist = []; window._atendTurn = 0;
+  const b=el("asst-chat"); if(b) b.innerHTML="";
+}
+async function atAssistSend(){
+  const q = (el("asst-q").value||"").trim(); if(!q) return;
+  const box = el("asst-chat");
+  box.innerHTML += `<div class="octx-turn user"><span class="octx-who">Você</span><div class="msg user">${esc(q)}</div></div>`;
+  el("asst-q").value = "";
+  const tid = "asst-live-" + (window._atendTurn = (window._atendTurn||0)+1);
+  box.innerHTML += `<div class="octx-turn bot"><span class="octx-who">Assistente</span><div class="msg bot" id="${tid}"><span class="muted">…</span></div></div>`;
+  box.scrollTop = box.scrollHeight;
+  const live = el(tid);
+  if (!window._atendHist) window._atendHist = [];
+  let acc = "";
+  try {
+    await atendStream({ question:q, conv:window._atendConv, history: window._atendHist.slice(-20) },
+      (delta)=>{ acc += delta; live.innerHTML = _oriMd(acc); box.scrollTop = box.scrollHeight; });
+    live.innerHTML = _oriMd(acc || "(sem resposta)");
+    window._atendHist.push({role:"user",text:q},{role:"assistant",text:acc});
+  } catch(e){
+    live.innerHTML = (acc ? _oriMd(acc)+"<br>" : "") + `<span class="danger">${esc(e.message)}</span>`;
+  }
+  box.scrollTop = box.scrollHeight;
+}
+// Consome o SSE do /atendimento/api/ask. Frames: data: "<delta>" (string) e data: {"type":"done"|"error"}.
+async function atendStream(body, onDelta, _retried){
+  const r = await fetch(ATEND + "/ask", { method:"POST", headers:{
+    "Content-Type":"application/json", "Authorization":"Bearer "+ID_TOKEN }, body: JSON.stringify(body) });
+  if (r.status === 401 && !_retried){ if (await refreshToken()) return atendStream(body,onDelta,true); login(); throw new Error("Sessão expirada."); }
+  if (!r.ok || !r.body){ const d = await r.json().catch(()=>({})); throw new Error(d.error || ("HTTP "+r.status)); }
+  const reader = r.body.getReader(), dec = new TextDecoder(); let buf = "";
+  for(;;){
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream:true });
+    let i;
+    while ((i = buf.indexOf("\n\n")) >= 0){
+      const frame = buf.slice(0,i); buf = buf.slice(i+2);
+      const line = frame.split("\n").find(l=>l.startsWith("data:"));
+      if (!line) continue;
+      let ev; try { ev = JSON.parse(line.slice(5).trim()); } catch { continue; }
+      if (typeof ev === "string") onDelta(ev);
+      else if (ev && ev.type === "error") throw new Error(ev.error || "falha no streaming");
+      // ev.type === "done" -> fim (o loop encerra quando o stream fecha)
+    }
+  }
 }
 
 /* ---------------- Orientador Acadêmico (Neptune + AgentCore, via /orientador/api) ---------------- */
@@ -3695,6 +3764,7 @@ const ROUTES = {
   "po-criar":viewOnlineCreate, "po-teste":viewOnlineTest, "po-hist":viewOnlineHist,
   "ent-entrevista":viewEntEntrevista, "ent-vagas":viewEntVagas,
   "ent-avatar":viewEntAvatar, "ent-relatorio":viewEntRelatorio,
+  "atend-assistente":viewAtendAssistente,
   "atend-chat":viewAtendimentoChat, "atend-templates":viewAtendTemplates, "atend-campanhas":viewAtendCampanhas,
   "ori-alunos":viewOrientadorAlunos, "ori-cursos":viewOrientadorCursos, "ori-carreiras":viewOrientadorCarreiras,
   "ori-coord":viewCoordTransfers,
