@@ -63,3 +63,24 @@ infra/cdk.context.json
 # Credenciais AWS locais que não devem ir para o repo
 .aws/
 credentials
+
+# --- Padrões re-ancorados (**/) para suportar o projeto dentro de uma subpasta ---
+# (ex.: "A Arte do Possivel/"). As regras acima com caminho relativo à raiz deixaram de
+# casar após o move; estas pegam os mesmos artefatos em qualquer profundidade.
+**/infra/layer/
+**/infra/cdk.out/
+**/infra/cdk-outputs.json
+**/infra/kb-config.json
+**/infra/omr-layer.json
+**/infra/cdk.context.json
+**/frontend/opencv.js
+**/frontend/runtime-config.js
+**/frontend/public/runtime-config.js
+**/frontend/dist/
+**/frontend/.vite/
+**/assets/lms-demo/videos/
+**/assets/lms-demo/public/
+**/assets/lms-demo/images/
+**/assets/lms-demo/audio/
+**/assets/lms-demo/chapters_cache.json
+**/interviewer/records/

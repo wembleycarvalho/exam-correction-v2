@@ -96,6 +96,7 @@ _CFG = {
 # Bedrock direto — passa pelo AgentCore Gateway. O Guardrail é o serviço NATIVO do Bedrock,
 # aplicado como uma verificação independente sobre o texto (entrada e saída).
 _bedrock_rt = boto3.client("bedrock-runtime", region_name=REGION)
+_bedrock = boto3.client("bedrock", region_name=REGION)  # control-plane (list guardrail versions)
 
 _TOK = {"secret": None, "token": None, "ts": 0.0}
 _TOKEN_TTL = 50 * 60
@@ -131,6 +132,36 @@ def _clean(text):
                   flags=re.DOTALL | re.IGNORECASE).strip()
 
 
+# Resolucao dinamica da versao do Guardrail (cache curto p/ nao chamar a cada request).
+# guardrail-version aceita: um numero ("2"), "DRAFT", ou "LATEST" (resolve a maior versao
+# publicada automaticamente). Mudar no SSM entra em vigor em ~TTL, sem redeploy.
+_GVER = {"resolved": None, "ts": 0.0}
+_GVER_TTL = 120
+
+
+def _latest_guardrail_version():
+    try:
+        vers = []
+        for g in _bedrock.list_guardrails(guardrailIdentifier=_CFG["guardrail_id"]).get("guardrails", []):
+            v = str(g.get("version") or "")
+            if v.isdigit():
+                vers.append(int(v))
+        return str(max(vers)) if vers else "DRAFT"
+    except Exception as e:  # noqa: BLE001
+        print("latest guardrail version error:", repr(e))
+        return "DRAFT"
+
+
+def _guardrail_version():
+    now = time.time()
+    if _GVER["resolved"] and (now - _GVER["ts"]) < _GVER_TTL:
+        return _GVER["resolved"]
+    raw = (os.environ.get("GUARDRAIL_VERSION") or _ssm_get("guardrail-version", "DRAFT")).strip()
+    resolved = _latest_guardrail_version() if raw.upper() == "LATEST" else raw
+    _GVER.update(resolved=resolved, ts=now)
+    return resolved
+
+
 def _guardrail(text, source):
     """Aplica o Guardrail NATIVO do Bedrock (ApplyGuardrail) ao texto, independente do
     Gateway. `source` é "INPUT" (pergunta) ou "OUTPUT" (resposta). Retorna
@@ -142,7 +173,7 @@ def _guardrail(text, source):
     try:
         resp = _bedrock_rt.apply_guardrail(
             guardrailIdentifier=gid,
-            guardrailVersion=_CFG.get("guardrail_version") or "DRAFT",
+            guardrailVersion=_guardrail_version(),
             source=source,
             content=[{"text": {"text": text}}],
         )

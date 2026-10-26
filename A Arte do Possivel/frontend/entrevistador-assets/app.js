@@ -61,7 +61,10 @@ function renderJobCards() {
     const card = document.createElement("div");
     card.className = "job-card";
     card.dataset.id = job.id;
-    card.innerHTML = `<span class="card-title">${job.title}</span>`;
+    const _title = document.createElement("span");
+    _title.className = "card-title";
+    _title.textContent = job.title || "";   // textContent: nunca interpreta HTML (anti-XSS)
+    card.appendChild(_title);
     card.addEventListener("click", () => selectJob(job, card));
     jobCardsEl.appendChild(card);
   });
@@ -430,8 +433,9 @@ function showReport(markdown, tokenUsage) {
     }
   }
 
-  // Render report markdown
+  // Render report markdown — escapa HTML ANTES (anti-XSS); os transforms abaixo não usam < > &
   const html = reportText
+    .replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]))
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/^### (.+)$/gm, "<h3 style='color:#8b9cf7;margin-top:1rem;'>$1</h3>")
     .replace(/^## (.+)$/gm, "<h3 style='color:#8b9cf7;margin-top:1rem;'>$1</h3>")

@@ -64,7 +64,7 @@
     {
       "Sid": "BedrockGuardrail",
       "Effect": "Allow",
-      "Action": ["bedrock:ApplyGuardrail"],
+      "Action": ["bedrock:ApplyGuardrail", "bedrock:ListGuardrails", "bedrock:GetGuardrail"],
       "Resource": "arn:aws:bedrock:REGION:ACCOUNT_ID:guardrail/*"
     },
     {

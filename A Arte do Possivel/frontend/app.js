@@ -10,6 +10,7 @@ function rand(n){const a=new Uint8Array(n);crypto.getRandomValues(a);return b64u
 function redirectUri(){return window.location.origin + "/";}
 function hostedBase(){return `https://${CFG.cognitoDomain}.auth.${CFG.region}.amazoncognito.com`;}
 async function login(){
+  try{ sessionStorage.setItem("post_login_hash", location.hash||""); }catch(e){}
   const v = rand(48); sessionStorage.setItem("pkce_verifier", v);
   const ch = b64url(await sha256(v));
   const u = new URL(hostedBase()+"/oauth2/authorize");
@@ -24,7 +25,8 @@ async function exchangeCode(code){
   if(!r.ok) throw new Error("Falha no login."); const t=await r.json();
   ID_TOKEN=t.id_token; sessionStorage.setItem("id_token",ID_TOKEN);
   if(t.refresh_token) sessionStorage.setItem("refresh_token", t.refresh_token);
-  window.history.replaceState({},"","/");
+  const _dest = sessionStorage.getItem("post_login_hash")||""; sessionStorage.removeItem("post_login_hash");
+  window.history.replaceState({},"","/"+_dest);
 }
 async function refreshToken(){
   const rt=sessionStorage.getItem("refresh_token"); if(!rt) return false;
@@ -102,10 +104,13 @@ const MENU = [
     ["atend-templates","Templates WhatsApp"],
     ["atend-campanhas","Campanhas"],
   ]],
+  ["Administração", [["admin-users","Usuários"]]],
   ["Analytics", [["analytics","Dados Analíticos"]]],
 ];
 // Grupos de topo que ficam SEMPRE por último (separados por uma linha).
-const TRAILING_GROUPS = ["Analytics"];
+const TRAILING_GROUPS = ["Administração", "Analytics"];
+// Grupos de topo visíveis apenas para admin (gateado em renderNav; o backend também exige admin).
+const ADMIN_ONLY_GROUPS = ["Administração"];
 
 // Um nó é grupo quando seu 2º elemento é lista (filhos); senão é folha [chave, rótulo].
 function _isGroup(node){ return Array.isArray(node[1]); }
@@ -128,8 +133,9 @@ function _renderNode(node, active, depth){
 }
 function renderNav(active){
   // Acordeão: abre o caminho até o item ativo (guarda-chuva + subgrupo).
-  const normal = MENU.filter(([g]) => !TRAILING_GROUPS.includes(g));
-  const trailing = TRAILING_GROUPS.map(n => MENU.find(([g]) => g === n)).filter(Boolean);
+  const visible = MENU.filter(([g]) => isAdmin() || !ADMIN_ONLY_GROUPS.includes(g));
+  const normal = visible.filter(([g]) => !TRAILING_GROUPS.includes(g));
+  const trailing = TRAILING_GROUPS.map(n => visible.find(([g]) => g === n)).filter(Boolean);
   el("nav").innerHTML =
     normal.map(g => _renderNode(g, active, 0)).join("") +
     (trailing.length ? `<div class="nav-sep"></div>` : "") +
@@ -3755,6 +3761,100 @@ async function gwKeyDelete(provider){
   catch(e){ alert(e.message); }
 }
 
+/* ---------------- Administração — Usuários (admin; Cognito via /api/admin/users) ---------------- */
+async function viewUsuarios(){
+  h(`<div class="hdr"><h2>Usuários</h2><button class="sec" onclick="viewUsuarios()">↻ Atualizar</button></div>
+     <div class="card">
+       <h3>Novo usuário</h3>
+       <p class="muted">O usuário recebe por e-mail um convite do Cognito com senha temporária. Login pela Hosted UI.</p>
+       <div class="row" style="gap:10px;align-items:flex-end;flex-wrap:wrap">
+         <div><label>E-mail</label><input id="u-email" type="email" autocomplete="off" placeholder="nome@dominio.com" style="min-width:260px"></div>
+         <div><label>Perfil</label><select id="u-group"><option value="professor">professor</option><option value="admin">admin</option></select></div>
+         <button id="u-create" onclick="createUser()">Criar usuário</button>
+         <span id="u-msg" class="muted"></span>
+       </div>
+     </div>
+     <div id="u-pwdbox" style="display:none"></div>
+     <div class="card"><div id="u-list" class="muted">Carregando…</div></div>`);
+  await loadUsers();
+}
+
+async function loadUsers(){
+  const box=el("u-list"); if(!box) return;
+  try{
+    const r=await api("/admin/users");
+    const users=r.users||[];
+    box.className="";
+    box.innerHTML = `<table><tr><th>E-mail</th><th>Perfil</th><th>Status</th><th>Criado</th><th></th></tr>`+
+      (users.length?users.map(u=>{
+        const grupos=(u.groups||[]).join(", ")||"—";
+        const dt=(u.createdAt||"").slice(0,10);
+        const reset = `<button class="ghost" onclick="openSetPassword('${encodeURIComponent(u.username)}')">🔑 Definir senha</button>`;
+        const excluir = u.protected
+          ? `<span class="muted" title="Dono do ambiente — não pode ser excluído">🔒 protegido</span>`
+          : `<button class="ghost danger" onclick="deleteUser('${encodeURIComponent(u.username)}')">✕ excluir</button>`;
+        return `<tr><td>${esc(u.email)}</td><td>${esc(grupos)}</td><td>${esc(u.status||"")}</td><td>${esc(dt)}</td><td style="white-space:nowrap">${reset} ${excluir}</td></tr>`;
+      }).join(""):`<tr><td colspan="5" class="muted">Nenhum usuário.</td></tr>`)+`</table>`;
+  }catch(e){ box.className="danger"; box.textContent="Erro ao carregar usuários: "+e.message; }
+}
+
+async function createUser(){
+  const email=(el("u-email").value||"").trim();
+  const group=el("u-group").value||"professor";
+  const msg=el("u-msg"), btn=el("u-create");
+  if(!email){ msg.textContent="Informe o e-mail."; return; }
+  btn.disabled=true; msg.textContent="Criando…";
+  try{
+    await api("/admin/users",{method:"POST",body:JSON.stringify({email,group})});
+    msg.textContent="✅ Convite enviado para "+email;
+    el("u-email").value="";
+    await loadUsers();
+  }catch(e){ msg.textContent="⚠️ "+e.message; }
+  finally{ btn.disabled=false; }
+}
+
+async function deleteUser(encUsername){
+  const email=decodeURIComponent(encUsername);
+  if(!confirm(`Excluir o usuário ${email}? Esta ação é irreversível.`)) return;
+  try{
+    await api("/admin/users/"+encUsername,{method:"DELETE"});
+    await loadUsers();
+  }catch(e){ alert(e.message); }
+}
+
+function openSetPassword(encUsername){
+  const email=decodeURIComponent(encUsername);
+  const box=el("u-pwdbox"); if(!box) return;
+  box.style.display="";
+  box.innerHTML=`<div class="card"><h3>Definir senha — ${esc(email)}</h3>
+    <div class="row" style="gap:12px;align-items:flex-end;flex-wrap:wrap">
+      <div><label>Nova senha</label><input id="u-newpwd" type="password" autocomplete="new-password" style="min-width:240px"></div>
+      <label style="display:flex;gap:6px;align-items:center;white-space:nowrap"><input id="u-temp" type="checkbox"> Temporária (forçar troca no 1º login)</label>
+      <button id="u-setpwd" onclick="submitSetPassword('${encUsername}')">Salvar senha</button>
+      <button class="sec" onclick="el('u-pwdbox').style.display='none';el('u-pwdbox').innerHTML=''">Cancelar</button>
+      <span id="u-pwdmsg" class="muted"></span>
+    </div>
+    <p class="muted">Política: 8+ caracteres com maiúscula, minúscula, número e símbolo. A senha é definida direto (não é enviada por e-mail).</p></div>`;
+  box.scrollIntoView({behavior:"smooth",block:"center"});
+  el("u-newpwd").focus();
+}
+
+async function submitSetPassword(encUsername){
+  const pwd=el("u-newpwd").value||"";
+  const temporary=el("u-temp").checked;
+  const msg=el("u-pwdmsg"), btn=el("u-setpwd");
+  if(pwd.length<8){ msg.textContent="Senha muito curta (mín. 8)."; return; }
+  btn.disabled=true; msg.textContent="Salvando…";
+  try{
+    await api("/admin/users/"+encUsername+"/reset-password",{method:"POST",
+      body:JSON.stringify({password:pwd,temporary})});
+    msg.textContent=temporary?"✅ Senha provisória definida (o usuário troca no 1º login).":"✅ Senha definida. O usuário já pode entrar com ela.";
+    el("u-newpwd").value="";
+    setTimeout(()=>{ const b=el("u-pwdbox"); if(b){ b.style.display="none"; b.innerHTML=""; } }, 1600);
+  }catch(e){ msg.textContent="⚠️ "+e.message; }
+  finally{ btn.disabled=false; }
+}
+
 const ROUTES = {
   "ex-corrige":()=>viewCorrecao("exam"), "ex-criar":viewCriar, "ex-hist":()=>viewHistorico("exam"),
   "red-rubrica":viewRubricas, "red-corrige":()=>viewCorrecao("essay"), "red-hist":()=>viewHistorico("essay"),
@@ -3764,6 +3864,7 @@ const ROUTES = {
   "po-criar":viewOnlineCreate, "po-teste":viewOnlineTest, "po-hist":viewOnlineHist,
   "ent-entrevista":viewEntEntrevista, "ent-vagas":viewEntVagas,
   "ent-avatar":viewEntAvatar, "ent-relatorio":viewEntRelatorio,
+  "admin-users":viewUsuarios,
   "atend-assistente":viewAtendAssistente,
   "atend-chat":viewAtendimentoChat, "atend-templates":viewAtendTemplates, "atend-campanhas":viewAtendCampanhas,
   "ori-alunos":viewOrientadorAlunos, "ori-cursos":viewOrientadorCursos, "ori-carreiras":viewOrientadorCarreiras,

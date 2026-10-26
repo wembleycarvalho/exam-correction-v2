@@ -11,6 +11,7 @@ import re
 import time
 import uuid
 from decimal import Decimal
+from urllib.parse import unquote
 
 import boto3
 from boto3.dynamodb.conditions import Key
@@ -107,7 +108,7 @@ def _route(event, method, segs):
     if head == "pricing":
         return _pricing_route(event, method)
     if head == "admin" and len(segs) >= 2 and segs[1] == "users":
-        return _admin_users(event, method)
+        return _admin_users(event, method, segs)
     return http.error(404, http.NOT_FOUND, "Recurso não encontrado.")
 
 
@@ -281,6 +282,15 @@ def _get_image(sub_id, owner, event):
     if sub.get("ownerId") != owner and not authz.has_group(event, "admin"):
         return http.error(403, http.FORBIDDEN, "Sem permissão sobre esta submissão.")
     key = sub.get("s3Key", "")
+    # O arquivo original é retido por 90 dias (lifecycle do bucket de uploads). Para
+    # submissões antigas o objeto já expirou; confirma a existência antes de devolver a URL
+    # para a UI mostrar uma mensagem clara em vez de uma imagem quebrada (404 NoSuchKey).
+    try:
+        _s3.head_object(Bucket=UPLOAD_BUCKET, Key=key)
+    except Exception:  # noqa: BLE001
+        return http.error(410, "IMAGE_EXPIRED",
+                          "A imagem original não está mais disponível. Os arquivos enviados "
+                          "são retidos por 90 dias e depois removidos automaticamente.")
     url = _s3.generate_presigned_url("get_object",
                                      Params={"Bucket": UPLOAD_BUCKET, "Key": key}, ExpiresIn=600)
     return http.response(200, {"url": url, "ext": key.rsplit(".", 1)[-1].lower()})
@@ -1037,25 +1047,141 @@ def _cost(model, ti, to, prices):
 
 
 # ============================== Admin users =====================================
-def _admin_users(event, method):
-    if method != "POST":
-        return _405()
+# Usuários que NUNCA podem ser excluídos (dono do ambiente). Comparação case-insensitive.
+PROTECTED_USERS = {"wembley@amazon.com"}
+
+
+def _admin_users(event, method, segs):
+    """CRUD de usuários do ambiente (Cognito), restrito a admin.
+
+    GET    /admin/users                            -> lista usuários (com grupos/status)
+    POST   /admin/users                            -> cria/convida usuário (email + grupo)
+    DELETE /admin/users/{username}                 -> exclui usuário (bloqueia PROTECTED_USERS)
+    POST   /admin/users/{username}/reset-password  -> define a senha do usuário (admin)
+    """
     _require_admin(event)
     if not USER_POOL_ID:
         return http.error(500, "INTERNAL", "User Pool não configurado.")
+    # /admin/users
+    if len(segs) == 2:
+        if method == "GET":
+            return _list_users()
+        if method == "POST":
+            return _create_user(event)
+        return _405()
+    # /admin/users/{username}
+    if len(segs) == 3:
+        username = unquote(segs[2])
+        if method == "DELETE":
+            return _delete_user(username)
+        return _405()
+    # /admin/users/{username}/reset-password
+    if len(segs) == 4 and segs[3] == "reset-password":
+        if method == "POST":
+            return _reset_password(unquote(segs[2]), event)
+        return _405()
+    return _405()
+
+
+def _list_users():
+    users = []
+    kwargs = {"UserPoolId": USER_POOL_ID, "Limit": 60}
+    while True:
+        resp = _idp.list_users(**kwargs)
+        for u in resp.get("Users", []):
+            attrs = {a["Name"]: a["Value"] for a in u.get("Attributes", [])}
+            username = u.get("Username", "")
+            email = attrs.get("email", username)
+            try:
+                gresp = _idp.admin_list_groups_for_user(UserPoolId=USER_POOL_ID, Username=username)
+                groups = [g["GroupName"] for g in gresp.get("Groups", [])]
+            except Exception:  # noqa: BLE001
+                groups = []
+            created = u.get("UserCreateDate")
+            users.append({
+                "username": username,
+                "email": email,
+                "status": u.get("UserStatus", ""),
+                "enabled": bool(u.get("Enabled", True)),
+                "createdAt": created.isoformat() if created else "",
+                "groups": groups,
+                "protected": _is_protected(username) or _is_protected(email),
+            })
+        token = resp.get("PaginationToken")
+        if not token:
+            break
+        kwargs["PaginationToken"] = token
+    users.sort(key=lambda x: x.get("email", "").lower())
+    return http.response(200, {"users": users})
+
+
+def _create_user(event):
     body = http.parse_json_body(event)
-    email = (body.get("email") or "").strip()
+    email = (body.get("email") or "").strip().lower()
     group = body.get("group", "professor")
-    if not email:
-        return http.error(400, http.INVALID_BODY, "Informe o e-mail.")
-    _idp.admin_create_user(
-        UserPoolId=USER_POOL_ID, Username=email,
-        UserAttributes=[{"Name": "email", "Value": email}, {"Name": "email_verified", "Value": "true"}],
-        DesiredDeliveryMediums=["EMAIL"],
-    )
-    if group in ("admin", "professor"):
-        _idp.admin_add_user_to_group(UserPoolId=USER_POOL_ID, Username=email, GroupName=group)
+    if not email or "@" not in email:
+        return http.error(400, http.INVALID_BODY, "Informe um e-mail válido.")
+    if group not in ("admin", "professor"):
+        group = "professor"
+    try:
+        _idp.admin_create_user(
+            UserPoolId=USER_POOL_ID, Username=email,
+            UserAttributes=[{"Name": "email", "Value": email},
+                            {"Name": "email_verified", "Value": "true"}],
+            DesiredDeliveryMediums=["EMAIL"],
+        )
+    except _idp.exceptions.UsernameExistsException:
+        return http.error(409, "USER_EXISTS", "Já existe um usuário com este e-mail.")
+    _idp.admin_add_user_to_group(UserPoolId=USER_POOL_ID, Username=email, GroupName=group)
     return http.response(201, {"email": email, "group": group, "status": "INVITED"})
+
+
+def _delete_user(username):
+    uname = (username or "").strip()
+    if not uname:
+        return http.error(400, http.INVALID_BODY, "Informe o usuário.")
+    if _is_protected(uname):
+        return http.error(403, http.FORBIDDEN, "Este usuário é protegido e não pode ser excluído.")
+    try:
+        _idp.admin_delete_user(UserPoolId=USER_POOL_ID, Username=uname)
+    except _idp.exceptions.UserNotFoundException:
+        return http.error(404, http.NOT_FOUND, "Usuário não encontrado.")
+    return http.response(200, {"deleted": uname})
+
+
+def _reset_password(username, event):
+    """O admin define diretamente a nova senha do usuário (admin_set_user_password).
+
+    Body: {"password": "<nova senha>", "temporary": bool?}.
+    - temporary=false (padrão): senha PERMANENTE; o usuário já loga com ela.
+    - temporary=true: senha provisória; o Cognito força a troca no 1º login.
+    Também confirma usuários ainda em FORCE_CHANGE_PASSWORD (convite não aberto)."""
+    uname = (username or "").strip()
+    if not uname:
+        return http.error(400, http.INVALID_BODY, "Informe o usuário.")
+    body = http.parse_json_body(event)
+    password = body.get("password") or ""
+    temporary = bool(body.get("temporary", False))
+    if not password or len(password) < 8:
+        return http.error(400, http.INVALID_BODY, "Informe uma senha com pelo menos 8 caracteres.")
+    try:
+        _idp.admin_set_user_password(
+            UserPoolId=USER_POOL_ID, Username=uname,
+            Password=password, Permanent=not temporary)
+    except _idp.exceptions.UserNotFoundException:
+        return http.error(404, http.NOT_FOUND, "Usuário não encontrado.")
+    except _idp.exceptions.InvalidPasswordException:
+        return http.error(400, "WEAK_PASSWORD",
+                          "Senha fora da política: use 8+ caracteres com maiúscula, minúscula, "
+                          "número e símbolo.")
+    except _idp.exceptions.InvalidParameterException:
+        return http.error(400, http.INVALID_BODY, "Parâmetros inválidos para definir a senha.")
+    return http.response(200, {"username": uname, "status": "PASSWORD_SET",
+                               "permanent": not temporary})
+
+
+def _is_protected(identifier: str) -> bool:
+    return (identifier or "").strip().lower() in PROTECTED_USERS
 
 
 # ============================== Provas Online ===================================

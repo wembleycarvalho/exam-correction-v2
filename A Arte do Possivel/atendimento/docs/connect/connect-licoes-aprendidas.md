@@ -58,3 +58,32 @@ Conhecimento adquirido resolvendo problemas reais. Consultar ANTES de mexer ness
 - `scripts/test_chat_escalate.py` inicia chat e conversa com o bot. PRECISA de **websocket** (create_participant_connection com Type WEBSOCKET) - so REST nao engaja o Lex.
 - Limitacao: chat via API nao tem `CustomerEndpoint.Address`, entao `set-phone-attr` zera o phone -> campos que dependem de telefone (nome/foto/timeline) ficam vazios no teste. No WhatsApp real funcionam.
 - MCP gateway tools podem falhar no chat via API (auth JWT diferente) -> escalacoes degradadas.
+
+## AI Agent perdeu as tools do gateway ("dificuldades tecnicas")
+- Sintoma: no WhatsApp (+5511945746008) o bot responde "Estou tendo dificuldades tecnicas para
+  acessar suas informacoes financeiras" e oferece atendente. Nos logs do gateway
+  (`/aws/vendedlogs/bedrock-agentcore/gateway/APPLICATION_LOGS/connect-jwt-gateway-4njugyplcw`)
+  NAO ha nenhuma entrada na hora da conversa, e as Lambdas de tool (mcp-academico etc.) nao sao
+  invocadas -> a chamada nem chega ao gateway.
+- Causa raiz: o AI Agent de orquestracao **agent-nova** (`9fe5ed34...`, assistant `4c588966...`)
+  ficou so com `Complete, Escalate, Retrieve, QueryAssistant`. As 6 tools do gateway
+  (`academico___consultar_academico`, `boleto___gerar_boleto`, `user_lookup___consultar_usuario`,
+  `catalogo_cursos___listar_cursos`, `catalogo_cursos___detalhe_curso`,
+  `conteudo___consultar_conteudo`) + `connect_GetContactAttributes` sumiram da config (um
+  update/publish anterior reenviou a config sem elas). O gateway e a integracao MCP continuavam
+  saudaveis (o **copiloto-atendente** `69d86b4f...` ainda tinha as tools -> serviu de fonte).
+- Diagnostico rapido:
+  `aws qconnect get-ai-agent --assistant-id <A> --ai-agent-id 9fe5ed34-... --query 'aiAgent.configuration.orchestrationAIAgentConfiguration.toolConfigurations[].toolName'`
+  Se faltarem as `*___*` do namespace `gateway_connect-jwt-gateway-...`, e isso.
+- Fix: reenviar a config do agent-nova incluindo as tools do gateway (copiar as entradas exatas do
+  copiloto). toolId no formato `gateway_connect-jwt-gateway-4njugyplcw__<target>___<tool>`,
+  toolName `<target>___<tool>`. Regras de limpeza MCP valem (so toolName/toolType/toolId/
+  overrideInputValues/userInteractionConfiguration). Preservar o `overrideInputValues` do Retrieve.
+  Aplicar via `aws qconnect update-ai-agent ... --visibility-status PUBLISHED --configuration file://...`.
+- Validacao: chat de teste com CPF conhecido (`123.456.789-00`, Wembley Carvalho) pedindo
+  "situacao financeira" -> o bot retorna as mensalidades (Junho/2026 em aberto) e o gateway
+  registra `tools/call academico___consultar_academico`.
+- Observacao lateral: ha webhooks de status `failed`/"phone number malformed" para
+  `recipient +000000000000` chegando no `wpp-gateway-inbound` (callbacks de delivery de um envio
+  de campanha/template quebrado). Sao ruido, nao afetam o chat; investigar separadamente se o
+  envio de campanha estiver falhando.

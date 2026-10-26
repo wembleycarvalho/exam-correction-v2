@@ -107,7 +107,8 @@ class ExamStack(Stack):
             encryption=s3.BucketEncryption.S3_MANAGED,
             enforce_ssl=True,
             removal_policy=RemovalPolicy.RETAIN,
-            lifecycle_rules=[s3.LifecycleRule(expiration=Duration.days(90))],
+            # Expiração desativada: os arquivos enviados são retidos indefinidamente
+            # (antes havia um lifecycle de 90 dias). Reavaliar custo/PII se o volume crescer.
             cors=[s3.CorsRule(
                 allowed_methods=[s3.HttpMethods.PUT, s3.HttpMethods.GET],
                 allowed_origins=["*"],  # deploy.sh restringe ao domínio do CloudFront
@@ -267,7 +268,11 @@ class ExamStack(Stack):
         api_fn.add_to_role_policy(iam.PolicyStatement(
             actions=["cloudwatch:GetMetricStatistics"], resources=["*"]))
         api_fn.add_to_role_policy(iam.PolicyStatement(
-            actions=["cognito-idp:AdminCreateUser", "cognito-idp:AdminAddUserToGroup"],
+            actions=["cognito-idp:AdminCreateUser", "cognito-idp:AdminAddUserToGroup",
+                     "cognito-idp:ListUsers", "cognito-idp:AdminDeleteUser",
+                     "cognito-idp:AdminListGroupsForUser",
+                     "cognito-idp:AdminResetUserPassword",
+                     "cognito-idp:AdminSetUserPassword"],
             resources=[user_pool.user_pool_arn]))
         # Listar modelos multimodais para a Configuração de Modelos.
         api_fn.add_to_role_policy(iam.PolicyStatement(
