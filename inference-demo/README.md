@@ -12,7 +12,7 @@ Everything is private: the SPA, the streaming API, and the admin/observability
 API are only reachable through **CloudFront**, and every request is gated by
 **Cognito**.
 
-- Account/region of the reference deployment: `831782568328` / `us-east-1`
+- Account/region of the reference deployment: `123456789012` / `us-east-1`
 - Live URL (reference deployment): `https://ded6sgmpjdova.cloudfront.net`
 
 ---
