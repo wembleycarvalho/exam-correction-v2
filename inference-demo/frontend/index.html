@@ -1,0 +1,1050 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentCore Gateway - Inference Demo</title>
+<style>
+  :root {
+    --bg: #f4f6fb; --panel: #ffffff; --surface: #f8fafc; --hover: #eef2ff;
+    --border: #e5e7eb; --text: #1f2937; --muted: #6b7280;
+    --accent: #2563eb; --accent-hover: #1d4ed8; --acc2: #6366f1;
+    --ok: #16a34a; --err: #dc2626;
+    --blue: #2563eb; --purple: #6366f1;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text); }
+  a { color: var(--blue); }
+  .app-shell { display: flex; min-height: 100vh; }
+
+  /* Sidebar */
+  aside { width: 240px; background: var(--panel); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; flex-shrink: 0; }
+  aside .brand { padding: 18px 16px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 14px; color: #111827; }
+  aside .brand small { display: block; color: var(--muted); font-weight: 400; font-size: 11px; margin-top: 3px; }
+  nav { padding: 10px 8px; flex: 1; }
+  nav button { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+    background: transparent; border: none; color: var(--muted); padding: 9px 12px; border-radius: 8px;
+    cursor: pointer; font-size: 13.5px; margin-bottom: 2px; }
+  nav button:hover { background: var(--hover); color: var(--accent-hover); }
+  nav button.active { background: var(--hover); color: var(--accent-hover); font-weight: 600; }
+  aside .userbox { padding: 12px 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); }
+  aside .userbox button { margin-top: 8px; }
+
+  /* Content */
+  main { flex: 1; min-width: 0; }
+  .topbar { padding: 16px 24px; border-bottom: 1px solid var(--border); background: var(--panel); }
+  .topbar h1 { margin: 0; font-size: 17px; }
+  .topbar .sub { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
+  .content { max-width: 980px; margin: 0 auto; padding: 22px 24px; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 16px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+  label.fld { display: block; font-size: 12px; color: var(--muted); margin: 0 0 6px; }
+  select, input[type=text], input[type=password], textarea {
+    width: 100%; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--border);
+    background: #fff; color: var(--text); font-size: 14px; font-family: inherit; }
+  select:focus, input:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+  textarea { min-height: 130px; resize: vertical; line-height: 1.5; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .row > div { flex: 1; min-width: 180px; }
+  form.chat { display: flex; gap: 8px; margin-top: 12px; }
+  form.chat input { flex: 1; }
+  button.btn { padding: 10px 16px; border-radius: 8px; border: none; background: var(--accent);
+    color: #fff; font-weight: 600; cursor: pointer; font-size: 14px; }
+  button.btn:hover { background: var(--accent-hover); }
+  button.btn.secondary { background: #e5e7eb; color: #1f2937; border: none; }
+  button.btn.secondary:hover { background: #d1d5db; }
+  button.btn:disabled { opacity: .5; cursor: default; }
+  .answer { white-space: pre-wrap; line-height: 1.6; font-size: 14.5px; min-height: 24px; }
+  .meta { color: var(--muted); font-size: 12px; margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
+  .hint { color: var(--muted); font-size: 12.5px; }
+  .err { color: var(--err); }
+  .ok { color: var(--ok); }
+  .warn { color: #92400e; font-size: 12.5px; background: #fef3c7;
+    border: 1px solid #fde68a; border-radius: 8px; padding: 9px 11px; line-height: 1.5; }
+  .dbgpre { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    font-family: ui-monospace, Menlo, monospace; font-size: 12px; white-space: pre; overflow-x: auto;
+    line-height: 1.45; margin: 6px 0 0; color: #334155; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 14px; font-size: 12.5px; }
+  .kv .k { color: var(--muted); }
+  .eval-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  details.dbg summary { cursor: pointer; color: var(--muted); font-size: 12.5px; margin-top: 8px; }
+  .copybtn { padding: 4px 10px; font-size: 12px; }
+  table.cmp { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  table.cmp th, table.cmp td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
+  table.cmp thead th { background: var(--surface); color: var(--muted); font-weight: 600; }
+  table.cmp td.best { color: var(--ok); font-weight: 600; }
+  table.cmp td.strong { font-weight: 700; }
+  table.cmp tbody td:first-child { color: var(--muted); }
+  .histrow { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-top: 8px; }
+  .histrow .h { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+  .pill { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 999px;
+    border: 1px solid var(--border); color: var(--muted); margin-right: 4px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; font-size: 11.5px; text-transform: uppercase; letter-spacing: .3px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .stat { display: inline-block; margin-right: 28px; }
+  .stat .v { font-size: 22px; font-weight: 600; }
+  .stat .l { font-size: 11.5px; color: var(--muted); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } aside { width: 64px; } aside .brand small, nav button span { display: none; } }
+  .chart svg { width: 100%; height: 150px; display: block; }
+  .legend { font-size: 11.5px; color: var(--muted); margin-top: 6px; }
+  .legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin: 0 5px 0 12px; vertical-align: middle; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .toolbar { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 4px; }
+  .toolbar > div { min-width: 150px; }
+</style>
+</head>
+<body>
+  <div id="loading" class="content"><div class="card"><span class="spinner"></span> Checking authentication...</div></div>
+
+  <div class="app-shell" id="shell" style="display:none;">
+    <aside>
+      <div class="brand">AgentCore Gateway<small>Inference Demo</small></div>
+      <nav>
+        <button data-tab="inference" class="active"><span>Inference</span></button>
+        <button data-tab="evaluation"><span>Evaluation</span></button>
+        <button data-tab="history"><span>History</span></button>
+        <button data-tab="mantle"><span>Mantle-config</span></button>
+        <button data-tab="keys"><span>Keys</span></button>
+        <button data-tab="prompt"><span>System-prompt</span></button>
+      </nav>
+      <div class="userbox">
+        <div id="userEmail"></div>
+        <button class="btn secondary" id="signOutBtn" style="padding:6px 12px;font-size:12px;">Sign out</button>
+      </div>
+    </aside>
+
+    <main>
+      <div class="topbar">
+        <h1 id="tabTitle">Inference</h1>
+        <div class="sub" id="tabSub">Unified LLM proxy via the AgentCore Gateway inference target</div>
+      </div>
+      <div class="content">
+
+        <!-- ============ INFERENCE ============ -->
+        <section class="panel active" id="panel-inference">
+          <div class="card">
+            <div style="display:flex; gap:12px; align-items:flex-end;">
+              <div style="flex:1; min-width:0;">
+                <label class="fld">Model</label>
+                <select id="modelSelect"><option>loading models...</option></select>
+              </div>
+              <div style="flex:0 0 200px;">
+                <label class="fld">Project</label>
+                <select id="projectSelect"><option value="default">default</option></select>
+              </div>
+            </div>
+            <form class="chat" id="chatForm">
+              <input type="text" id="messageInput" placeholder="Type your question" autofocus>
+              <button type="submit" class="btn" id="sendBtn">Send</button>
+            </form>
+            <div class="hint" id="promptIndicator" style="margin-top:8px;"></div>
+          </div>
+          <div id="answerCard" class="card" style="display:none;">
+            <div class="answer" id="answerText"></div>
+            <div class="meta" id="metaText"></div>
+          </div>
+          <div id="debugCard" class="card" style="display:none;"><div id="dbgHost"></div></div>
+        </section>
+
+        <!-- ============ EVALUATION ============ -->
+        <section class="panel" id="panel-evaluation">
+          <div class="card">
+            <label class="fld">Models to compare (up to 3)</label>
+            <div class="row">
+              <div><select id="evModel1" class="evmodel"></select></div>
+              <div><select id="evModel2" class="evmodel"></select></div>
+              <div><select id="evModel3" class="evmodel"></select></div>
+            </div>
+            <div style="display:flex; gap:12px; align-items:flex-end; margin-top:10px; flex-wrap:wrap;">
+              <div style="flex:0 0 200px;">
+                <label class="fld">Project</label>
+                <select id="evProject"><option value="default">default</option></select>
+              </div>
+              <div style="flex:1 1 260px; min-width:220px;">
+                <label class="fld">Judge model (LLM-as-a-judge)</label>
+                <select id="evJudge"></select>
+              </div>
+              <label style="display:flex; align-items:center; gap:6px; padding-bottom:8px; white-space:nowrap;">
+                <input type="checkbox" id="evAutoJudge" checked> Auto-judge quality
+              </label>
+            </div>
+            <form class="chat" id="evForm">
+              <input type="text" id="evMessage" placeholder="Prompt to compare across the selected models" autocomplete="off">
+              <button type="submit" class="btn" id="evSend">Compare</button>
+            </form>
+            <div class="hint" style="margin-top:8px;">Runs the same prompt against each selected model in parallel, then an independent judge model ranks the answers on a quality rubric. Speed/token metrics are measured directly.</div>
+          </div>
+          <div id="evResults" class="eval-grid"></div>
+          <div id="evCompare"></div>
+          <div id="evVerdict"></div>
+          <div id="evDebug"></div>
+        </section>
+
+        <!-- ============ HISTORY ============ -->
+        <section class="panel" id="panel-history">
+          <div class="card">
+            <div class="toolbar" style="display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <div style="font-weight:600;">Model quality benchmark</div>
+                <div class="hint">Aggregated from the inline judge verdicts of your saved Evaluation runs.</div>
+              </div>
+              <button class="btn secondary" id="histRefresh">Refresh</button>
+            </div>
+            <div id="benchTable" style="margin-top:12px;"><span class="hint">Loading…</span></div>
+          </div>
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+              <div>
+                <div style="font-weight:600;">Deep evaluation (Amazon Bedrock)</div>
+                <div class="hint">Managed, async LLM-as-a-judge jobs — one per model (Bedrock runs the judge and stores auditable scores). Start one with “Deep eval” on a run below.</div>
+              </div>
+              <button class="btn secondary" id="jobsRefresh">Refresh jobs</button>
+            </div>
+            <div style="display:flex;gap:10px;align-items:flex-end;margin-top:10px;flex-wrap:wrap;">
+              <div style="flex:1 1 320px;min-width:260px;">
+                <label class="fld">Bedrock judge model (evaluator models available in this account)</label>
+                <select id="bedrockJudge"><option value="">Loading…</option></select>
+              </div>
+            </div>
+            <div id="evJobs" style="margin-top:12px;"><span class="hint">No deep-eval jobs yet.</span></div>
+          </div>
+          <div class="card">
+            <div style="font-weight:600;margin-bottom:8px;">Evaluation history</div>
+            <div id="histList"><span class="hint">Loading…</span></div>
+          </div>
+        </section>
+
+        <!-- ============ MANTLE-CONFIG ============ -->
+        <section class="panel" id="panel-mantle">
+          <div class="card">
+            <div class="toolbar">
+              <div>
+                <label class="fld">Project</label>
+                <select id="mProjectSelect"><option value="default">default</option></select>
+              </div>
+              <div>
+                <label class="fld">Time range</label>
+                <select id="mRange">
+                  <option value="24:3600">Last 24 hours (hourly)</option>
+                  <option value="168:86400" selected>Last 7 days (daily)</option>
+                  <option value="720:86400">Last 30 days (daily)</option>
+                </select>
+              </div>
+              <div style="flex:0;"><button class="btn secondary" id="mRefresh">Refresh</button></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="stat"><div class="v" id="ovInput">-</div><div class="l">Total input tokens</div></div>
+            <div class="stat"><div class="v" id="ovOutput">-</div><div class="l">Total output tokens</div></div>
+            <div class="stat"><div class="v" id="ovInf">-</div><div class="l">Inference requests</div></div>
+          </div>
+
+          <div class="card chart">
+            <div style="font-weight:600;margin-bottom:6px;">Token usage over time</div>
+            <div id="tokChart"></div>
+            <div class="legend"><span class="dot" style="background:var(--blue)"></span>Input<span class="dot" style="background:var(--purple)"></span>Output</div>
+          </div>
+
+          <div class="card">
+            <div style="font-weight:600;margin-bottom:10px;">Models</div>
+            <div id="modelsTable"><span class="hint">Loading...</span></div>
+          </div>
+
+          <div class="card">
+            <div style="font-weight:600;margin-bottom:10px;">Create project</div>
+            <div class="row">
+              <div><label class="fld">Name</label><input type="text" id="npName" placeholder="e.g. CustomerChatbot-Prod"></div>
+              <div style="flex:0;align-self:flex-end;"><button class="btn" id="npCreate">Create</button></div>
+            </div>
+            <div class="hint" id="npResult" style="margin-top:8px;"></div>
+            <div class="hint" style="margin-top:8px;">
+              Note: project attribution applies only to models on the OpenAI-compatible APIs
+              (Responses / Chat Completions). <b>Anthropic Claude</b> models use the Messages API,
+              which doesn't accept the project header, so their usage stays under <code>default</code>.
+            </div>
+          </div>
+
+          <div class="card">
+            <div style="font-weight:600;margin-bottom:10px;">Data retention</div>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;">
+              <input type="checkbox" id="drShare"> Share data with the model provider (<code>provider_data_share</code>)
+            </label>
+            <div id="drWarn" class="warn" style="display:none;margin-top:10px;">
+              Warning: this is account-wide. Sharing sends prompts/responses to the model provider
+              (leaves AWS's data boundary, 30-day retention) and affects every workload in this AWS
+              account. Required to use Mythos-class models such as <code>anthropic.claude-fable-5</code>.
+            </div>
+            <div style="margin-top:12px;"><button class="btn" id="drApply">Apply</button></div>
+            <div class="hint" id="drResult" style="margin-top:8px;"></div>
+          </div>
+        </section>
+
+        <!-- ============ KEYS ============ -->
+        <section class="panel" id="panel-keys">
+          <div class="card">
+            <div style="font-weight:600;">Direct provider keys</div>
+            <div class="hint" style="margin-top:4px;">Add your own OpenAI or Google Gemini API key. The key is stored in <b>AgentCore Identity</b> (API key mode) and a custom inference target is created on the same Gateway — so these models are invoked <b>through the AgentCore Gateway</b> with your key (not via bedrock-mantle). On save, each model is validated by a real test call; only models the key can actually use are added to the Inference and Evaluation pickers. Remove a key to hide them again.</div>
+            <div class="warn" style="margin-top:10px;">The key is sent once to validate + store it in AgentCore Identity; it is never returned to the browser afterwards. It is transmitted only over the CloudFront + Cognito protected path.</div>
+          </div>
+
+          <div class="card" data-provider="openai">
+            <div style="font-weight:600;margin-bottom:8px;">OpenAI (direct)</div>
+            <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+              <div style="flex:1 1 340px;min-width:260px;">
+                <label class="fld">OpenAI API key</label>
+                <input type="password" class="keyInput" placeholder="sk-..." autocomplete="off">
+              </div>
+              <button class="btn keySave">Save &amp; validate</button>
+              <button class="btn secondary keyRemove">Remove</button>
+            </div>
+            <div class="keyStatus" style="margin-top:10px;"><span class="hint">Loading…</span></div>
+          </div>
+
+          <div class="card" data-provider="gemini">
+            <div style="font-weight:600;margin-bottom:8px;">Google Gemini (direct)</div>
+            <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+              <div style="flex:1 1 340px;min-width:260px;">
+                <label class="fld">Gemini API key</label>
+                <input type="password" class="keyInput" placeholder="AIza..." autocomplete="off">
+              </div>
+              <button class="btn keySave">Save &amp; validate</button>
+              <button class="btn secondary keyRemove">Remove</button>
+            </div>
+            <div class="keyStatus" style="margin-top:10px;"><span class="hint">Loading…</span></div>
+          </div>
+        </section>
+
+        <!-- ============ SYSTEM-PROMPT ============ -->
+        <section class="panel" id="panel-prompt">
+          <div class="card">
+            <label class="fld">System prompt (sent to the backend on every inference as <code>system_prompt</code>)</label>
+            <textarea id="sysPrompt"></textarea>
+            <div style="margin-top:12px;display:flex;gap:8px;">
+              <button class="btn" id="sysSave">Save</button>
+              <button class="btn secondary" id="sysClear">Reset to backend default</button>
+            </div>
+            <div class="hint" id="sysResult" style="margin-top:10px;"></div>
+            <div class="hint" style="margin-top:6px;">
+              Pre-filled with the backend default. Edit and <b>Save</b> to use a custom prompt;
+              <b>Reset</b> restores the default (it is not a blank prompt).
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+<script>
+  // ------------------------------------------------------------ Auth (PKCE) --
+  const REDIRECT_URI = window.location.origin + "/";
+  let CONFIG = null, ACCESS_TOKEN = null;
+
+  function b64url(bytes){let s="";for(const b of bytes)s+=String.fromCharCode(b);
+    return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");}
+  function randStr(n){const a=new Uint8Array(n);crypto.getRandomValues(a);return b64url(a);}
+  async function sha256(s){const d=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s));return b64url(new Uint8Array(d));}
+  async function sha256hex(s){const d=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s));
+    return Array.from(new Uint8Array(d)).map(b=>b.toString(16).padStart(2,"0")).join("");}
+  async function loadConfig(){const r=await fetch("/config.json",{cache:"no-store"});if(!r.ok)throw new Error("config.json");return r.json();}
+
+  async function redirectToLogin(){
+    const v=randStr(48), st=randStr(16);
+    sessionStorage.setItem("pkce_verifier",v); sessionStorage.setItem("oauth_state",st);
+    const params=new URLSearchParams({response_type:"code",client_id:CONFIG.userPoolClientId,
+      redirect_uri:REDIRECT_URI,scope:CONFIG.scope,state:st,
+      code_challenge:await sha256(v),code_challenge_method:"S256"});
+    window.location.assign(`${CONFIG.cognitoDomain}/oauth2/authorize?${params}`);
+  }
+  async function exchangeCode(code){
+    const body=new URLSearchParams({grant_type:"authorization_code",client_id:CONFIG.userPoolClientId,
+      code,redirect_uri:REDIRECT_URI,code_verifier:sessionStorage.getItem("pkce_verifier")||""});
+    const r=await fetch(`${CONFIG.cognitoDomain}/oauth2/token`,{method:"POST",
+      headers:{"Content-Type":"application/x-www-form-urlencoded"},body});
+    if(!r.ok)throw new Error("token exchange failed");
+    const d=await r.json(); const now=Math.floor(Date.now()/1000);
+    sessionStorage.setItem("access_token",d.access_token);
+    sessionStorage.setItem("id_token",d.id_token||"");
+    sessionStorage.setItem("token_expires_at",String(now+(d.expires_in||3600)));
+    sessionStorage.removeItem("pkce_verifier"); sessionStorage.removeItem("oauth_state");
+  }
+  function validToken(){const t=sessionStorage.getItem("access_token");
+    const e=parseInt(sessionStorage.getItem("token_expires_at")||"0",10);
+    return (t && e-30>Math.floor(Date.now()/1000)) ? t : null;}
+  function jwtPayload(t){try{return JSON.parse(atob(t.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));}catch{return{};}}
+  function signOut(){sessionStorage.clear();
+    const p=new URLSearchParams({client_id:CONFIG.userPoolClientId,logout_uri:REDIRECT_URI});
+    window.location.assign(`${CONFIG.cognitoDomain}/logout?${p}`);}
+
+  async function ensureAuth(){
+    CONFIG=await loadConfig();
+    const url=new URL(window.location.href); const code=url.searchParams.get("code");
+    if(code){
+      const st=sessionStorage.getItem("oauth_state");
+      if(st && url.searchParams.get("state")!==st) throw new Error("state mismatch");
+      await exchangeCode(code);
+      window.history.replaceState({},document.title,REDIRECT_URI);
+    }
+    ACCESS_TOKEN=validToken();
+    if(!ACCESS_TOKEN){await redirectToLogin();return false;}
+    return true;
+  }
+  // /api/* uses Authorization (ALB forwards it). /mantle/* uses X-Cognito-Token
+  // (CloudFront OAC re-signs Authorization for SigV4 on the Function URL).
+  async function apiFetch(path,opts={}){
+    const headers=Object.assign({},opts.headers,{Authorization:`Bearer ${ACCESS_TOKEN}`});
+    const r=await fetch(path,Object.assign({},opts,{headers}));
+    if(r.status===401){sessionStorage.clear();await redirectToLogin();throw new Error("session expired");}
+    return r;
+  }
+  async function mantleFetch(path,opts={}){
+    const headers=Object.assign({},opts.headers,{"X-Cognito-Token":ACCESS_TOKEN});
+    // CloudFront OAC requires the SHA-256 of the payload in x-amz-content-sha256
+    // for any non-GET to the Lambda Function URL (it can't sign an unsigned
+    // payload) — including DELETE, whose payload is the empty string.
+    const m=(opts.method||"GET").toUpperCase();
+    if(opts.body!==undefined || m!=="GET"){ headers["x-amz-content-sha256"]=await sha256hex(opts.body||""); }
+    const r=await fetch(path,Object.assign({},opts,{headers}));
+    if(r.status===401){sessionStorage.clear();await redirectToLogin();throw new Error("session expired");}
+    return r;
+  }
+
+  // ------------------------------------------------------------------ Tabs --
+  const TAB_META={
+    inference:["Inference","Unified LLM proxy via the AgentCore Gateway inference target"],
+    evaluation:["Evaluation","Compare responses and metrics across up to 3 models"],
+    history:["History","Saved evaluation runs and per-model quality benchmark"],
+    mantle:["Mantle-config","Projects and observability for the bedrock-mantle inference engine"],
+    keys:["Keys","Add your own OpenAI / Gemini key (AgentCore Identity) to invoke those models via the Gateway"],
+    prompt:["System-prompt","Customize the system prompt sent to the backend"],
+  };
+  let mantleLoaded=false;
+  document.querySelectorAll("nav button").forEach(b=>{
+    b.addEventListener("click",()=>{
+      const tab=b.dataset.tab;
+      document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x===b));
+      document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active",p.id==="panel-"+tab));
+      document.getElementById("tabTitle").textContent=TAB_META[tab][0];
+      document.getElementById("tabSub").textContent=TAB_META[tab][1];
+      if(tab==="mantle" && !mantleLoaded){mantleLoaded=true;loadDashboard();}
+      if(tab==="history"){loadHistory();}
+      if(tab==="keys"){loadKeys();}
+    });
+  });
+
+  // ----------------------------------------------------------- Projects -----
+  async function loadProjects(){
+    try{
+      const r=await mantleFetch("/mantle/projects"); const d=await r.json();
+      const opts=(d.projects||[]).map(p=>`<option value="${p.id}">${p.name} (${p.id})</option>`).join("");
+      if(opts){ document.getElementById("projectSelect").innerHTML=opts;
+        document.getElementById("mProjectSelect").innerHTML=opts;
+        document.getElementById("evProject").innerHTML=opts; }
+    }catch(e){ /* keep default */ }
+  }
+
+  // ------------------------------------------------------------- Models -----
+  function fillModelSelect(sel, groups, withNone){
+    sel.innerHTML="";
+    if(withNone){const o=document.createElement("option");o.value="";o.textContent="— none —";sel.appendChild(o);}
+    for(const prov of Object.keys(groups).sort()){
+      const og=document.createElement("optgroup"); og.label=prov;
+      for(const it of groups[prov].sort((a,b)=>a.label.localeCompare(b.label))){
+        const o=document.createElement("option"); o.value=it.id; o.textContent=it.label; og.appendChild(o);}
+      sel.appendChild(og);
+    }
+  }
+  async function loadModels(){
+    try{
+      const r=await apiFetch("/api/models"); const data=await r.json();
+      const models=data.models||[];
+      const groups={};
+      for(const m of models){const s=m.includes("/")?m.slice(m.lastIndexOf("/")+1):m;
+        const dot=s.indexOf("."); const prov=dot>0?s.slice(0,dot):"other";
+        (groups[prov]=groups[prov]||[]).push({id:m,label:s});}
+      // Direct provider models (OpenAI/Gemini via your own key) — only if a key
+      // is configured; each id is already qualified as "<target>/<model>".
+      try{
+        const kr=await mantleFetch("/mantle/keys"); const kd=await kr.json();
+        for(const p of (kd.providers||[])){
+          if(!p.configured || !(p.models||[]).length) continue;
+          const label=`${p.provider} (direct key)`;
+          groups[label]=p.models.map(id=>({id,label:id.slice(id.indexOf("/")+1)}));
+        }
+      }catch(e){ /* keys are optional */ }
+      if(!Object.keys(groups).length){document.getElementById("modelSelect").innerHTML="<option>no models available</option>";return;}
+      fillModelSelect(document.getElementById("modelSelect"),groups,false);
+      ["evModel1","evModel2","evModel3"].forEach(id=>fillModelSelect(document.getElementById(id),groups,true));
+      // Judge picker (full list, no "none"); default to a strong frontier model.
+      const judgeSel=document.getElementById("evJudge");
+      fillModelSelect(judgeSel,groups,false);
+      const pref=models.find(m=>/openai\.gpt-5/.test(m))
+              || models.find(m=>/anthropic\.claude/.test(m))
+              || models[0];
+      if(pref) judgeSel.value=pref;
+    }catch(e){document.getElementById("modelSelect").innerHTML="<option>error loading models</option>";}
+  }
+
+  // ------------------------------------------------------------- Keys -------
+  async function loadKeys(){
+    let providers=[];
+    try{const r=await mantleFetch("/mantle/keys"); const d=await r.json(); providers=d.providers||[];}
+    catch(e){/* ignore */}
+    const byProv={}; providers.forEach(p=>byProv[p.provider]=p);
+    document.querySelectorAll('#panel-keys [data-provider]').forEach(card=>{
+      const prov=card.getAttribute("data-provider"); const st=card.querySelector(".keyStatus");
+      const p=byProv[prov];
+      if(p && p.configured){
+        const when=p.updatedAt?new Date(p.updatedAt).toLocaleString():"";
+        st.innerHTML=`<span class="ok">✓ configured</span> <span class="hint">· ${(p.models||[]).length} model(s) · updated ${esc(when)}</span>`
+          +`<div style="margin-top:6px;">${(p.models||[]).map(m=>`<span class="pill">${esc(m.slice(m.indexOf("/")+1))}</span>`).join("")}</div>`;
+      }else{
+        st.innerHTML='<span class="hint">Not configured. Add a key to enable these models.</span>';
+      }
+    });
+  }
+  document.querySelectorAll('#panel-keys [data-provider]').forEach(card=>{
+    const prov=card.getAttribute("data-provider");
+    const input=card.querySelector(".keyInput"), st=card.querySelector(".keyStatus");
+    card.querySelector(".keySave").addEventListener("click",async()=>{
+      const apiKey=input.value.trim(); if(!apiKey){st.innerHTML='<span class="err">Enter a key first.</span>';return;}
+      st.innerHTML='<span class="hint"><span class="spinner"></span> Validating key and testing models…</span>';
+      try{
+        const body=JSON.stringify({provider:prov,apiKey});
+        const r=await mantleFetch("/mantle/keys",{method:"POST",headers:{"Content-Type":"application/json"},body});
+        const txt=await r.text(); let d={};
+        try{d=JSON.parse(txt);}catch(_){d={error:(r.status===504?"timed out (try again)":"HTTP "+r.status)+": "+txt.replace(/<[^>]*>/g,"").trim().slice(0,160)};}
+        if(!r.ok){st.innerHTML=`<span class="err">${esc(d.error||("HTTP "+r.status))}</span>`
+          +(d.tested?`<div style="margin-top:6px;">${d.tested.map(t=>`<span class="pill">${t.ok?"✓":"✗"} ${esc(t.model)}</span>`).join("")}</div>`:"");
+          return;}
+        input.value="";
+        st.innerHTML=`<span class="ok">✓ saved</span> <span class="hint">· ${(d.models||[]).length} usable model(s) · target ${esc(d.targetStatus||"?")}</span>`
+          +`<div style="margin-top:6px;">${(d.tested||[]).map(t=>`<span class="pill">${t.ok?"✓":"✗"} ${esc(t.model)}</span>`).join("")}</div>`;
+        loadModels();  // refresh pickers so the new models appear
+      }catch(e){st.innerHTML=`<span class="err">${esc(e.message)}</span>`;}
+    });
+    card.querySelector(".keyRemove").addEventListener("click",async()=>{
+      st.innerHTML='<span class="hint">Removing…</span>';
+      try{
+        const r=await mantleFetch("/mantle/keys/"+prov,{method:"DELETE"});
+        if(!r.ok){const d=await r.json();throw new Error(d.error||("HTTP "+r.status));}
+        st.innerHTML='<span class="hint">Removed. These models are no longer listed.</span>';
+        loadModels();
+      }catch(e){st.innerHTML=`<span class="err">${esc(e.message)}</span>`;}
+    });
+  });
+
+  // -------------------------------------------------------- System prompt ---
+  // Mirror of the backend default (SYSTEM_PROMPT in backend/server.py). Shown as
+  // a reference; the backend uses it whenever no custom prompt is sent.
+  const DEFAULT_PROMPT="You are a helpful assistant. Reply clearly and naturally in the same language as the user's question.";
+  function currentPrompt(){return sessionStorage.getItem("system_prompt")||"";}
+  function refreshPromptUI(){
+    const p=currentPrompt();
+    document.getElementById("promptIndicator").textContent =
+      p ? "Using a custom system prompt (see System-prompt tab)." : "Using the backend default system prompt.";
+  }
+  document.getElementById("sysSave").addEventListener("click",()=>{
+    const v=document.getElementById("sysPrompt").value.trim();
+    if(!v || v===DEFAULT_PROMPT){
+      sessionStorage.removeItem("system_prompt");
+      document.getElementById("sysResult").innerHTML='<span class="ok">Saved - using the backend default.</span>';
+    } else {
+      sessionStorage.setItem("system_prompt",v);
+      document.getElementById("sysResult").innerHTML='<span class="ok">Saved custom prompt.</span>';
+    }
+    refreshPromptUI();
+  });
+  document.getElementById("sysClear").addEventListener("click",()=>{
+    sessionStorage.removeItem("system_prompt");
+    document.getElementById("sysPrompt").value=DEFAULT_PROMPT;
+    document.getElementById("sysResult").innerHTML='<span class="ok">Reset to backend default.</span>';
+    refreshPromptUI();
+  });
+
+  // ------------------------------------------------------------- Chat -------
+  // ---- shared: cURL builder / masking / metrics ----
+  function buildCurl(reqObj){
+    const url=reqObj.url.startsWith("http")?reqObj.url:(window.location.origin+reqObj.url);
+    let s=`curl -N -X ${reqObj.method} '${url}'`;
+    for(const [k,v] of Object.entries(reqObj.headers||{})) s+=` \\\n  -H '${k}: ${v}'`;
+    if(reqObj.body!==undefined){const b=typeof reqObj.body==="string"?reqObj.body:JSON.stringify(reqObj.body);
+      s+=` \\\n  -d '${b.replace(/'/g,"'\\''")}'`;}
+    return s;
+  }
+  function maskStr(s){return String(s).replace(/(Bearer )[A-Za-z0-9._\-]+/g,"$1****MASKED****");}
+  const maskCurl=maskStr;
+  function metricsRows(o){
+    const r=[]; const add=(k,v)=>{ if(v!==undefined&&v!==null&&v!=="") r.push(`<div class="k">${k}</div><div>${v}</div>`); };
+    add("Model",o.model); add("API",o.api); add("Project",o.project||"default");
+    add("TTFT (server)",o.ttft_ms!=null?o.ttft_ms+" ms":null);
+    add("TTFT (client)",o.clientTtftMs!=null?o.clientTtftMs+" ms":null);
+    add("Total (server)",o.total_ms!=null?o.total_ms+" ms":null);
+    add("Total (client)",o.clientTotalMs!=null?o.clientTotalMs+" ms":null);
+    add("Chunks",o.chunks);
+    add("Input tokens",o.usage&&o.usage.input_tokens);
+    add("Output tokens",o.usage&&o.usage.output_tokens);
+    if(o.usage&&o.usage.output_tokens&&o.total_ms) add("Output tok/s",(o.usage.output_tokens/(o.total_ms/1000)).toFixed(1));
+    return r.join("");
+  }
+  // params: {model,message,project,systemPrompt}; cb: {onStart,onDebug,onMeta,onDelta,onDone,onError}
+  async function runInference(params, cb){
+    const body={model:params.model,message:params.message};
+    if(params.project&&params.project!=="default")body.project_id=params.project;
+    if(params.systemPrompt)body.system_prompt=params.systemPrompt;
+    const feReq={method:"POST",url:"/api/chat/stream",
+      headers:{"Content-Type":"application/json","Authorization":`Bearer ${ACCESS_TOKEN}`},body};
+    cb.onStart&&cb.onStart(feReq);
+    const t0=performance.now(); let ttft=null, meta={}; const events=[];
+    try{
+      const resp=await apiFetch("/api/chat/stream",{method:"POST",
+        headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+      if(!resp.ok||!resp.body){cb.onError&&cb.onError("HTTP "+resp.status);return;}
+      const reader=resp.body.getReader(),dec=new TextDecoder();let buf="";
+      while(true){const {value,done}=await reader.read();if(done)break;
+        buf+=dec.decode(value,{stream:true});const lines=buf.split("\n\n");buf=lines.pop();
+        for(const line of lines){if(!line.startsWith("data:"))continue;
+          const evt=JSON.parse(line.slice(5).trim()); events.push(evt);
+          if(evt.type==="meta"){meta=evt;cb.onMeta&&cb.onMeta(evt);}
+          else if(evt.type==="debug"){cb.onDebug&&cb.onDebug(evt.gateway_request);}
+          else if(evt.type==="delta"){if(ttft===null)ttft=Math.round(performance.now()-t0);cb.onDelta&&cb.onDelta(evt.text);}
+          else if(evt.type==="done"){cb.onDone&&cb.onDone(Object.assign(
+            {project:params.project,clientTotalMs:Math.round(performance.now()-t0),clientTtftMs:ttft,beFeEvents:events},meta,evt));}
+          else if(evt.type==="error"){cb.onError&&cb.onError(evt.message);}
+        }
+      }
+    }catch(err){cb.onError&&cb.onError(err.message);}
+  }
+  // Reusable collapsible debug block (requests + responses, tokens masked;
+  // Copy buttons emit the full cURL). Used by both Inference and Evaluation.
+  function makeDebug(label){
+    const d=document.createElement("details"); d.className="dbg";
+    const dh='style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;"';
+    d.innerHTML=`<summary>${label||"Debug / cURL &amp; responses"}</summary>
+      <div class="kv" data-metrics style="margin:8px 0;"></div>
+      <div ${dh}><span class="fld" style="margin:0;">Frontend → Backend request</span><button class="btn secondary copybtn" data-copy="fe">Copy cURL</button></div>
+      <pre class="dbgpre" data-fe></pre>
+      <div ${dh}><span class="fld" style="margin:0;">Backend → Frontend response (SSE events)</span></div>
+      <pre class="dbgpre" data-fer></pre>
+      <div ${dh}><span class="fld" style="margin:0;">Backend → Gateway request</span><button class="btn secondary copybtn" data-copy="gw">Copy cURL</button></div>
+      <pre class="dbgpre" data-gw></pre>
+      <div ${dh}><span class="fld" style="margin:0;">Gateway → Backend response</span></div>
+      <pre class="dbgpre" data-gwr></pre>
+      <div class="hint" style="margin-top:6px;">Tokens are masked here; Copy cURL includes the full token.</div>`;
+    const h={el:d, feReq:null, gwReq:null,
+      m:d.querySelector("[data-metrics]"), fe:d.querySelector("[data-fe]"), fer:d.querySelector("[data-fer]"),
+      gw:d.querySelector("[data-gw]"), gwr:d.querySelector("[data-gwr]")};
+    d.addEventListener("click",(e)=>{const w=e.target.getAttribute("data-copy"); if(!w)return;
+      e.preventDefault(); const req=w==="fe"?h.feReq:h.gwReq; if(!req)return;
+      navigator.clipboard.writeText(buildCurl(req)).then(()=>{e.target.textContent="Copied!";setTimeout(()=>e.target.textContent="Copy cURL",1500);});});
+    h.setFe=(fe)=>{h.feReq=fe; h.fe.textContent=maskCurl(buildCurl(fe));};
+    h.setGw=(gw)=>{h.gwReq=gw; h.gw.textContent=maskCurl(buildCurl(gw));};
+    h.setDone=(o)=>{h.m.innerHTML=metricsRows(o);
+      h.fer.textContent=maskStr(JSON.stringify(o.beFeEvents||[],null,2));
+      h.gwr.textContent=maskStr(JSON.stringify(o.gateway_response||{},null,2));};
+    return h;
+  }
+
+  // ---- Inference tab ----
+  const form=document.getElementById("chatForm"), input=document.getElementById("messageInput"),
+    btn=document.getElementById("sendBtn"), answerCard=document.getElementById("answerCard"),
+    answerText=document.getElementById("answerText"), metaText=document.getElementById("metaText"),
+    debugCard=document.getElementById("debugCard");
+  const infDebug=makeDebug("Debug / cURL & responses"); document.getElementById("dbgHost").appendChild(infDebug.el);
+  form.addEventListener("submit",async(e)=>{
+    e.preventDefault();
+    const message=input.value.trim(), model=document.getElementById("modelSelect").value,
+      project=document.getElementById("projectSelect").value;
+    if(!message||!model)return;
+    btn.disabled=true; answerCard.style.display="block"; answerText.textContent=""; metaText.textContent="";
+    debugCard.style.display="none"; infDebug.el.open=false;
+    await runInference({model,message,project,systemPrompt:currentPrompt()},{
+      onStart:(fe)=>{infDebug.setFe(fe);},
+      onDebug:(gw)=>{infDebug.setGw(gw); debugCard.style.display="block";},
+      onDelta:(t)=>{answerText.textContent+=t;},
+      onDone:(o)=>{const tok=o.usage&&o.usage.output_tokens;
+        metaText.textContent=`api: ${o.api??"?"} · TTFT: ${o.ttft_ms??"?"} ms · total: ${o.clientTotalMs} ms`+(tok?` · output tokens: ${tok}`:"");
+        infDebug.setDone(o); debugCard.style.display="block";},
+      onError:(m)=>{answerText.innerHTML=`<span class="err">${m}</span>`;},
+    });
+    btn.disabled=false;
+  });
+
+  // ---- Evaluation tab ----
+  // Responses go side by side (aligned), then: (1) a comparison metrics table
+  // measured directly (speed/tokens/throughput), (2) an independent judge model
+  // scores quality (LLM-as-a-judge, via the same gateway), (3) the run is saved
+  // to S3 for the History tab. Each model's Debug is in its own box below.
+  function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+  function renderCompare(models, results, verdict){
+    const os=results.map(r=>r.done), txt=results.map(r=>r.text||"");
+    const vmap=(verdict&&verdict._byModel)||null;
+    const defs=[
+      {k:"API", get:i=>os[i]?os[i].api:null, fmt:v=>v||"—"},
+      {k:"TTFT (ms)", get:i=>os[i]?(os[i].ttft_ms??os[i].clientTtftMs):null, dir:"min"},
+      {k:"Total (ms)", get:i=>os[i]?(os[i].total_ms??os[i].clientTotalMs):null, dir:"min"},
+      {k:"Output tok/s", get:i=>{const o=os[i];if(!o)return null;const t=o.usage&&o.usage.output_tokens,ms=o.total_ms??o.clientTotalMs;return (t&&ms)?+(t/(ms/1000)).toFixed(1):null;}, dir:"max"},
+      {k:"Input tokens", get:i=>os[i]&&os[i].usage?(os[i].usage.input_tokens??null):null},
+      {k:"Output tokens", get:i=>os[i]&&os[i].usage?(os[i].usage.output_tokens??null):null},
+      {k:"Total tokens", get:i=>{const u=os[i]&&os[i].usage;if(!u)return null;return ((u.input_tokens||0)+(u.output_tokens||0))||null;}, dir:"min"},
+      {k:"Length (chars)", get:i=>txt[i]?txt[i].length:null},
+      {k:"Chars / out tok", get:i=>{const o=os[i],t=o&&o.usage&&o.usage.output_tokens;return (t&&txt[i])?+(txt[i].length/t).toFixed(1):null;}},
+    ];
+    if(vmap){
+      defs.push({k:"Judge overall (/10)", get:i=>{const e=vmap[models[i]];return e?e.overall:null;}, dir:"max", strong:true});
+      defs.push({k:"Quality / 1k out tok", get:i=>{const e=vmap[models[i]],o=os[i],t=o&&o.usage&&o.usage.output_tokens;return (e&&t)?+(e.overall/(t/1000)).toFixed(2):null;}, dir:"max"});
+      defs.push({k:"Quality / sec", get:i=>{const e=vmap[models[i]],o=os[i],ms=o&&(o.total_ms??o.clientTotalMs);return (e&&ms)?+(e.overall/(ms/1000)).toFixed(2):null;}, dir:"max"});
+    }
+    let h='<div style="overflow-x:auto;"><table class="cmp"><thead><tr><th>Metric</th>';
+    models.forEach((m,i)=>{h+=`<th>${results[i].error?"⚠ ":""}${esc(m)}</th>`;});
+    h+="</tr></thead><tbody>";
+    for(const d of defs){
+      const vals=models.map((m,i)=>d.get(i));
+      let best=null;
+      if(d.dir){const nums=vals.filter(v=>typeof v==="number"&&isFinite(v));
+        if(nums.length) best=d.dir==="min"?Math.min(...nums):Math.max(...nums);}
+      h+=`<tr><td>${d.k}</td>`;
+      vals.forEach(v=>{const disp=d.fmt?d.fmt(v):(v==null?"—":v);
+        const isBest=d.dir&&typeof v==="number"&&v===best;
+        h+=`<td class="${isBest?'best':''} ${d.strong?'strong':''}">${disp}</td>`;});
+      h+="</tr>";
+    }
+    h+="</tbody></table></div>";
+    document.getElementById("evCompare").innerHTML=
+      `<div class="card"><div style="font-weight:600;margin-bottom:8px;">Comparison metrics</div>${h}`+
+      `<div class="hint" style="margin-top:6px;">Green = best per row (fastest / highest throughput / best value). Token counts are informational.</div></div>`;
+  }
+
+  async function runJudge(question, models, results){
+    const host=document.getElementById("evVerdict");
+    const judge=document.getElementById("evJudge").value;
+    host.innerHTML=`<div class="card"><div class="hint">Judging with ${esc(judge)}…</div></div>`;
+    const map=[]; // {id, model}
+    models.forEach((m,i)=>{ if(results[i].done&&!results[i].error&&results[i].text) map.push({id:map.length+1,model:m}); });
+    const idx={}; map.forEach(v=>{idx[v.id]=results[models.indexOf(v.model)];});
+    const sys='You are a strict, impartial evaluator (LLM-as-a-judge). Compare candidate answers to the SAME user question. Judge only on merit; the order is arbitrary and must not bias you. Score each response 0-10 on accuracy, completeness, relevance, clarity, instruction_following, and give an overall 0-10 (weight accuracy and instruction_following highest). Then rank best-to-worst and pick one winner. Respond with ONLY a JSON object, no markdown or prose, of shape: {"evaluations":[{"id":1,"accuracy":0,"completeness":0,"relevance":0,"clarity":0,"instruction_following":0,"overall":0,"comment":"one sentence"}],"ranking":[1],"winner":1,"rationale":"2-3 sentences"}';
+    let msg=`User question:\n<<<\n${question}\n>>>\n\nCandidate responses:\n`;
+    map.forEach(v=>{msg+=`\n[Response ${v.id}]\n<<<\n${idx[v.id].text}\n>>>\n`;});
+    msg+="\nReturn the JSON now.";
+    let raw="";
+    await runInference({model:judge,message:msg,project:"default",systemPrompt:sys},{
+      onDelta:(t)=>{raw+=t;},
+      onError:(m)=>{host.innerHTML=`<div class="card"><span class="err">Judge error: ${esc(m)}</span></div>`;},
+    });
+    let verdict=null;
+    try{const a=raw.indexOf("{"),b=raw.lastIndexOf("}");verdict=JSON.parse(raw.slice(a,b+1));}catch(e){verdict=null;}
+    if(!verdict){host.innerHTML=`<div class="card"><span class="err">Judge did not return valid JSON.</span><pre class="dbgpre">${esc(raw.slice(0,1500))}</pre></div>`;return null;}
+    verdict._judge=judge; verdict._map=map; verdict._byModel={};
+    (verdict.evaluations||[]).forEach(e=>{const mm=map.find(v=>v.id===e.id); if(mm) verdict._byModel[mm.model]=e;});
+    return verdict;
+  }
+
+  function renderVerdict(models, verdict){
+    const host=document.getElementById("evVerdict");
+    if(!verdict)return;
+    const w=(verdict._map||[]).find(v=>v.id===verdict.winner);
+    const winnerModel=w?w.model:null;
+    const selfJudge=models.includes(verdict._judge);
+    const crit=["accuracy","completeness","relevance","clarity","instruction_following","overall"];
+    let rows="";
+    (verdict.evaluations||[]).forEach(e=>{
+      const mm=(verdict._map||[]).find(v=>v.id===e.id); const model=mm?mm.model:("#"+e.id);
+      rows+=`<tr><td style="word-break:break-all;">${esc(model)}</td>`+
+        crit.map(c=>`<td class="${c==='overall'?'strong':''}">${e[c]??"—"}</td>`).join("")+
+        `<td style="max-width:280px;">${esc(e.comment||"")}</td></tr>`;
+    });
+    const rank=(verdict.ranking||[]).map(id=>{const m=(verdict._map||[]).find(v=>v.id===id);return m?m.model:("#"+id);});
+    host.innerHTML=`<div class="card">
+      <div style="font-weight:600;margin-bottom:8px;">Judge verdict <span class="hint">(${esc(verdict._judge)})</span></div>
+      ${selfJudge?'<div class="warn" style="margin-bottom:8px;">⚠ The judge is also one of the candidates — self-evaluation bias is possible. Pick a different judge for an unbiased ranking.</div>':''}
+      ${winnerModel?`<div style="margin:6px 0;"><span class="ok">🏆 Winner: <b>${esc(winnerModel)}</b></span></div>`:''}
+      <div style="overflow-x:auto;"><table class="cmp"><thead><tr><th>Model</th><th>Acc</th><th>Compl</th><th>Rel</th><th>Clar</th><th>Instr</th><th>Overall</th><th>Comment</th></tr></thead><tbody>${rows}</tbody></table></div>
+      ${rank.length?`<div style="margin-top:8px;"><b>Ranking:</b> ${rank.map((m,i)=>`${i+1}. ${esc(m)}`).join(" &nbsp;·&nbsp; ")}</div>`:''}
+      ${verdict.rationale?`<div class="hint" style="margin-top:6px;">${esc(verdict.rationale)}</div>`:''}
+    </div>`;
+  }
+
+  function compactMetrics(o, text){
+    const t=o.usage&&o.usage.output_tokens, ms=o.total_ms??o.clientTotalMs;
+    return {api:o.api, ttftMs:o.ttft_ms??o.clientTtftMs, totalMs:ms,
+      inputTokens:o.usage&&o.usage.input_tokens, outputTokens:t,
+      tokPerSec:(t&&ms)?+(t/(ms/1000)).toFixed(1):null, chars:(text||"").length};
+  }
+  async function persistRun(p){
+    try{
+      const candidates=p.uniq.map((m,i)=>({model:m,
+        api:p.results[i].done?p.results[i].done.api:null,
+        text:p.results[i].text||"", error:p.results[i].error||null,
+        metrics:p.results[i].done?compactMetrics(p.results[i].done,p.results[i].text):null}));
+      let verdict=null;
+      if(p.verdict){verdict={winner:p.verdict.winner,ranking:p.verdict.ranking,
+        rationale:p.verdict.rationale,judge:p.verdict._judge,byModel:{}};
+        (p.verdict.evaluations||[]).forEach(e=>{const mm=(p.verdict._map||[]).find(v=>v.id===e.id);
+          if(mm){const b=Object.assign({},e);delete b.id;verdict.byModel[mm.model]=b;}});}
+      await mantleFetch("/mantle/evals/runs",{method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({prompt:p.message,project:p.project,judgeModel:p.judgeModel,candidates,verdict})});
+    }catch(e){/* non-fatal: history save is best-effort */}
+  }
+
+  document.getElementById("evForm").addEventListener("submit",async(e)=>{
+    e.preventDefault();
+    const message=document.getElementById("evMessage").value.trim();
+    const project=document.getElementById("evProject").value;
+    const models=["evModel1","evModel2","evModel3"].map(id=>document.getElementById(id).value).filter(Boolean);
+    const uniq=[...new Set(models)];
+    if(!message||!uniq.length)return;
+    const grid=document.getElementById("evResults"); grid.innerHTML="";
+    const dbgWrap=document.getElementById("evDebug"); dbgWrap.innerHTML="";
+    document.getElementById("evCompare").innerHTML="";
+    document.getElementById("evVerdict").innerHTML="";
+    const send=document.getElementById("evSend"); send.disabled=true;
+    const results=uniq.map(()=>({done:null,text:"",error:null}));
+    const cols=uniq.map(model=>{
+      const rc=document.createElement("div"); rc.className="card";
+      rc.innerHTML=`<div style="font-weight:600;margin-bottom:8px;word-break:break-all;">${esc(model)}</div>
+        <div class="answer" style="min-height:20px;"></div><div class="meta"></div>`;
+      grid.appendChild(rc);
+      const dc=document.createElement("div"); dc.className="card";
+      dc.innerHTML=`<div style="font-weight:600;margin-bottom:6px;word-break:break-all;">${esc(model)}</div>`;
+      const dbg=makeDebug("Debug / cURL &amp; responses"); dc.appendChild(dbg.el);
+      dbgWrap.appendChild(dc);
+      return {ans:rc.querySelector(".answer"), meta:rc.querySelector(".meta"), dbg};
+    });
+    await Promise.all(uniq.map((m,i)=>runInference({model:m,message,project,systemPrompt:currentPrompt()},{
+      onStart:(fe)=>cols[i].dbg.setFe(fe),
+      onDebug:(gw)=>cols[i].dbg.setGw(gw),
+      onDelta:(t)=>{results[i].text+=t; cols[i].ans.textContent+=t;},
+      onDone:(o)=>{results[i].done=o; const tok=o.usage&&o.usage.output_tokens;
+        cols[i].meta.textContent=`api: ${o.api??"?"} · TTFT: ${o.ttft_ms??"?"} ms · total: ${o.clientTotalMs} ms`+(tok?` · out tok: ${tok}`:"");
+        cols[i].dbg.setDone(o);},
+      onError:(m)=>{results[i].error=m; cols[i].ans.innerHTML=`<span class="err">${esc(m)}</span>`;},
+    })));
+    renderCompare(uniq, results, null);
+    let verdict=null;
+    const valid=results.filter(r=>r.done&&!r.error&&r.text);
+    if(document.getElementById("evAutoJudge").checked && valid.length>=2){
+      verdict=await runJudge(message, uniq, results);
+      if(verdict){renderVerdict(uniq, verdict); renderCompare(uniq, results, verdict);}
+    }
+    persistRun({message,project,judgeModel:document.getElementById("evJudge").value,uniq,results,verdict});
+    send.disabled=false;
+  });
+
+  // ---- History tab: saved runs + per-model quality benchmark ----
+  async function loadHistory(){
+    const bench=document.getElementById("benchTable"), list=document.getElementById("histList");
+    bench.innerHTML='<span class="hint">Loading…</span>'; list.innerHTML='<span class="hint">Loading…</span>';
+    let runs=[];
+    try{const r=await mantleFetch("/mantle/evals/runs?limit=50"); const d=await r.json(); runs=d.runs||[];}
+    catch(e){bench.innerHTML=`<span class="err">${esc(e.message)}</span>`; list.innerHTML=""; return;}
+    if(!runs.length){bench.innerHTML='<span class="hint">No saved runs yet. Run a comparison in the Evaluation tab.</span>'; list.innerHTML=""; return;}
+    // --- benchmark: aggregate judge overall + speed/tokens per model ---
+    const agg={};
+    runs.forEach(run=>{
+      const bm=(run.verdict&&run.verdict.byModel)||{};
+      (run.candidates||[]).forEach(c=>{
+        const a=agg[c.model]||(agg[c.model]={model:c.model,runs:0,overallSum:0,overallN:0,wins:0,spdSum:0,spdN:0});
+        a.runs++;
+        const m=c.metrics||{};
+        if(typeof m.tokPerSec==="number"){a.spdSum+=m.tokPerSec;a.spdN++;}
+        const e=bm[c.model];
+        if(e&&typeof e.overall==="number"){a.overallSum+=e.overall;a.overallN++;}
+      });
+      // Winner = highest judge overall in this run (byModel is keyed by model).
+      let best=null,bestv=-1;
+      Object.keys(bm).forEach(k=>{const ov=bm[k]&&bm[k].overall; if(typeof ov==="number"&&ov>bestv){bestv=ov;best=k;}});
+      if(best&&agg[best])agg[best].wins++;
+    });
+    const brows=Object.values(agg).map(a=>({model:a.model,runs:a.runs,wins:a.wins,
+      avgOverall:a.overallN?+(a.overallSum/a.overallN).toFixed(2):null,
+      avgTokPerSec:a.spdN?+(a.spdSum/a.spdN).toFixed(1):null}))
+      .sort((x,y)=>(y.avgOverall??-1)-(x.avgOverall??-1));
+    let bh='<div style="overflow-x:auto;"><table class="cmp"><thead><tr><th>Model</th><th>Avg quality (/10)</th><th>Wins</th><th>Runs</th><th>Avg tok/s</th></tr></thead><tbody>';
+    brows.forEach(b=>{bh+=`<tr><td style="word-break:break-all;">${esc(b.model)}</td><td class="strong">${b.avgOverall??"—"}</td><td>${b.wins}</td><td>${b.runs}</td><td>${b.avgTokPerSec??"—"}</td></tr>`;});
+    bh+="</tbody></table></div>";
+    bench.innerHTML=bh;
+    // --- history list ---
+    let lh="";
+    runs.forEach(run=>{
+      const when=run.ts?new Date(run.ts).toLocaleString():"";
+      const bm=(run.verdict&&run.verdict.byModel)||{};
+      let winner=null,bestv=-1; Object.keys(bm).forEach(k=>{const ov=bm[k]&&bm[k].overall;if(typeof ov==="number"&&ov>bestv){bestv=ov;winner=k;}});
+      const pills=(run.candidates||[]).map(c=>{const ov=bm[c.model]&&bm[c.model].overall;
+        return `<span class="pill">${esc(c.model)}${typeof ov==="number"?` · ${ov}/10`:""}</span>`;}).join("");
+      lh+=`<div class="histrow"><div class="h"><div style="font-weight:600;word-break:break-word;">${esc((run.prompt||"").slice(0,140))}</div><div class="hint" style="white-space:nowrap;">${esc(when)}</div></div>
+        <div style="margin-top:6px;">${pills}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap;">
+          <div>${winner?`<span class="ok">🏆 ${esc(winner)}</span> <span class="hint">· judge: ${esc(run.judgeModel||"?")} · project: ${esc(run.project||"default")}</span>`:`<span class="hint">no verdict · judge: ${esc(run.judgeModel||"?")}</span>`}</div>
+          <button class="btn secondary copybtn" data-deepeval="${esc(run.runId)}">Deep eval (Bedrock)</button>
+        </div></div>`;
+    });
+    list.innerHTML=lh;
+    loadJudgeModels();
+    loadJobs();
+  }
+  document.getElementById("histRefresh").addEventListener("click",loadHistory);
+  document.getElementById("jobsRefresh").addEventListener("click",loadJobs);
+  let judgeModelsLoaded=false;
+  async function loadJudgeModels(){
+    if(judgeModelsLoaded)return; judgeModelsLoaded=true;
+    const sel=document.getElementById("bedrockJudge");
+    try{
+      const r=await mantleFetch("/mantle/evals/judge-models"); const d=await r.json();
+      const models=d.models||[];
+      if(!models.length){sel.innerHTML='<option value="">no evaluator models available</option>';return;}
+      sel.innerHTML=models.map(m=>`<option value="${esc(m.id)}">${esc(m.label)}</option>`).join("");
+      if(d.default)sel.value=d.default;
+    }catch(e){sel.innerHTML='<option value="">error loading models</option>'; judgeModelsLoaded=false;}
+  }
+  // Delegated: "Deep eval (Bedrock)" starts async jobs for a saved run.
+  document.getElementById("histList").addEventListener("click",async(e)=>{
+    const runId=e.target.getAttribute&&e.target.getAttribute("data-deepeval");
+    if(!runId)return;
+    e.target.disabled=true; e.target.textContent="Starting…";
+    try{
+      const judge=document.getElementById("bedrockJudge").value.trim();
+      const body=JSON.stringify({runId,judgeModel:judge});
+      const r=await mantleFetch("/mantle/evals/jobs",{method:"POST",
+        headers:{"Content-Type":"application/json"},body});
+      const d=await r.json();
+      if(!r.ok){throw new Error(d.error||("HTTP "+r.status));}
+      e.target.textContent="Started ✓";
+      loadJobs();
+    }catch(err){e.target.textContent="Failed"; e.target.title=err.message; e.target.disabled=false;}
+  });
+
+  async function loadJobs(){
+    const host=document.getElementById("evJobs");
+    let manifests=[];
+    try{const r=await mantleFetch("/mantle/evals/jobs?limit=25"); const d=await r.json(); manifests=d.manifests||[];}
+    catch(e){host.innerHTML=`<span class="err">${esc(e.message)}</span>`; return;}
+    if(!manifests.length){host.innerHTML='<span class="hint">No deep-eval jobs yet. Use “Deep eval (Bedrock)” on a run below.</span>'; return;}
+    const badge=(s)=>{const c=s==="Completed"?"ok":(s==="Failed"||s==="Stopped")?"err":"hint";
+      return `<span class="${c}">${esc(s||"?")}</span>`;};
+    const reg=(CONFIG&&CONFIG.region)||"us-east-1";
+    let h="";
+    manifests.forEach(m=>{
+      const when=m.ts?new Date(m.ts).toLocaleString():"";
+      let rows="";
+      (m.jobs||[]).forEach(j=>{
+        const link=j.jobArn?`https://console.aws.amazon.com/bedrock/home?region=${reg}#/eval/evaluation`:null;
+        rows+=`<tr><td style="word-break:break-all;">${esc(j.model)}</td>
+          <td>${j.error?`<span class="err">${esc(j.error.slice(0,120))}</span>`:badge(j.status)}</td>
+          <td>${link?`<a href="${link}" target="_blank" rel="noopener" style="color:var(--blue);">console</a>`:"—"}</td></tr>`;
+      });
+      h+=`<div class="histrow"><div class="h"><div style="font-weight:600;word-break:break-word;">${esc((m.prompt||"").slice(0,120))}</div><div class="hint" style="white-space:nowrap;">${esc(when)}</div></div>
+        <div class="hint" style="margin:4px 0;">judge: ${esc(m.judge||"?")}</div>
+        <div style="overflow-x:auto;"><table class="cmp"><thead><tr><th>Model</th><th>Status</th><th>Results</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    });
+    host.innerHTML=h;
+  }
+
+  // ------------------------------------------------------ Mantle dashboard --
+  function fmt(n){n=n||0; if(n>=1e6)return (n/1e6).toFixed(1)+"M"; if(n>=1e3)return (n/1e3).toFixed(1)+"K"; return String(Math.round(n));}
+  function lineChart(el, ts, a, b){
+    const W=680,H=150,P=24; const n=ts.length;
+    if(!n){el.innerHTML='<span class="hint">No data for this period.</span>';return;}
+    const max=Math.max(1,...a,...b);
+    const x=i=>P+(n===1?W/2:(i*(W-2*P)/(n-1)));
+    const y=v=>H-P-(v/max)*(H-2*P);
+    const path=arr=>arr.map((v,i)=>`${i?"L":"M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+    el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      <path d="${path(a)}" fill="none" stroke="var(--blue)" stroke-width="2"/>
+      <path d="${path(b)}" fill="none" stroke="var(--purple)" stroke-width="2" stroke-dasharray="5 4"/>
+    </svg>`;
+  }
+  async function loadDashboard(){
+    const proj=document.getElementById("mProjectSelect").value;
+    const [hours,period]=document.getElementById("mRange").value.split(":");
+    document.getElementById("modelsTable").innerHTML='<span class="spinner"></span> Loading...';
+    try{
+      const r=await mantleFetch(`/mantle/metrics?project=${encodeURIComponent(proj)}&hours=${hours}&period=${period}`);
+      const d=await r.json();
+      document.getElementById("ovInput").textContent=fmt(d.totals.inputTokens);
+      document.getElementById("ovOutput").textContent=fmt(d.totals.outputTokens);
+      document.getElementById("ovInf").textContent=fmt(d.totals.inferences);
+      lineChart(document.getElementById("tokChart"), d.series.timestamps, d.series.inputTokens, d.series.outputTokens);
+      const rows=(d.models||[]).map(m=>`<tr>
+        <td>${m.model}</td>
+        <td class="num">${fmt(m.inferences)}</td>
+        <td class="num">${fmt(m.inputTokens)}</td>
+        <td class="num">${fmt(m.outputTokens)}</td></tr>`).join("");
+      document.getElementById("modelsTable").innerHTML=
+        `<table><thead><tr><th>Model</th><th class="num">Inference requests</th>
+        <th class="num">Input tokens</th><th class="num">Output tokens</th></tr></thead>
+        <tbody>${rows||'<tr><td colspan="4" class="hint">No usage for this project in the selected period.</td></tr>'}</tbody></table>
+        <div class="hint" style="margin-top:8px;">Scoped to the selected project. Anthropic Claude usage always appears under <code>default</code> (the Messages API can't be attributed to a project).</div>`;
+    }catch(e){document.getElementById("modelsTable").innerHTML=`<span class="err">Error: ${e.message}</span>`;}
+    try{
+      const r=await mantleFetch("/mantle/data-retention"); const d=await r.json();
+      const share=(d.controlPlane==="provider_data_share")||(d.mantle==="provider_data_share");
+      document.getElementById("drShare").checked=share;
+      document.getElementById("drWarn").style.display=share?"block":"none";
+    }catch(e){}
+  }
+  document.getElementById("drShare").addEventListener("change",(e)=>{
+    document.getElementById("drWarn").style.display=e.target.checked?"block":"none";
+  });
+  document.getElementById("drApply").addEventListener("click",async()=>{
+    const mode=document.getElementById("drShare").checked?"provider_data_share":"inherit";
+    const out=document.getElementById("drResult");
+    if(!confirm(`Set ACCOUNT-WIDE data retention to "${mode}"? This affects every workload in this AWS account.`))return;
+    out.innerHTML='<span class="spinner"></span> Applying...';
+    try{
+      const r=await mantleFetch("/mantle/data-retention",{method:"PUT",
+        headers:{"Content-Type":"application/json"},body:JSON.stringify({mode})});
+      const d=await r.json();
+      out.innerHTML = r.ok ? `<span class="ok">Applied — control plane: ${d.controlPlane}, mantle: ${d.mantle}</span>`
+        : `<span class="err">${d.error||JSON.stringify(d)}</span>`;
+    }catch(e){out.innerHTML=`<span class="err">${e.message}</span>`;}
+  });
+  document.getElementById("mRefresh").addEventListener("click",loadDashboard);
+  document.getElementById("mProjectSelect").addEventListener("change",loadDashboard);
+  document.getElementById("mRange").addEventListener("change",loadDashboard);
+  document.getElementById("npCreate").addEventListener("click",async()=>{
+    const name=document.getElementById("npName").value.trim();
+    const out=document.getElementById("npResult");
+    if(!name){out.innerHTML='<span class="err">Enter a name.</span>';return;}
+    out.innerHTML='<span class="spinner"></span> Creating...';
+    try{
+      const r=await mantleFetch("/mantle/projects",{method:"POST",
+        headers:{"Content-Type":"application/json"},body:JSON.stringify({name})});
+      const d=await r.json();
+      if(r.ok && d.id){out.innerHTML=`<span class="ok">Created ${d.id}</span>`;
+        document.getElementById("npName").value=""; await loadProjects();}
+      else{out.innerHTML=`<span class="err">${d.error||JSON.stringify(d).slice(0,200)}</span>`;}
+    }catch(e){out.innerHTML=`<span class="err">${e.message}</span>`;}
+  });
+
+  // ---------------------------------------------------------- Bootstrap -----
+  (async()=>{
+    try{
+      if(!await ensureAuth())return;
+      const claims=jwtPayload(sessionStorage.getItem("id_token")||ACCESS_TOKEN);
+      document.getElementById("userEmail").textContent=claims.email||claims["cognito:username"]||"signed in";
+      document.getElementById("loading").style.display="none";
+      document.getElementById("shell").style.display="flex";
+      document.getElementById("sysPrompt").value=currentPrompt()||DEFAULT_PROMPT;
+      refreshPromptUI();
+      document.getElementById("signOutBtn").addEventListener("click",signOut);
+      loadModels(); loadProjects();
+    }catch(err){
+      document.getElementById("loading").innerHTML=`<div class="card err">Authentication error: ${err.message}</div>`;
+    }
+  })();
+</script>
+
+</body>
+</html>

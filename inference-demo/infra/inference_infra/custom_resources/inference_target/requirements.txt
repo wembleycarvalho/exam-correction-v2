@@ -1,0 +1,6 @@
+# The Lambda Python runtime ships an older botocore whose
+# CreateGatewayTarget only accepts targetConfiguration.mcp. The "inference"
+# target format requires a newer botocore (>= 1.43.47), so we bundle boto3
+# into the function package (see BundlingOptions in stack.py). Files installed
+# under /var/task take precedence over the runtime's built-in boto3.
+boto3>=1.43.47

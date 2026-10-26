@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# CDK
+infra/cdk.out/
+infra/.venv/
+infra/node_modules/
+*.egg-info/
+
+# Secrets - NEVER commit
+.env
+
+# IDE / OS
+.DS_Store
+.vscode/
+
+# Docker build context (the image is built from backend/, there is no extra
+# artifact to ignore today, but we keep the gitignore ready for it)

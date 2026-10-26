@@ -1,0 +1,44 @@
+# ---- Secrets / credentials (NUNCA versionar) ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*_rsa
+*_rsa.pub
+aws-credentials*
+.aws/
+
+# ---- Node ----
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnp.*
+
+# ---- Build outputs ----
+dist/
+build/
+*.tsbuildinfo
+coverage/
+
+# ---- CDK ----
+infra/cdk.out/
+cdk.out/
+cdk.context.json
+
+# ---- Frontend (Vite) ----
+frontend/dist/
+frontend/.vite/
+
+# ---- Logs / temp ----
+*.log
+.DS_Store
+tmp/
+.tmp/
+
+# ---- Editor ----
+.vscode/*
+!.vscode/extensions.json
+.idea/

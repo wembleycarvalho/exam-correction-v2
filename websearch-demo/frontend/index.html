@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentCore Gateway - Web Search Demo</title>
+<style>
+  :root {
+    --bg: #0b0e14; --panel: #131722; --border: #232838; --text: #e6e9ef;
+    --muted: #8a93a6; --accent: #d8b4fe; --ok: #35c46b; --err: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 24px; border-bottom: 1px solid var(--border);
+  }
+  header h1 { margin: 0; font-size: 18px; }
+  header .sub { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+  header .userbox { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  header .userbox .email { color: var(--muted); }
+  main { max-width: 720px; margin: 0 auto; padding: 24px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px; margin-bottom: 16px;
+  }
+  form { display: flex; gap: 8px; }
+  input[type=text] {
+    flex: 1; padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border);
+    background: #0e1219; color: var(--text); font-size: 14px;
+  }
+  button {
+    padding: 12px 20px; border-radius: 8px; border: none; background: var(--accent);
+    color: #1a1030; font-weight: 600; cursor: pointer; font-size: 14px;
+  }
+  button.secondary {
+    background: transparent; border: 1px solid var(--border); color: var(--text);
+    padding: 8px 14px; font-weight: 500;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  .result { padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .result:last-child { border-bottom: none; }
+  .result a { color: #6ea8fe; text-decoration: none; font-weight: 600; }
+  .result a:hover { text-decoration: underline; }
+  .result .date { color: var(--muted); font-size: 12px; margin: 2px 0 6px; }
+  .result .snippet { font-size: 13.5px; color: #c7ccd6; line-height: 1.5; }
+  .hint { color: var(--muted); font-size: 13px; }
+  .err { color: var(--err); }
+  .spinner {
+    display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #app { display: none; }
+  #gate { display: flex; align-items: center; justify-content: center; min-height: 60vh; }
+</style>
+</head>
+<body>
+  <div id="gate">
+    <span class="spinner"></span>&nbsp;<span class="hint">Checking session...</span>
+  </div>
+
+  <div id="app">
+    <header>
+      <div>
+        <h1>AgentCore Gateway - Web Search Demo</h1>
+        <div class="sub">Web search via the AgentCore Gateway's native "Web Search Tool" connector (MCP)</div>
+      </div>
+      <div class="userbox">
+        <span class="email" id="userEmail"></span>
+        <button class="secondary" id="logoutBtn">Sign out</button>
+      </div>
+    </header>
+    <main>
+      <div class="card">
+        <form id="searchForm">
+          <input type="text" id="queryInput" placeholder="Ask something (e.g. AWS re:Invent 2025 news)" maxlength="200" autofocus>
+          <button type="submit" id="searchBtn">Search</button>
+        </form>
+      </div>
+      <div id="resultsCard" class="card" style="display:none;"></div>
+    </main>
+  </div>
+
+  <script>
+    // Same origin (CloudFront routes /api/* to the Lambda) -> no CORS to configure
+    // for the search/token-exchange calls. Only the Hosted UI login/logout use a
+    // real browser redirect to Cognito's domain (the officially supported pattern -
+    // Cognito's /oauth2/token and /logout endpoints don't support cross-origin
+    // fetch/XHR from a browser).
+    const API_BASE = "/api";
+    const SESSION_KEY = "websearch_demo_session"; // sessionStorage: cleared on tab close
+    const PKCE_KEY = "websearch_demo_pkce";        // sessionStorage: short-lived, mid-redirect only
+
+    // ---------------------------------------------------------------- PKCE utils --
+    function base64UrlEncode(bytes) {
+      let str = btoa(String.fromCharCode(...bytes));
+      return str.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    }
+
+    function randomString(len) {
+      const bytes = new Uint8Array(len);
+      crypto.getRandomValues(bytes);
+      return base64UrlEncode(bytes);
+    }
+
+    async function sha256Base64Url(text) {
+      const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+      return base64UrlEncode(new Uint8Array(digest));
+    }
+
+    // Lowercase hex SHA-256 (the payload-hash format SigV4 uses).
+    async function sha256Hex(text) {
+      const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+      return Array.from(new Uint8Array(digest))
+        .map(b => b.toString(16).padStart(2, "0")).join("");
+    }
+
+    // POST to the same-origin /api/* endpoints, which are fronted by CloudFront
+    // OAC signing a Lambda Function URL. Two OAC quirks are handled here:
+    //   1. For POST bodies, the viewer MUST send x-amz-content-sha256 (the SHA-256
+    //      of the body) so CloudFront can sign the payload. Without it the origin
+    //      returns "signature does not match".
+    //   2. CloudFront (SIGV4_ALWAYS) overwrites the Authorization header with its
+    //      own signature, so the user's access token can't ride on Authorization -
+    //      it goes in the custom x-user-token header, which CloudFront forwards
+    //      untouched.
+    async function apiPost(path, bodyObj, userToken) {
+      const body = JSON.stringify(bodyObj || {});
+      const headers = {
+        "Content-Type": "application/json",
+        "x-amz-content-sha256": await sha256Hex(body),
+      };
+      if (userToken) headers["x-user-token"] = userToken;
+      return fetch(path, { method: "POST", headers, body });
+    }
+
+    function escapeHtml(s) {
+      return (s || "").replace(/[&<>"']/g, c => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[c]));
+    }
+
+    // ------------------------------------------------------------- session state --
+    function loadSession() {
+      try { return JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null"); }
+      catch { return null; }
+    }
+    function saveSession(session) {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    }
+    function clearSession() {
+      sessionStorage.removeItem(SESSION_KEY);
+    }
+
+    function decodeIdTokenEmail(idToken) {
+      try {
+        const payload = JSON.parse(atob(idToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+        return payload.email || payload["cognito:username"] || "";
+      } catch { return ""; }
+    }
+
+    // ------------------------------------------------------------------ auth flow --
+    async function startLogin() {
+      const configResp = await fetch(`${API_BASE}/auth/config`);
+      const config = await configResp.json();
+
+      const codeVerifier = randomString(64);
+      const codeChallenge = await sha256Base64Url(codeVerifier);
+      const redirectUri = window.location.origin + "/";
+
+      sessionStorage.setItem(PKCE_KEY, JSON.stringify({ codeVerifier, redirectUri }));
+
+      const params = new URLSearchParams({
+        response_type: "code",
+        client_id: config.clientId,
+        redirect_uri: redirectUri,
+        scope: config.scope,
+        code_challenge: codeChallenge,
+        code_challenge_method: "S256",
+      });
+      window.location.href = `${config.authorizeEndpoint}?${params.toString()}`;
+    }
+
+    async function completeLoginFromCallback(code) {
+      const pkceRaw = sessionStorage.getItem(PKCE_KEY);
+      sessionStorage.removeItem(PKCE_KEY);
+      if (!pkceRaw) throw new Error("missing PKCE state; please sign in again");
+      const { codeVerifier, redirectUri } = JSON.parse(pkceRaw);
+
+      const resp = await apiPost(`${API_BASE}/auth/token`, {
+        code, code_verifier: codeVerifier, redirect_uri: redirectUri,
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error ? JSON.stringify(data.error) : resp.statusText);
+
+      const session = {
+        accessToken: data.access_token,
+        email: decodeIdTokenEmail(data.id_token || ""),
+        expiresAt: Date.now() + (data.expires_in || 3600) * 1000,
+      };
+      saveSession(session);
+      return session;
+    }
+
+    async function logout() {
+      const configResp = await fetch(`${API_BASE}/auth/config`);
+      const config = await configResp.json();
+      clearSession();
+      const params = new URLSearchParams({
+        client_id: config.clientId,
+        logout_uri: window.location.origin + "/",
+      });
+      window.location.href = `${config.logoutEndpoint}?${params.toString()}`;
+    }
+
+    // ------------------------------------------------------------------- search UI --
+    function renderResults(query, results) {
+      const resultsCard = document.getElementById("resultsCard");
+      resultsCard.style.display = "block";
+      if (!results.length) {
+        resultsCard.innerHTML = `<div class="hint">No results for "${escapeHtml(query)}".</div>`;
+        return;
+      }
+      resultsCard.innerHTML = results.map(r => `
+        <div class="result">
+          <a href="${escapeHtml(r.url || "#")}" target="_blank" rel="noopener">${escapeHtml(r.title || "(no title)")}</a>
+          <div class="date">${escapeHtml(r.publishedDate || "")}</div>
+          <div class="snippet">${escapeHtml((r.text || "").slice(0, 400))}${(r.text || "").length > 400 ? "..." : ""}</div>
+        </div>
+      `).join("");
+    }
+
+    function initApp(session) {
+      document.getElementById("gate").style.display = "none";
+      document.getElementById("app").style.display = "block";
+      document.getElementById("userEmail").textContent = session.email || "";
+
+      const form = document.getElementById("searchForm");
+      const input = document.getElementById("queryInput");
+      const btn = document.getElementById("searchBtn");
+      const resultsCard = document.getElementById("resultsCard");
+
+      document.getElementById("logoutBtn").addEventListener("click", logout);
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const query = input.value.trim();
+        if (!query) return;
+        btn.disabled = true;
+        resultsCard.style.display = "block";
+        resultsCard.innerHTML = '<span class="spinner"></span> searching...';
+        try {
+          const r = await apiPost(`${API_BASE}/search`, { query }, session.accessToken);
+          const data = await r.json().catch(() => ({}));
+          if (!r.ok) {
+            const detail = typeof data.error === "string"
+              ? data.error : (data.error ? JSON.stringify(data.error) : r.statusText);
+            if (r.status === 401) {
+              // Token rejected. Show the reason and let the user re-auth
+              // manually via "Sign out" - avoids a reload/redirect loop when
+              // the failure isn't actually an expired session.
+              resultsCard.innerHTML =
+                `<div class="err">Not authorized (${escapeHtml(detail)}).</div>` +
+                `<div class="hint">Try "Sign out" and sign in again.</div>`;
+              return;
+            }
+            throw new Error(detail);
+          }
+          renderResults(query, data.results || []);
+        } catch (err) {
+          resultsCard.innerHTML = `<div class="err">Error: ${escapeHtml(err.message)}</div>`;
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    }
+
+    // ------------------------------------------------------------------- bootstrap --
+    async function bootstrap() {
+      const url = new URL(window.location.href);
+      const code = url.searchParams.get("code");
+
+      if (code) {
+        // Returning from the Hosted UI redirect - strip the code from the URL
+        // right away so it can't be reused/leaked via history or reload.
+        url.searchParams.delete("code");
+        url.searchParams.delete("state");
+        window.history.replaceState({}, "", url.pathname);
+        try {
+          const session = await completeLoginFromCallback(code);
+          initApp(session);
+          return;
+        } catch (err) {
+          document.getElementById("gate").innerHTML =
+            `<div class="err">Login failed: ${escapeHtml(err.message)}</div>`;
+          return;
+        }
+      }
+
+      const session = loadSession();
+      if (session && session.accessToken && session.expiresAt > Date.now()) {
+        initApp(session);
+        return;
+      }
+
+      clearSession();
+      await startLogin();
+    }
+
+    bootstrap();
+  </script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# CDK
+infra/cdk.out/
+infra/.venv/
+*.egg-info/
+
+# Node (CDK CLI pinned in infra/package.json)
+node_modules/
+
+# Secrets - NEVER commit
+.env
+
+# IDE / OS
+.DS_Store
+.vscode/

@@ -1,0 +1,8 @@
+{
+  "name": "videoplatform-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Handlers Lambda (pipeline + API) da VideoPlatform. JavaScript puro — o runtime Node 20 do Lambda já fornece o AWS SDK v3, então não há etapa de build/bundle.",
+  "type": "commonjs",
+  "comment": "As dependencias @aws-sdk/* abaixo sao apenas para auxilio do editor; em runtime elas vem do proprio Lambda (nodejs20.x). Nao e necessario 'npm install' para o deploy."
+}

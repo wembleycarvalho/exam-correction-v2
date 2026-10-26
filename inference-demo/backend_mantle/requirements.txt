@@ -1,0 +1,9 @@
+# Dependencies for the Mantle admin/observability Lambda. Bundled into the
+# function package at deploy time (see BundlingOptions in stack.py).
+pyjwt[crypto]==2.10.1
+requests==2.32.3
+aws-bedrock-token-generator==1.1.0
+# aws-bedrock-token-generator pulls a newer botocore; bundle a matching boto3 so
+# the pair in /var/task is consistent (avoids a boto3/botocore version clash with
+# the runtime's built-in copies).
+boto3==1.43.47

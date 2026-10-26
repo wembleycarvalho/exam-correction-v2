@@ -1,0 +1,9 @@
+{
+  "name": "websearch-demo-infra",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pins the AWS CDK CLI so 'npx cdk' uses a version compatible with aws-cdk-lib (see requirements.txt). Avoids picking up an older, globally-installed CDK CLI.",
+  "devDependencies": {
+    "aws-cdk": "2.1130.0"
+  }
+}
